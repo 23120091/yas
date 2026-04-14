@@ -6,11 +6,14 @@ on:
     paths:
       - '*'
       - '.*'
+      - '.github/workflows/gitleak-scan-root.yml'
   pull_request:
     branches: [ "main" ]
     paths:
       - '*'
       - '.*'
+      - '.github/workflows/gitleak-scan-root.yml'
+  workflow_dispatch:
 
 jobs:
   gitleak-scan-root:
