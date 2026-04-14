@@ -1,0 +1,30 @@
+name: Java Setup Build and Test
+description: Setup JDK, run Maven build and tests
+inputs:
+  java_version:
+    description: Java version to use
+    required: true
+  service_path:
+    description: Path to the service directory
+    required: true
+  service_name:
+    description: Name of the service
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-java@v4
+      with:
+        java-version: ${{ inputs.java_version }}
+        distribution: 'temurin'
+        cache: 'maven'
+
+    - run: mvn clean install -pl ${{ inputs.service_path }} -am
+      shell: bash
+
+    - uses: dorny/test-reporter@v1
+      if: success() || failure()
+      with:
+        name: ${{ inputs.service_name }}-Unit-Test-Results
+        path: "${{ inputs.service_path }}/**/*-reports/TEST*.xml"
+        reporter: java-junit
