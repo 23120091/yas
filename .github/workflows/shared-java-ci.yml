@@ -43,6 +43,8 @@ jobs:
           fetch-depth: 0
 
       - uses: zricethezav/gitleaks-action@v2
+        with:
+            source: ${{ inputs.service_path }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
