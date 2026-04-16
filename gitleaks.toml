@@ -22,3 +22,8 @@ paths = [
   '''keycloak-yas-realm-import.yaml''',
   '''target'''
 ]
+[[rules]]
+    description = "Detect .env"
+    id = "env-file-detection"
+    path = '''\.env$'''
+    severity = "error"
