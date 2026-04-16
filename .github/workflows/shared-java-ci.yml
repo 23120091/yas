@@ -30,8 +30,6 @@ on:
         required: true
       SNYK_TOKEN:
         required: true
-      GITHUB_TOKEN:
-        required: false
 
 jobs:
   java-build-and-test:
