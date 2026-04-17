@@ -38,8 +38,13 @@ runs:
       env:
         SONAR_TOKEN: ${{ inputs.sonar_token }}
       run: |
-        mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
-          -f ${{ inputs.service_path }}
+        mvn sonar:sonar \
+          -pl ${{ inputs.service_path }} -am \
+          -Dsonar.organization=th-thong \
+          -Dsonar.projectKey=th-thong_devops-project1 \
+          -Dsonar.host.url=https://sonarcloud.io \
+          -Dsonar.token=${{ inputs.sonar_token }} \
+          -Drevision=1.0-SNAPSHOT
       shell: bash
 
     - name: Generate and Comment JaCoCo Coverage Report
@@ -57,7 +62,12 @@ runs:
       run: |
         OVERALL=$(python3 - <<'EOF'
         import xml.etree.ElementTree as ET
-        tree = ET.parse('${{ github.workspace }}/${{ inputs.service_path }}/target/site/jacoco/jacoco.xml')
+        import os
+        path = '${{ github.workspace }}/${{ inputs.service_path }}/target/site/jacoco/jacoco.xml'
+        if not os.path.exists(path):
+            print("0.00")
+            exit(0)
+        tree = ET.parse(path)
         root = tree.getroot()
         for counter in root.findall('counter'):
             if counter.get('type') == 'INSTRUCTION':
@@ -71,12 +81,10 @@ runs:
         )
         echo "Overall instruction coverage: ${OVERALL}%"
         MIN=${{ inputs.min_coverage_overall }}
-
         PASS=$(awk -v val="$OVERALL" -v min="$MIN" 'BEGIN { print (val >= min) ? "yes" : "no" }')
-
         if [ "$PASS" = "no" ]; then
-        echo "Coverage ${OVERALL}% is below required ${MIN}%"
-        exit 1   # ← Đây mới là điểm fail thật sự
+          echo "Coverage ${OVERALL}% is below required ${MIN}%"
+          exit 1
         else
-        echo "Coverage ${OVERALL}% passed threshold ${MIN}%"
+          echo "Coverage ${OVERALL}% passed threshold ${MIN}%"
         fi
