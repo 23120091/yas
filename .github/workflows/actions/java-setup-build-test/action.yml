@@ -13,16 +13,19 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/setup-java@v4
+    - name: Setup Java Runtime (JDK ${{ inputs.java_version }})
+      uses: actions/setup-java@v4
       with:
         java-version: ${{ inputs.java_version }}
         distribution: 'temurin'
         cache: 'maven'
 
-    - run: mvn clean install -pl ${{ inputs.service_path }} -am
+    - name: Maven Clean Install (${{ inputs.service_name }})
+      run: mvn clean install -pl ${{ inputs.service_path }} -am
       shell: bash
 
-    - uses: dorny/test-reporter@v1
+    - name: Report Test Results (${{ inputs.service_name }})
+      uses: dorny/test-reporter@v1
       if: success() || failure()
       with:
         name: ${{ inputs.service_name }}-Unit-Test-Results

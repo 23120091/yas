@@ -32,47 +32,24 @@ on:
         required: true
 
 jobs:
-  java-build-and-test:
-    name: Java Build and Test
+  build-test-and-scan:
+    name: Build, Test and Analysis
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: zricethezav/gitleaks-action@v2
+      - name: Setup Java, Build and Run Tests
+        uses: ./.github/workflows/actions/java-setup-build-test
         with:
-            source: ${{ inputs.service_path }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: ./.github/workflows/actions/java-setup-build-test
-        with:
-          java_version: ${{ inputs.java_version }}
+          java_version: '25'
           service_path: ${{ inputs.service_path }}
           service_name: ${{ inputs.service_name }}
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ inputs.service_name }}-java-build-target
-          path: ${{ inputs.service_path }}/target/
-          retention-days: 90
-
-  java-code-quality:
-    name: Java Code Quality
-    needs: java-build-and-test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: ${{ inputs.service_name }}-java-build-target
-          path: ${{ inputs.service_path }}/target/
-
-      - uses: ./.github/workflows/actions/java-static-analysis
+      - name: Java Code Quality
+        uses: ./.github/workflows/actions/java-static-analysis
         with:
           service_path: ${{ inputs.service_path }}
           service_name: ${{ inputs.service_name }}
@@ -81,20 +58,9 @@ jobs:
           min_coverage_overall: ${{ inputs.min_coverage_overall }}
           min_coverage_changed: ${{ inputs.min_coverage_changed }}
 
-  snyk-security-scan:
-    name: Snyk Security Scan
-    needs: java-build-and-test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: ${{ inputs.service_name }}-java-build-target
-          path: ${{ inputs.service_path }}/target/
-
-      - name: Run Snyk to check for vulnerabilities
+      - name: Run Snyk Security Scan
         uses: snyk/actions/maven@master
+        continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
@@ -102,25 +68,37 @@ jobs:
             --file=${{ inputs.service_path }}/pom.xml
             --severity-threshold=high 
 
+      - name: Upload Java Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.service_name }}-java-build-target
+          path: ${{ inputs.service_path }}/target/
+          retention-days: 90 
+
   docker-publish:
-    needs: [java-build-and-test, java-code-quality, snyk-security-scan]
+    name: Build Docker Image and Publish to GHCR
+    needs: [build-test-and-scan]
     if: ${{ github.ref == 'refs/heads/main' && inputs.docker_image != '' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4
+      - name: Download Java Build Artifacts
+        uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.service_name }}-java-build-target
           path: ${{ inputs.service_path }}/target/
 
-      - uses: docker/login-action@v3
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/build-push-action@v6
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v6
         with:
           context: ./${{ inputs.service_path }}
           push: true

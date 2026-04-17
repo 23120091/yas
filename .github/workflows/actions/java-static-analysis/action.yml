@@ -22,24 +22,28 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - run: |
+    - name: Run Checkstyle Analysis
+      run: |
         mvn checkstyle:checkstyle \
           -pl ${{ inputs.service_path }} -am \
           -Dcheckstyle.output.file=${{ inputs.service_path }}-checkstyle-result.xml
       shell: bash
 
-    - uses: jwgmeligmeyling/checkstyle-github-action@master
+    - name: Parse and Report Checkstyle Results
+      uses: jwgmeligmeyling/checkstyle-github-action@master
       with:
         path: '**/${{ inputs.service_path }}-checkstyle-result.xml'
 
-    - env:
+    - name: Run SonarQube Scanner
+      env:
         SONAR_TOKEN: ${{ inputs.sonar_token }}
       run: |
         mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
           -f ${{ inputs.service_path }}
       shell: bash
 
-    - uses: madrapps/jacoco-report@v1.6.1
+    - name: Generate and Comment JaCoCo Coverage Report
+      uses: madrapps/jacoco-report@v1.6.1
       with:
         paths: ${{ github.workspace }}/${{ inputs.service_path }}/target/site/jacoco/jacoco.xml
         token: ${{ inputs.github_token }}

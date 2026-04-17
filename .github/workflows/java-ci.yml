@@ -9,12 +9,13 @@ on:
 
 jobs:
   filter-changes:
+    name: Filter Changed Paths
     runs-on: ubuntu-latest
     outputs:
       root: ${{ steps.filter-root.outputs.root }}
       services: ${{ steps.filter-services.outputs.changes }}
     steps:
-      - name: Checkout
+      - name: Checkout Source Code
         uses: actions/checkout@v4
 
       - name: Filter Root Changes
@@ -45,7 +46,7 @@ jobs:
     if: ${{ needs.filter-changes.outputs.root == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout Source Code
         uses: actions/checkout@v4
 
       - name: Setup Target Folder
