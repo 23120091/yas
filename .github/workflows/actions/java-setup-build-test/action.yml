@@ -20,8 +20,8 @@ runs:
         distribution: 'temurin'
         cache: 'maven'
 
-    - name: Maven Clean Install (${{ inputs.service_name }})
-      run: mvn clean test -pl ${{ inputs.service_path }} -am -T 1C
+    - name: Maven Clean Verify (${{ inputs.service_name }})
+      run: mvn clean verify -pl ${{ inputs.service_path }} -am -T 1C
       shell: bash
 
     - name: Report Test Results (${{ inputs.service_name }})
