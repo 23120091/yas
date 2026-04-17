@@ -59,20 +59,21 @@ jobs:
           min_coverage_overall: ${{ inputs.min_coverage_overall }}
           min_coverage_changed: ${{ inputs.min_coverage_changed }}
 
+      - name: Install Snyk CLI
+        uses: snyk/actions/setup@master
+
       - name: Run Snyk Security Scan
-        uses: snyk/actions/maven@master
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: >-
-            --file=${{ inputs.service_path }}/pom.xml
-            --severity-threshold=high
+        run: |
+          snyk test --file=${{ inputs.service_path }}/pom.xml \
+            --severity-threshold=high \
             --sarif-file-output=${{ github.workspace }}/snyk.sarif
 
-      - name: Upload Snyk report to GitHub Code Scanning
+      - name: Upload Snyk report to GitHub Security
         uses: github/codeql-action/upload-sarif@v4
-        if: always()
+        continue-on-error: true
         with:
           sarif_file: ${{ github.workspace }}/snyk.sarif
 
