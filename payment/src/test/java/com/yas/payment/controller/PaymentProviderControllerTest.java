@@ -12,6 +12,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -41,13 +42,18 @@ public class PaymentProviderControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(paymentProviderController).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(paymentProviderController)
+            .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
+            .build();
         objectMapper = new ObjectMapper();
     }
 
     @Test
     void testCreatePaymentProvider() throws Exception {
         CreatePaymentVm createVm = new CreatePaymentVm();
+        createVm.setId("1");
+        createVm.setName("Paypal");
+        createVm.setConfigureUrl("https://example.com/paypal");
         PaymentProviderVm providerVm = new PaymentProviderVm("1", "Paypal", "url", 1, 1L, "icon");
 
         when(paymentProviderService.create(any(CreatePaymentVm.class))).thenReturn(providerVm);
@@ -63,6 +69,9 @@ public class PaymentProviderControllerTest {
     @Test
     void testUpdatePaymentProvider() throws Exception {
         UpdatePaymentVm updateVm = new UpdatePaymentVm();
+        updateVm.setId("1");
+        updateVm.setName("Stripe");
+        updateVm.setConfigureUrl("https://example.com/stripe");
         PaymentProviderVm providerVm = new PaymentProviderVm("1", "Stripe", "url", 1, 1L, "icon");
 
         when(paymentProviderService.update(any(UpdatePaymentVm.class))).thenReturn(providerVm);

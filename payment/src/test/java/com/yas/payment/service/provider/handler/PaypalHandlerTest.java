@@ -46,14 +46,15 @@ public class PaypalHandlerTest {
 
     @Test
     void testInitPayment() {
-        InitPaymentRequestVm requestVm = new InitPaymentRequestVm();
+        InitPaymentRequestVm requestVm = InitPaymentRequestVm.builder().build();
         
-        PaypalCreatePaymentResponse response = new PaypalCreatePaymentResponse();
-        response.status("CREATED");
-        response.paymentId("pay123");
-        response.redirectUrl("http://paypal.com");
+        PaypalCreatePaymentResponse response = PaypalCreatePaymentResponse.builder()
+            .status("CREATED")
+            .paymentId("pay123")
+            .redirectUrl("http://paypal.com")
+            .build();
 
-        when(paymentProviderService.getPaymentSettings(anyString())).thenReturn("{}");
+        when(paymentProviderService.getAdditionalSettingsByPaymentProviderId(anyString())).thenReturn("{}");
         when(paypalService.createPayment(any(PaypalCreatePaymentRequest.class))).thenReturn(response);
 
         InitiatedPayment result = paypalHandler.initPayment(requestVm);
@@ -66,18 +67,19 @@ public class PaypalHandlerTest {
 
     @Test
     void testCapturePayment() {
-        CapturePaymentRequestVm requestVm = new CapturePaymentRequestVm();
+        CapturePaymentRequestVm requestVm = CapturePaymentRequestVm.builder().build();
 
-        PaypalCapturePaymentResponse response = new PaypalCapturePaymentResponse();
-        response.checkoutId("chk123");
-        response.amount(BigDecimal.TEN);
-        response.paymentFee(BigDecimal.ONE);
-        response.gatewayTransactionId("gw123");
-        response.paymentMethod(PaymentMethod.PAYPAL.name());
-        response.paymentStatus(PaymentStatus.COMPLETED.name());
-        response.failureMessage("");
+        PaypalCapturePaymentResponse response = PaypalCapturePaymentResponse.builder()
+            .checkoutId("chk123")
+            .amount(BigDecimal.TEN)
+            .paymentFee(BigDecimal.ONE)
+            .gatewayTransactionId("gw123")
+            .paymentMethod(PaymentMethod.PAYPAL.name())
+            .paymentStatus(PaymentStatus.COMPLETED.name())
+            .failureMessage("")
+            .build();
 
-        when(paymentProviderService.getPaymentSettings(anyString())).thenReturn("{}");
+        when(paymentProviderService.getAdditionalSettingsByPaymentProviderId(anyString())).thenReturn("{}");
         when(paypalService.capturePayment(any(PaypalCapturePaymentRequest.class))).thenReturn(response);
 
         CapturedPayment result = paypalHandler.capturePayment(requestVm);
