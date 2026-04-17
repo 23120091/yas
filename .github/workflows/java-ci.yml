@@ -80,3 +80,23 @@ jobs:
       min_coverage_overall: 70
       docker_image: ghcr.io/23120091/${{ matrix.service }}:${{ github.sha }}
     secrets: inherit
+
+
+  # =========================================================
+  # JOB 3: STATUS GATE
+  # =========================================================
+  ci-gate:
+    name: CI Gate Passed
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [filter-changes, services-ci]
+    steps:
+      - name: Check Status of All Triggered Services
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" || "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "FAILED: One or more services failed their CI checks. Please review the details above."
+            exit 1
+          else
+            echo "PASSED: All triggered services passed their CI checks. Ready for merge."
+            exit 0
+          fi
