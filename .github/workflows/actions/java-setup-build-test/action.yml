@@ -21,7 +21,7 @@ runs:
         cache: 'maven'
 
     - name: Maven Clean Verify (${{ inputs.service_name }})
-      run: mvn clean verify -pl ${{ inputs.service_path }} -am -T 1C -B -nyp
+      run: mvn clean verify -pl ${{ inputs.service_path }} -am -T 1C -B -ntp
       shell: bash
 
     - name: Report Test Results (${{ inputs.service_name }})
