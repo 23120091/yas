@@ -45,7 +45,7 @@ jobs:
       - name: Setup Java, Build and Run Tests
         uses: ./.github/workflows/actions/java-setup-build-test
         with:
-          java_version: ${{ inputs.java_version }}
+          java_version: "${{ inputs.java_version || '25' }}"
           service_path: ${{ inputs.service_path }}
           service_name: ${{ inputs.service_name }}
 
@@ -68,13 +68,13 @@ jobs:
           args: >-
             --file=${{ inputs.service_path }}/pom.xml
             --severity-threshold=high
-            --sarif-file-output=snyk.sarif
+            --sarif-file-output=${{ github.workspace }}/snyk.sarif
 
       - name: Upload Snyk report to GitHub Code Scanning
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
-          sarif_file: snyk.sarif
+          sarif_file: ${{ github.workspace }}/snyk.sarif
 
   # Job dong goi Docker image va dua len GHCR tren branch main
   docker-publish:
