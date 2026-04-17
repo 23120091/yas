@@ -32,14 +32,12 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter-services
         with:
-          # Thêm service mới vào danh sách này khi cần
+          # Them service moi vao danh sach nay khi can
           filters: |
             backoffice: 'backoffice/**'
             payment: 'payment/**'
 
-  # =========================================================
-  # JOB 1: XỬ LÝ ROOT FILES
-  # =========================================================
+  # Job scan gitleaks cho root files
   gitleak-scan-root:
     needs: filter-changes
     name: Gitleaks Scan Root Files
@@ -60,9 +58,7 @@ jobs:
           tar -xzf gitleaks.tar.gz
           ./gitleaks detect --source root_files --config gitleaks.toml --no-git --verbose
 
-  # =========================================================
-  # JOB 2: XỬ LÝ DYNAMIC MATRIX CHO SERVICES
-  # =========================================================
+  # Job chay CI theo dynamic matrix cho tung service da thay doi
   services-ci:
     needs: filter-changes
     if: ${{ needs.filter-changes.outputs.services != '[]' && needs.filter-changes.outputs.services != '' }}
@@ -82,9 +78,7 @@ jobs:
     secrets: inherit
 
 
-  # =========================================================
-  # JOB 3: STATUS GATE
-  # =========================================================
+  # Job kiem tra trang thai cuoi cung cua tat ca CI checks
   ci-gate:
     name: CI Gate Passed
     runs-on: ubuntu-latest

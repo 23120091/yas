@@ -32,6 +32,7 @@ on:
         required: true
 
 jobs:
+  # Job tong hop: build, chay test, va phan tich code quality
   build-test-and-scan:
     name: Build, Test and Analysis
     runs-on: ubuntu-latest
@@ -75,6 +76,7 @@ jobs:
           path: ${{ inputs.service_path }}/target/
           retention-days: 90 
 
+  # Job dong goi Docker image va dua len GHCR tren branch main
   docker-publish:
     name: Build Docker Image and Publish to GHCR
     needs: [build-test-and-scan]
