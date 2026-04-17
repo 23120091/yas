@@ -65,6 +65,10 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
+          # 1. Tìm và cấp quyền thực thi cho tất cả file mvnw (nếu có) để tránh lỗi EACCES (-13)
+          find . -name "mvnw" -exec chmod +x {} \;
+          
+          # 2. Chạy Snyk CLI
           snyk test \
             --file=${{ inputs.service_path }}/pom.xml \
             --severity-threshold=high \
