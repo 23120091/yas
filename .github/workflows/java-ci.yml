@@ -34,6 +34,7 @@ jobs:
           # Thêm service mới vào danh sách này khi cần
           filters: |
             backoffice: 'backoffice/**'
+            payment: 'payment/**'
 
   # =========================================================
   # JOB 1: XỬ LÝ ROOT FILES
