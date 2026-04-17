@@ -78,5 +78,5 @@ jobs:
       service_path: ${{ matrix.service }}
       java_version: '25'
       min_coverage_overall: 70
-      docker_image: ghcr.io/${{ github.repository }}/${{ matrix.service }}:${{ github.sha }}
+      docker_image: ghcr.io/23120091/${{ matrix.service }}:${{ github.sha }}
     secrets: inherit
