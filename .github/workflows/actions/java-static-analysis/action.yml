@@ -40,8 +40,8 @@ runs:
       run: |
         mvn sonar:sonar \
           -pl ${{ inputs.service_path }} -am \
-          -Dsonar.organization=th-thong \
-          -Dsonar.projectKey=th-thong_devops-project1 \
+          -Dsonar.organization=23120091 \
+          -Dsonar.projectKey=23120091_yas \
           -Dsonar.host.url=https://sonarcloud.io \
           -Dsonar.token=${{ inputs.sonar_token }} \
           -Drevision=1.0-SNAPSHOT
