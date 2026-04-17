@@ -24,9 +24,10 @@ runs:
   steps:
     - name: Run Checkstyle Analysis
       run: |
-        mvn checkstyle:checkstyle \
+        mvn compile checkstyle:checkstyle \
           -pl ${{ inputs.service_path }} -am \
-          -Dcheckstyle.output.file=${{ inputs.service_path }}-checkstyle-result.xml
+          -Dcheckstyle.output.file=${{ inputs.service_path }}-checkstyle-result.xml \
+          -B -ntp
       shell: bash
 
     - name: Parse and Report Checkstyle Results
