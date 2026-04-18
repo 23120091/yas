@@ -33,7 +33,8 @@ jobs:
         with:
           # Thêm service mới vào danh sách này khi cần
           filters: |
-            backoffice: 'order/**'
+            backoffice: 'backoffice/**'
+            order: 'order/**'
 
   # =========================================================
   # JOB 1: XỬ LÝ ROOT FILES
