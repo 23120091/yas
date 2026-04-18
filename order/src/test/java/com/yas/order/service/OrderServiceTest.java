@@ -73,12 +73,17 @@ class OrderServiceTest {
     @Nested
     class CreateOrderTest {
 
+        /**
+         * Happy path: order và items được lưu, các downstream service được gọi,
+         * trả về OrderVm không null.
+         */
         @Test
         void createOrder_ShouldSaveOrderAndItems_AndCallDownstreamServices() {
             OrderPostVm postVm = buildOrderPostVm();
-
             Order savedOrder = buildOrder(ORDER_ID, OrderStatus.PENDING);
+
             when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
+            // acceptOrder() được gọi nội bộ trong createOrder → cần stub findById
             when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(savedOrder));
 
             OrderVm result = orderService.createOrder(postVm);
@@ -91,26 +96,34 @@ class OrderServiceTest {
             verify(promotionService).updateUsagePromotion(anyList());
         }
 
+        /**
+         * Order được tạo với orderStatus = PENDING và deliveryStatus = PREPARING.
+         */
         @Test
-        void createOrder_ShouldSetOrderStatusPending_AndDeliveryStatusPreparing() {
+        void createOrder_ShouldSetOrderStatusPendingAndDeliveryStatusPreparing() {
             OrderPostVm postVm = buildOrderPostVm();
             Order savedOrder = buildOrder(ORDER_ID, OrderStatus.PENDING);
+
             when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
             when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(savedOrder));
 
             orderService.createOrder(postVm);
 
-            ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
-            verify(orderRepository, atLeastOnce()).save(orderCaptor.capture());
-            Order captured = orderCaptor.getAllValues().get(0);
+            ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
+            verify(orderRepository, atLeastOnce()).save(captor.capture());
+            Order captured = captor.getAllValues().get(0);
             assertThat(captured.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
             assertThat(captured.getDeliveryStatus()).isEqualTo(DeliveryStatus.PREPARING);
         }
 
+        /**
+         * Mỗi OrderItem tạo ra một PromotionUsageVm → postVm có 2 items → size = 2.
+         */
         @Test
-        void createOrder_ShouldBuildPromotionUsageVmForEachOrderItem() {
+        void createOrder_ShouldCreateOnePromotionUsageVmPerOrderItem() {
             OrderPostVm postVm = buildOrderPostVm();
             Order savedOrder = buildOrder(ORDER_ID, OrderStatus.PENDING);
+
             when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
             when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(savedOrder));
 
@@ -119,6 +132,21 @@ class OrderServiceTest {
             ArgumentCaptor<List<PromotionUsageVm>> captor = ArgumentCaptor.forClass(List.class);
             verify(promotionService).updateUsagePromotion(captor.capture());
             assertThat(captor.getValue()).hasSize(2);
+        }
+
+        /**
+         * acceptOrder() được gọi nội bộ; nếu order không tìm được thì ném NotFoundException.
+         */
+        @Test
+        void createOrder_WhenAcceptOrderCannotFindOrder_ShouldThrowNotFoundException() {
+            OrderPostVm postVm = buildOrderPostVm();
+            Order savedOrder = buildOrder(ORDER_ID, OrderStatus.PENDING);
+
+            when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
+            when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> orderService.createOrder(postVm))
+                .isInstanceOf(NotFoundException.class);
         }
     }
 
@@ -133,7 +161,8 @@ class OrderServiceTest {
         void getOrderWithItemsById_WhenOrderExists_ShouldReturnOrderVm() {
             Order order = buildOrder(ORDER_ID, OrderStatus.PENDING);
             when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
-            when(orderItemRepository.findAllByOrderId(ORDER_ID)).thenReturn(List.of(buildOrderItem(order)));
+            when(orderItemRepository.findAllByOrderId(ORDER_ID))
+                .thenReturn(List.of(buildOrderItem(ORDER_ID)));
 
             OrderVm result = orderService.getOrderWithItemsById(ORDER_ID);
 
@@ -159,32 +188,36 @@ class OrderServiceTest {
 
         @Test
         @SuppressWarnings("unchecked")
-        void getAllOrder_WhenOrdersExist_ShouldReturnOrderListVm() {
+        void getAllOrder_WhenOrdersExist_ShouldReturnPopulatedOrderListVm() {
             Order order = buildOrder(ORDER_ID, OrderStatus.PENDING);
             Page<Order> page = new PageImpl<>(List.of(order));
             when(orderRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
 
             OrderListVm result = orderService.getAllOrder(
                 Pair.of(ZonedDateTime.now().minusDays(1), ZonedDateTime.now()),
-                null, List.of(),
+                null,
+                List.of(),
                 Pair.of("Vietnam", "0123456789"),
                 "test@example.com",
                 Pair.of(0, 10)
             );
 
             assertThat(result.orderList()).hasSize(1);
-            assertThat(result.totalElements()).isEqualTo(1);
+            assertThat(result.totalElements()).isEqualTo(1L);
         }
 
         @Test
         @SuppressWarnings("unchecked")
-        void getAllOrder_WhenNoOrders_ShouldReturnEmptyOrderListVm() {
-            when(orderRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(Page.empty());
+        void getAllOrder_WhenPageIsEmpty_ShouldReturnNullOrderListAndZeroCounts() {
+            when(orderRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(Page.empty());
 
             OrderListVm result = orderService.getAllOrder(
                 Pair.of(ZonedDateTime.now().minusDays(1), ZonedDateTime.now()),
-                null, List.of(OrderStatus.PENDING),
-                Pair.of(null, null), null,
+                null,
+                List.of(OrderStatus.PENDING),
+                Pair.of(null, null),
+                null,
                 Pair.of(0, 10)
             );
 
@@ -193,15 +226,21 @@ class OrderServiceTest {
             assertThat(result.totalPages()).isZero();
         }
 
+        /**
+         * Khi orderStatus truyền vào empty → logic dùng tất cả statuses, không throw.
+         */
         @Test
         @SuppressWarnings("unchecked")
-        void getAllOrder_WhenOrderStatusEmpty_ShouldUseAllStatuses() {
-            when(orderRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(Page.empty());
+        void getAllOrder_WhenOrderStatusIsEmpty_ShouldFallbackToAllStatuses() {
+            when(orderRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(Page.empty());
 
             orderService.getAllOrder(
                 Pair.of(ZonedDateTime.now().minusDays(7), ZonedDateTime.now()),
-                "product", List.of(),
-                Pair.of("VN", "0000"), "a@b.com",
+                "product",
+                List.of(),
+                Pair.of("VN", "0000"),
+                "a@b.com",
                 Pair.of(0, 5)
             );
 
@@ -217,27 +256,37 @@ class OrderServiceTest {
     class GetLatestOrdersTest {
 
         @Test
-        void getLatestOrders_WhenCountIsZero_ShouldReturnEmptyList() {
-            assertThat(orderService.getLatestOrders(0)).isEmpty();
+        void getLatestOrders_WhenCountIsZero_ShouldReturnEmptyListWithoutQueryingDb() {
+            List<OrderBriefVm> result = orderService.getLatestOrders(0);
+
+            assertThat(result).isEmpty();
             verifyNoInteractions(orderRepository);
         }
 
         @Test
-        void getLatestOrders_WhenCountIsNegative_ShouldReturnEmptyList() {
-            assertThat(orderService.getLatestOrders(-5)).isEmpty();
+        void getLatestOrders_WhenCountIsNegative_ShouldReturnEmptyListWithoutQueryingDb() {
+            List<OrderBriefVm> result = orderService.getLatestOrders(-1);
+
+            assertThat(result).isEmpty();
             verifyNoInteractions(orderRepository);
         }
 
         @Test
-        void getLatestOrders_WhenNoOrdersInDb_ShouldReturnEmptyList() {
-            when(orderRepository.getLatestOrders(any(Pageable.class))).thenReturn(Collections.emptyList());
+        void getLatestOrders_WhenDbReturnsEmpty_ShouldReturnEmptyList() {
+            when(orderRepository.getLatestOrders(any(Pageable.class)))
+                .thenReturn(Collections.emptyList());
+
             assertThat(orderService.getLatestOrders(5)).isEmpty();
         }
 
         @Test
-        void getLatestOrders_ShouldReturnMappedOrderBriefVms() {
+        void getLatestOrders_WhenDbReturnsOrders_ShouldReturnMappedList() {
             when(orderRepository.getLatestOrders(any(Pageable.class)))
-                .thenReturn(List.of(buildOrder(1L, OrderStatus.PENDING), buildOrder(2L, OrderStatus.ACCEPTED)));
+                .thenReturn(List.of(
+                    buildOrder(1L, OrderStatus.PENDING),
+                    buildOrder(2L, OrderStatus.ACCEPTED)
+                ));
+
             assertThat(orderService.getLatestOrders(2)).hasSize(2);
         }
     }
@@ -247,11 +296,11 @@ class OrderServiceTest {
     // =========================================================================
 
     @Nested
-    class IsOrderCompletedTest {
+    class IsOrderCompletedWithUserIdAndProductIdTest {
 
         @Test
         @SuppressWarnings("unchecked")
-        void isOrderCompletedWithUserIdAndProductId_WhenNoVariations_ShouldUseProductIdDirectly() {
+        void whenNoProductVariations_ShouldUseOriginalProductId_AndReturnTrue() {
             authUtilsMock.when(AuthenticationUtils::extractUserId).thenReturn(USER_ID);
             when(productService.getProductVariations(10L)).thenReturn(Collections.emptyList());
             when(orderRepository.findOne(any(Specification.class)))
@@ -265,7 +314,7 @@ class OrderServiceTest {
 
         @Test
         @SuppressWarnings("unchecked")
-        void isOrderCompletedWithUserIdAndProductId_WhenVariationsExist_ShouldUseVariationIds() {
+        void whenProductVariationsExist_ShouldUseVariationIds_AndReturnFalse() {
             authUtilsMock.when(AuthenticationUtils::extractUserId).thenReturn(USER_ID);
             when(productService.getProductVariations(10L))
                 .thenReturn(List.of(
@@ -282,7 +331,7 @@ class OrderServiceTest {
 
         @Test
         @SuppressWarnings("unchecked")
-        void isOrderCompletedWithUserIdAndProductId_WhenVariationsIsNull_ShouldUseProductIdDirectly() {
+        void whenProductVariationsIsNull_ShouldUseOriginalProductId() {
             authUtilsMock.when(AuthenticationUtils::extractUserId).thenReturn(USER_ID);
             when(productService.getProductVariations(10L)).thenReturn(null);
             when(orderRepository.findOne(any(Specification.class))).thenReturn(Optional.empty());
@@ -303,12 +352,14 @@ class OrderServiceTest {
 
         @Test
         @SuppressWarnings("unchecked")
-        void getMyOrders_ShouldReturnMappedOrderGetVms() {
+        void getMyOrders_ShouldReturnListOfOrderGetVm() {
             authUtilsMock.when(AuthenticationUtils::extractUserId).thenReturn(USER_ID);
             when(orderRepository.findAll(any(Specification.class), any(Sort.class)))
                 .thenReturn(List.of(buildOrder(ORDER_ID, OrderStatus.PENDING)));
 
-            assertThat(orderService.getMyOrders("product", OrderStatus.PENDING)).hasSize(1);
+            List<OrderGetVm> result = orderService.getMyOrders("product", OrderStatus.PENDING);
+
+            assertThat(result).hasSize(1);
         }
 
         @Test
@@ -323,7 +374,35 @@ class OrderServiceTest {
     }
 
     // =========================================================================
-    // findOrderByCheckoutId / findOrderVmByCheckoutId
+    // findOrderVmByCheckoutId
+    // =========================================================================
+
+    @Nested
+    class FindOrderVmByCheckoutIdTest {
+
+        @Test
+        void findOrderVmByCheckoutId_WhenFound_ShouldReturnOrderGetVmWithItems() {
+            Order order = buildOrder(ORDER_ID, OrderStatus.PENDING);
+            when(orderRepository.findByCheckoutId("checkout-abc")).thenReturn(Optional.of(order));
+            when(orderItemRepository.findAllByOrderId(ORDER_ID))
+                .thenReturn(List.of(buildOrderItem(ORDER_ID)));
+
+            OrderGetVm result = orderService.findOrderVmByCheckoutId("checkout-abc");
+
+            assertThat(result).isNotNull();
+        }
+
+        @Test
+        void findOrderVmByCheckoutId_WhenCheckoutNotFound_ShouldThrowNotFoundException() {
+            when(orderRepository.findByCheckoutId("invalid")).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> orderService.findOrderVmByCheckoutId("invalid"))
+                .isInstanceOf(NotFoundException.class);
+        }
+    }
+
+    // =========================================================================
+    // findOrderByCheckoutId
     // =========================================================================
 
     @Nested
@@ -332,26 +411,19 @@ class OrderServiceTest {
         @Test
         void findOrderByCheckoutId_WhenFound_ShouldReturnOrder() {
             Order order = buildOrder(ORDER_ID, OrderStatus.PENDING);
-            when(orderRepository.findByCheckoutId("checkout-123")).thenReturn(Optional.of(order));
+            when(orderRepository.findByCheckoutId("checkout-xyz")).thenReturn(Optional.of(order));
 
-            assertThat(orderService.findOrderByCheckoutId("checkout-123").getId()).isEqualTo(ORDER_ID);
+            Order result = orderService.findOrderByCheckoutId("checkout-xyz");
+
+            assertThat(result.getId()).isEqualTo(ORDER_ID);
         }
 
         @Test
         void findOrderByCheckoutId_WhenNotFound_ShouldThrowNotFoundException() {
-            when(orderRepository.findByCheckoutId("invalid")).thenReturn(Optional.empty());
+            when(orderRepository.findByCheckoutId("missing")).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> orderService.findOrderByCheckoutId("invalid"))
+            assertThatThrownBy(() -> orderService.findOrderByCheckoutId("missing"))
                 .isInstanceOf(NotFoundException.class);
-        }
-
-        @Test
-        void findOrderVmByCheckoutId_ShouldReturnOrderGetVmWithItems() {
-            Order order = buildOrder(ORDER_ID, OrderStatus.PENDING);
-            when(orderRepository.findByCheckoutId("checkout-456")).thenReturn(Optional.of(order));
-            when(orderItemRepository.findAllByOrderId(ORDER_ID)).thenReturn(List.of(buildOrderItem(order)));
-
-            assertThat(orderService.findOrderVmByCheckoutId("checkout-456")).isNotNull();
         }
     }
 
@@ -363,7 +435,7 @@ class OrderServiceTest {
     class UpdateOrderPaymentStatusTest {
 
         @Test
-        void updateOrderPaymentStatus_WhenCompleted_ShouldSetOrderStatusPaid() {
+        void updateOrderPaymentStatus_WhenPaymentCompleted_ShouldSetOrderStatusPaid() {
             Order order = buildOrder(ORDER_ID, OrderStatus.PENDING);
             when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
             when(orderRepository.save(order)).thenReturn(order);
@@ -379,10 +451,11 @@ class OrderServiceTest {
             assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
             assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.COMPLETED);
             assertThat(result.paymentId()).isEqualTo(1L);
+            assertThat(result.orderId()).isEqualTo(ORDER_ID);
         }
 
         @Test
-        void updateOrderPaymentStatus_WhenNotCompleted_ShouldNotChangeOrderStatus() {
+        void updateOrderPaymentStatus_WhenPaymentNotCompleted_ShouldNotChangeOrderStatus() {
             Order order = buildOrder(ORDER_ID, OrderStatus.PENDING);
             when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
             when(orderRepository.save(order)).thenReturn(order);
@@ -404,7 +477,8 @@ class OrderServiceTest {
             when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.empty());
 
             PaymentOrderStatusVm input = PaymentOrderStatusVm.builder()
-                .orderId(ORDER_ID).paymentId(3L)
+                .orderId(ORDER_ID)
+                .paymentId(3L)
                 .paymentStatus(PaymentStatus.COMPLETED.name())
                 .build();
 
@@ -421,7 +495,7 @@ class OrderServiceTest {
     class RejectOrderTest {
 
         @Test
-        void rejectOrder_WhenOrderExists_ShouldSetStatusRejectAndReason() {
+        void rejectOrder_WhenOrderExists_ShouldSetStatusRejectAndRejectReason() {
             Order order = buildOrder(ORDER_ID, OrderStatus.PENDING);
             when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
 
@@ -475,19 +549,27 @@ class OrderServiceTest {
     @Nested
     class ExportCsvTest {
 
+        /**
+         * Khi không có order → orderList = null → trả về CSV rỗng, mapper không được gọi.
+         */
         @Test
         @SuppressWarnings("unchecked")
-        void exportCsv_WhenOrderListIsNull_ShouldReturnEmptyCsvBytes() throws IOException {
-            when(orderRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(Page.empty());
+        void exportCsv_WhenNoOrders_ShouldReturnEmptyCsvBytesWithoutCallingMapper() throws IOException {
+            when(orderRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(Page.empty());
 
             byte[] result = orderService.exportCsv(buildOrderRequest());
 
             assertThat(result).isNotNull();
+            verifyNoInteractions(orderMapper);
         }
 
+        /**
+         * Khi có orders → mapper được gọi cho mỗi OrderBriefVm và bytes được trả về.
+         */
         @Test
         @SuppressWarnings("unchecked")
-        void exportCsv_WhenOrdersExist_ShouldReturnCsvBytes() throws IOException {
+        void exportCsv_WhenOrdersExist_ShouldCallMapperAndReturnBytes() throws IOException {
             Page<Order> page = new PageImpl<>(List.of(buildOrder(ORDER_ID, OrderStatus.PENDING)));
             when(orderRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
             when(orderMapper.toCsv(any(OrderBriefVm.class))).thenReturn(OrderItemCsv.builder().build());
@@ -513,12 +595,12 @@ class OrderServiceTest {
         return order;
     }
 
-    private OrderItem buildOrderItem(Order order) {
+    private OrderItem buildOrderItem(Long orderId) {
         OrderItem item = new OrderItem();
         item.setProductId(100L);
         item.setProductName("Test Product");
         item.setQuantity(1);
-        item.setOrderId(order.getId());
+        item.setOrderId(orderId);
         return item;
     }
 
@@ -532,19 +614,20 @@ class OrderServiceTest {
 
     private OrderPostVm buildOrderPostVm() {
         List<OrderItemPostVm> items = List.of(
-            new OrderItemPostVm(1L, "Product A", 2, BigDecimal.valueOf(50000), "note1",
-                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO),
-            new OrderItemPostVm(2L, "Product B", 1, BigDecimal.valueOf(30000), "note2",
-                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)
+            new OrderItemPostVm(1L, "Product A", 2, BigDecimal.valueOf(50000),
+                "note1", BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO),
+            new OrderItemPostVm(2L, "Product B", 1, BigDecimal.valueOf(30000),
+                "note2", BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)
         );
         return new OrderPostVm(
             "test@example.com", "Note",
             buildAddressPostVm(), buildAddressPostVm(),
-            "COUPON10", 0.0f, 10.0f, 3,
-            BigDecimal.valueOf(130000), BigDecimal.valueOf(5000),
+            "COUPON10", 0.0f, 10.0f, 2,
+            BigDecimal.valueOf(80000), BigDecimal.valueOf(5000),
             "checkout-001",
-            DeliveryMethod.GRAB_EXPRESS,   // FIX: was GHN (không tồn tại)
-            null, PaymentStatus.PENDING,
+            DeliveryMethod.GRAB_EXPRESS,
+            null,
+            PaymentStatus.PENDING,
             items
         );
     }

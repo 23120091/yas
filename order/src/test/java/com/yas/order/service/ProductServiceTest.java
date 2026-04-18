@@ -10,6 +10,7 @@ import com.yas.order.viewmodel.product.ProductGetCheckoutListVm;
 import com.yas.order.viewmodel.product.ProductVariationVm;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -37,8 +38,11 @@ class ProductServiceTest {
     @Mock private RestClient restClient;
     @Mock private ServiceUrlConfig serviceUrlConfig;
 
-    @Mock private RestClient.RequestHeadersUriSpec<?> getSpec;
-    @Mock private RestClient.RequestHeadersSpec<?> headersSpec;
+    // Fluent chain mocks cho RestClient
+    @SuppressWarnings("rawtypes")
+    @Mock private RestClient.RequestHeadersUriSpec getSpec;
+    @SuppressWarnings("rawtypes")
+    @Mock private RestClient.RequestHeadersSpec headersSpec;
     @Mock private RestClient.RequestBodyUriSpec putSpec;
     @Mock private RestClient.RequestBodySpec bodySpec;
     @Mock private RestClient.ResponseSpec responseSpec;
@@ -48,7 +52,7 @@ class ProductServiceTest {
 
     private MockedStatic<AuthenticationUtils> authUtilsMock;
 
-    private static final String JWT_TOKEN = "mock-jwt-token";
+    private static final String JWT_TOKEN = "mock-jwt";
     private static final String PRODUCT_BASE_URL = "http://product-service";
 
     @BeforeEach
@@ -64,226 +68,284 @@ class ProductServiceTest {
         authUtilsMock.close();
     }
 
-    @Test
-    @SuppressWarnings("unchecked")
-    void getProductVariations_ShouldReturnListOfProductVariationVm() {
-        List<ProductVariationVm> expected = List.of(
-            buildProductVariationVm(1L, "Red"),
-            buildProductVariationVm(2L, "Blue")
-        );
+    // =========================================================================
+    // getProductVariations
+    // =========================================================================
 
-        when(restClient.get()).thenReturn((RestClient.RequestHeadersUriSpec) getSpec);
-        when(getSpec.uri(any(URI.class))).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
-        when(headersSpec.headers(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
-        when(headersSpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
-            .thenReturn(ResponseEntity.ok(expected));
+    @Nested
+    class GetProductVariationsTest {
 
-        List<ProductVariationVm> result = productService.getProductVariations(10L);
+        /**
+         * Happy path: REST trả về danh sách variations, method trả về đúng body.
+         */
+        @Test
+        @SuppressWarnings("unchecked")
+        void getProductVariations_WhenServiceReturnsData_ShouldReturnVariationList() {
+            List<ProductVariationVm> expected = List.of(
+                new ProductVariationVm(1L, "Red", "SKU-001"),
+                new ProductVariationVm(2L, "Blue", "SKU-002")
+            );
 
-        assertThat(result).hasSize(2);
-        assertThat(result.get(0).id()).isEqualTo(1L);
-        assertThat(result.get(1).name()).isEqualTo("Blue");
+            when(restClient.get()).thenReturn(getSpec);
+            when(getSpec.uri(any(URI.class))).thenReturn(headersSpec);
+            when(headersSpec.headers(any())).thenReturn(headersSpec);
+            when(headersSpec.retrieve()).thenReturn(responseSpec);
+            when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
+                .thenReturn(ResponseEntity.ok(expected));
+
+            List<ProductVariationVm> result = productService.getProductVariations(10L);
+
+            assertThat(result).hasSize(2);
+            assertThat(result.get(0).id()).isEqualTo(1L);
+            assertThat(result.get(0).name()).isEqualTo("Red");
+            assertThat(result.get(1).id()).isEqualTo(2L);
+        }
+
+        /**
+         * Khi body trả về null thì method trả về null (không throw).
+         */
+        @Test
+        @SuppressWarnings("unchecked")
+        void getProductVariations_WhenResponseBodyIsNull_ShouldReturnNull() {
+            when(restClient.get()).thenReturn(getSpec);
+            when(getSpec.uri(any(URI.class))).thenReturn(headersSpec);
+            when(headersSpec.headers(any())).thenReturn(headersSpec);
+            when(headersSpec.retrieve()).thenReturn(responseSpec);
+            when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
+                .thenReturn(ResponseEntity.ok(null));
+
+            List<ProductVariationVm> result = productService.getProductVariations(10L);
+
+            assertThat(result).isNull();
+        }
+
+        /**
+         * Khi REST call ném exception thì exception được propagate.
+         */
+        @Test
+        @SuppressWarnings("unchecked")
+        void getProductVariations_WhenRestCallThrows_ShouldPropagateException() {
+            when(restClient.get()).thenReturn(getSpec);
+            when(getSpec.uri(any(URI.class))).thenReturn(headersSpec);
+            when(headersSpec.headers(any())).thenReturn(headersSpec);
+            when(headersSpec.retrieve()).thenThrow(new RuntimeException("service unavailable"));
+
+            assertThatThrownBy(() -> productService.getProductVariations(10L))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("service unavailable");
+        }
     }
 
-    @Test
-    @SuppressWarnings("unchecked")
-    void getProductVariations_WhenResponseBodyIsNull_ShouldReturnNull() {
-        when(restClient.get()).thenReturn((RestClient.RequestHeadersUriSpec) getSpec);
-        when(getSpec.uri(any(URI.class))).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
-        when(headersSpec.headers(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
-        when(headersSpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
-            .thenReturn(ResponseEntity.ok(null));
+    // =========================================================================
+    // subtractProductStockQuantity
+    // =========================================================================
 
-        assertThat(productService.getProductVariations(10L)).isNull();
+    @Nested
+    class SubtractProductStockQuantityTest {
+
+        /**
+         * Happy path: PUT endpoint được gọi với body chứa danh sách ProductQuantityItem.
+         */
+        @Test
+        @SuppressWarnings("unchecked")
+        void subtractProductStockQuantity_WhenCalled_ShouldCallPutEndpoint() {
+            OrderVm orderVm = buildOrderVm(Set.of(
+                buildOrderItemVm(1L, 2),
+                buildOrderItemVm(2L, 3)
+            ));
+
+            when(restClient.put()).thenReturn(putSpec);
+            when(putSpec.uri(any(URI.class))).thenReturn(bodySpec);
+            when(bodySpec.headers(any())).thenReturn(bodySpec);
+            when(bodySpec.body(any())).thenReturn(bodySpec);
+            when(bodySpec.retrieve()).thenReturn(responseSpec);
+
+            productService.subtractProductStockQuantity(orderVm);
+
+            verify(restClient).put();
+            verify(bodySpec).body(any());
+            verify(bodySpec).retrieve();
+        }
+
+        /**
+         * buildProductQuantityItems (private) được test gián tiếp:
+         * với orderItems rỗng → body được gọi với List rỗng.
+         */
+        @Test
+        @SuppressWarnings("unchecked")
+        void subtractProductStockQuantity_WhenOrderItemsEmpty_ShouldSendEmptyBody() {
+            OrderVm orderVm = buildOrderVm(Set.of());
+
+            when(restClient.put()).thenReturn(putSpec);
+            when(putSpec.uri(any(URI.class))).thenReturn(bodySpec);
+            when(bodySpec.headers(any())).thenReturn(bodySpec);
+            when(bodySpec.body(any())).thenReturn(bodySpec);
+            when(bodySpec.retrieve()).thenReturn(responseSpec);
+
+            productService.subtractProductStockQuantity(orderVm);
+
+            verify(bodySpec).body(argThat(b -> b instanceof List && ((List<?>) b).isEmpty()));
+        }
+
+        /**
+         * Khi REST call ném exception thì exception được propagate.
+         */
+        @Test
+        @SuppressWarnings("unchecked")
+        void subtractProductStockQuantity_WhenRestCallThrows_ShouldPropagateException() {
+            OrderVm orderVm = buildOrderVm(Set.of(buildOrderItemVm(1L, 1)));
+
+            when(restClient.put()).thenReturn(putSpec);
+            when(putSpec.uri(any(URI.class))).thenReturn(bodySpec);
+            when(bodySpec.headers(any())).thenReturn(bodySpec);
+            when(bodySpec.body(any())).thenReturn(bodySpec);
+            when(bodySpec.retrieve()).thenThrow(new RuntimeException("connection refused"));
+
+            assertThatThrownBy(() -> productService.subtractProductStockQuantity(orderVm))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("connection refused");
+        }
     }
 
-    @Test
-    @SuppressWarnings("unchecked")
-    void getProductVariations_WhenServiceFails_ShouldPropagate() {
-        when(restClient.get()).thenReturn((RestClient.RequestHeadersUriSpec) getSpec);
-        when(getSpec.uri(any(URI.class))).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
-        when(headersSpec.headers(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
-        when(headersSpec.retrieve()).thenThrow(new RuntimeException("product service down"));
+    // =========================================================================
+    // getProductInfomation
+    // =========================================================================
 
-        assertThatThrownBy(() -> productService.getProductVariations(10L))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessage("product service down");
+    @Nested
+    class GetProductInfomationTest {
+
+        /**
+         * Happy path: trả về Map keyed theo productId.
+         */
+        @Test
+        @SuppressWarnings("unchecked")
+        void getProductInfomation_WhenServiceReturnsData_ShouldReturnMapKeyedById() {
+            ProductCheckoutListVm p1 = new ProductCheckoutListVm(1L, "Product A", 50000.0, 10L);
+            ProductCheckoutListVm p2 = new ProductCheckoutListVm(2L, "Product B", 30000.0, 10L);
+            ProductGetCheckoutListVm response =
+                new ProductGetCheckoutListVm(List.of(p1, p2), 0, 2, 2, 1, false);
+
+            when(restClient.get()).thenReturn(getSpec);
+            when(getSpec.uri(any(URI.class))).thenReturn(headersSpec);
+            when(headersSpec.headers(any())).thenReturn(headersSpec);
+            when(headersSpec.retrieve()).thenReturn(responseSpec);
+            when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
+                .thenReturn(ResponseEntity.ok(response));
+
+            Map<Long, ProductCheckoutListVm> result =
+                productService.getProductInfomation(Set.of(1L, 2L), 0, 10);
+
+            assertThat(result).hasSize(2);
+            assertThat(result).containsKey(1L);
+            assertThat(result).containsKey(2L);
+            assertThat(result.get(1L).getName()).isEqualTo("Product A");
+            assertThat(result.get(2L).getName()).isEqualTo("Product B");
+        }
+
+        /**
+         * Khi response body là null → throw NotFoundException với message "PRODUCT_NOT_FOUND".
+         */
+        @Test
+        @SuppressWarnings("unchecked")
+        void getProductInfomation_WhenResponseBodyIsNull_ShouldThrowNotFoundException() {
+            when(restClient.get()).thenReturn(getSpec);
+            when(getSpec.uri(any(URI.class))).thenReturn(headersSpec);
+            when(headersSpec.headers(any())).thenReturn(headersSpec);
+            when(headersSpec.retrieve()).thenReturn(responseSpec);
+            when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
+                .thenReturn(ResponseEntity.ok(null));
+
+            assertThatThrownBy(() -> productService.getProductInfomation(Set.of(1L), 0, 10))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessageContaining("PRODUCT_NOT_FOUND");
+        }
+
+        /**
+         * Khi productCheckoutListVms trong response là null → throw NotFoundException.
+         */
+        @Test
+        @SuppressWarnings("unchecked")
+        void getProductInfomation_WhenProductListIsNull_ShouldThrowNotFoundException() {
+            ProductGetCheckoutListVm response =
+                new ProductGetCheckoutListVm(null, 0, 0, 0, 1, false);
+
+            when(restClient.get()).thenReturn(getSpec);
+            when(getSpec.uri(any(URI.class))).thenReturn(headersSpec);
+            when(headersSpec.headers(any())).thenReturn(headersSpec);
+            when(headersSpec.retrieve()).thenReturn(responseSpec);
+            when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
+                .thenReturn(ResponseEntity.ok(response));
+
+            assertThatThrownBy(() -> productService.getProductInfomation(Set.of(1L), 0, 10))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessageContaining("PRODUCT_NOT_FOUND");
+        }
+
+        /**
+         * Khi REST call ném exception thì exception được propagate.
+         */
+        @Test
+        @SuppressWarnings("unchecked")
+        void getProductInfomation_WhenRestCallThrows_ShouldPropagateException() {
+            when(restClient.get()).thenReturn(getSpec);
+            when(getSpec.uri(any(URI.class))).thenReturn(headersSpec);
+            when(headersSpec.headers(any())).thenReturn(headersSpec);
+            when(headersSpec.retrieve()).thenThrow(new RuntimeException("timeout"));
+
+            assertThatThrownBy(() -> productService.getProductInfomation(Set.of(1L), 0, 10))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("timeout");
+        }
     }
 
-    @Test
-    @SuppressWarnings("unchecked")
-    void subtractProductStockQuantity_ShouldCallPutEndpointSuccessfully() {
-        OrderVm orderVm = buildOrderVm(Set.of(
-            buildOrderItemVm(1L, 2),
-            buildOrderItemVm(2L, 3)
-        ));
+    // =========================================================================
+    // handleProductVariationListFallback (protected)
+    // =========================================================================
 
-        when(restClient.put()).thenReturn(putSpec);
-        when(putSpec.uri(any(URI.class))).thenReturn(bodySpec);
-        when(bodySpec.headers(any())).thenReturn(bodySpec);
-        when(bodySpec.body(any())).thenReturn(bodySpec);
-        when(bodySpec.retrieve()).thenReturn(responseSpec);
+    @Nested
+    class HandleProductVariationListFallbackTest {
 
-        productService.subtractProductStockQuantity(orderVm);
+        /**
+         * Fallback delegate sang handleTypedFallback → rethrow exception.
+         */
+        @Test
+        void handleProductVariationListFallback_ShouldRethrowException() {
+            RuntimeException ex = new RuntimeException("circuit breaker open");
 
-        verify(restClient).put();
-        verify(bodySpec).body(any());
-        verify(bodySpec).retrieve();
+            assertThatThrownBy(() -> productService.handleProductVariationListFallback(ex))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("circuit breaker open");
+        }
     }
 
-    @Test
-    @SuppressWarnings("unchecked")
-    void subtractProductStockQuantity_WhenServiceFails_ShouldPropagate() {
-        OrderVm orderVm = buildOrderVm(Set.of(buildOrderItemVm(1L, 1)));
+    // =========================================================================
+    // handleProductInfomationFallback (protected)
+    // =========================================================================
 
-        when(restClient.put()).thenReturn(putSpec);
-        when(putSpec.uri(any(URI.class))).thenReturn(bodySpec);
-        when(bodySpec.headers(any())).thenReturn(bodySpec);
-        when(bodySpec.body(any())).thenReturn(bodySpec);
-        when(bodySpec.retrieve()).thenThrow(new RuntimeException("subtract stock failed"));
+    @Nested
+    class HandleProductInfomationFallbackTest {
 
-        assertThatThrownBy(() -> productService.subtractProductStockQuantity(orderVm))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessage("subtract stock failed");
+        /**
+         * Fallback delegate sang handleTypedFallback → rethrow exception.
+         */
+        @Test
+        void handleProductInfomationFallback_ShouldRethrowException() {
+            RuntimeException ex = new RuntimeException("circuit breaker open");
+
+            assertThatThrownBy(() -> productService.handleProductInfomationFallback(ex))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("circuit breaker open");
+        }
     }
 
-    @Test
-    @SuppressWarnings("unchecked")
-    void subtractProductStockQuantity_WithEmptyOrderItems_ShouldStillCallEndpoint() {
-        OrderVm orderVm = buildOrderVm(Set.of());
-
-        when(restClient.put()).thenReturn(putSpec);
-        when(putSpec.uri(any(URI.class))).thenReturn(bodySpec);
-        when(bodySpec.headers(any())).thenReturn(bodySpec);
-        when(bodySpec.body(any())).thenReturn(bodySpec);
-        when(bodySpec.retrieve()).thenReturn(responseSpec);
-
-        productService.subtractProductStockQuantity(orderVm);
-
-        verify(bodySpec).body(argThat(body -> body instanceof List && ((List<?>) body).isEmpty()));
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void getProductInfomation_ShouldReturnMapKeyedByProductId() {
-        // FIX: dùng constructor (Long, String, Double, Long) thay vì no-arg constructor
-        ProductCheckoutListVm product1 = new ProductCheckoutListVm(1L, "Product A", 50000.0, 10L);
-        ProductCheckoutListVm product2 = new ProductCheckoutListVm(2L, "Product B", 30000.0, 10L);
-        ProductGetCheckoutListVm response = new ProductGetCheckoutListVm(List.of(product1, product2), 1, 1, 2, 2, false);
-
-        when(restClient.get()).thenReturn((RestClient.RequestHeadersUriSpec) getSpec);
-        when(getSpec.uri(any(URI.class))).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
-        when(headersSpec.headers(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
-        when(headersSpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
-            .thenReturn(ResponseEntity.ok(response));
-
-        Map<Long, ProductCheckoutListVm> result =
-            productService.getProductInfomation(Set.of(1L, 2L), 0, 10);
-
-        assertThat(result).hasSize(2);
-        assertThat(result).containsKey(1L);
-        assertThat(result).containsKey(2L);
-        assertThat(result.get(1L).getName()).isEqualTo("Product A");
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void getProductInfomation_WhenResponseIsNull_ShouldThrowNotFoundException() {
-        when(restClient.get()).thenReturn((RestClient.RequestHeadersUriSpec) getSpec);
-        when(getSpec.uri(any(URI.class))).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
-        when(headersSpec.headers(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
-        when(headersSpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
-            .thenReturn(ResponseEntity.ok(null));
-
-        assertThatThrownBy(() -> productService.getProductInfomation(Set.of(1L), 0, 10))
-            .isInstanceOf(NotFoundException.class)
-            .hasMessageContaining("PRODUCT_NOT_FOUND");
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void getProductInfomation_WhenProductListIsNull_ShouldThrowNotFoundException() {
-        ProductGetCheckoutListVm response = new ProductGetCheckoutListVm(null, 1, 1, 2, 2, false);
-
-        when(restClient.get()).thenReturn((RestClient.RequestHeadersUriSpec) getSpec);
-        when(getSpec.uri(any(URI.class))).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
-        when(headersSpec.headers(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
-        when(headersSpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
-            .thenReturn(ResponseEntity.ok(response));
-
-        assertThatThrownBy(() -> productService.getProductInfomation(Set.of(1L), 0, 10))
-            .isInstanceOf(NotFoundException.class)
-            .hasMessageContaining("PRODUCT_NOT_FOUND");
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void getProductInfomation_WhenServiceFails_ShouldPropagate() {
-        when(restClient.get()).thenReturn((RestClient.RequestHeadersUriSpec) getSpec);
-        when(getSpec.uri(any(URI.class))).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
-        when(headersSpec.headers(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
-        when(headersSpec.retrieve()).thenThrow(new RuntimeException("product info service down"));
-
-        assertThatThrownBy(() -> productService.getProductInfomation(Set.of(1L), 0, 10))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessage("product info service down");
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void getProductInfomation_ShouldCollectResultsIntoMapCorrectly() {
-        ProductCheckoutListVm product = new ProductCheckoutListVm(5L, "Single Product", 99000.0, 10L);
-        ProductGetCheckoutListVm response = new ProductGetCheckoutListVm(List.of(product), 1, 1, 1, 1, false);
-
-        when(restClient.get()).thenReturn((RestClient.RequestHeadersUriSpec) getSpec);
-        when(getSpec.uri(any(URI.class))).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
-        when(headersSpec.headers(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
-        when(headersSpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
-            .thenReturn(ResponseEntity.ok(response));
-
-        Map<Long, ProductCheckoutListVm> result =
-            productService.getProductInfomation(Set.of(5L), 0, 5);
-
-        assertThat(result).hasSize(1);
-        assertThat(result.get(5L).getName()).isEqualTo("Single Product");
-    }
-
-    @Test
-    void handleProductVariationListFallback_ShouldRethrowException() {
-        RuntimeException ex = new RuntimeException("cb open");
-
-        assertThatThrownBy(() -> productService.handleProductVariationListFallback(ex))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessage("cb open");
-    }
-
-    @Test
-    void handleProductInfomationFallback_ShouldRethrowException() {
-        RuntimeException ex = new RuntimeException("cb open");
-
-        assertThatThrownBy(() -> productService.handleProductInfomationFallback(ex))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessage("cb open");
-    }
-
-    // -------------------------------------------------------------------------
+    // =========================================================================
     // Helpers
-    // -------------------------------------------------------------------------
-
-    private ProductVariationVm buildProductVariationVm(Long id, String name) {
-        return new ProductVariationVm(id, name, "SKU-DUMMY");
-    }
+    // =========================================================================
 
     private OrderItemVm buildOrderItemVm(Long productId, int quantity) {
         return new OrderItemVm(
             productId, 1L, "Product Name", quantity,
-            BigDecimal.ZERO, "Note",
+            BigDecimal.ZERO, "note",
             BigDecimal.ZERO, BigDecimal.ZERO,
             BigDecimal.ZERO, 1L
         );
