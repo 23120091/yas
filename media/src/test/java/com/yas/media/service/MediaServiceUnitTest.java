@@ -6,6 +6,7 @@ import java.io.InputStream;
 import org.springframework.http.MediaType;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -379,17 +380,80 @@ class MediaServiceUnitTest {
     }
 
     @Test
-        void saveMedia_whenOverrideNameIsBlank_shouldUseOriginalFileName() {
-            // Given: Tên override để trống
-            MockMultipartFile file = new MockMultipartFile("file", "original_name.jpg", "image/jpeg", "data".getBytes());
-            MediaPostVm vm = new MediaPostVm("caption", file, ""); // Tên trống
+    void saveMedia_whenOverrideNameIsBlank_shouldUseOriginalFileName() {
+        // Given: Tên override để trống
+        MockMultipartFile file = new MockMultipartFile("file", "original_name.jpg", "image/jpeg", "data".getBytes());
+        MediaPostVm vm = new MediaPostVm("caption", file, ""); // Tên trống
 
-            when(mediaRepository.save(any(Media.class))).thenAnswer(i -> i.getArgument(0));
+        when(mediaRepository.save(any(Media.class))).thenAnswer(i -> i.getArgument(0));
 
-            // When
-            Media result = mediaService.saveMedia(vm);
+        // When
+        Media result = mediaService.saveMedia(vm);
 
-            // Then: Code sẽ lấy tên gốc "original_name.jpg"
-            assertEquals("original_name.jpg", result.getFileName());
-        }
+        // Then: Code sẽ lấy tên gốc "original_name.jpg"
+        assertEquals("original_name.jpg", result.getFileName());
+    }
+
+    @Test
+    void saveMedia_whenIOException_thenThrowsException() throws IOException {
+        // Mock một file bị lỗi khi truy cập nội dung
+        MultipartFile multipartFile = mock(MultipartFile.class);
+        when(multipartFile.getContentType()).thenReturn("image/png");
+        when(multipartFile.getOriginalFilename()).thenReturn("error.png");
+        when(multipartFile.getBytes()).thenThrow(new IOException("Read error"));
+
+        MediaPostVm mediaPostVm = new MediaPostVm("test", multipartFile, null);
+
+        assertThrows(IOException.class, () -> mediaService.saveMedia(mediaPostVm));
+    }
+
+    @Test
+    void getFile_whenInvalidMediaTypeInDb_thenThrowsException() {
+        // Given: Media có type không đúng chuẩn (ví dụ: "not-a-mime-type")
+        media.setFileName("test.png");
+        media.setMediaType("invalid-type"); 
+        when(mediaRepository.findById(1L)).thenReturn(Optional.of(media));
+
+        // When & Then
+        assertThrows(IllegalArgumentException.class, () -> mediaService.getFile(1L, "test.png"));
+    }
+
+    @Test
+    void getMediaByIds_whenMapperReturnsNull_thenFilterShouldHandle() {
+        // Given
+        Media m1 = getMedia(1L, "file1.png");
+        when(mediaRepository.findAllById(any())).thenReturn(List.of(m1));
+        // Giả sử mapper trả về null
+        when(mediaVmMapper.toVm(any())).thenReturn(null);
+
+        // When & Then
+        assertThrows(NullPointerException.class, () -> mediaService.getMediaByIds(List.of(1L)));
+    }
+
+    @Test
+    void getMediaById_withSpecialCharsInFileName_shouldReturnCorrectPath() {
+        // Given
+        NoFileMediaVm noFileMediaVm = new NoFileMediaVm(1L, "Test", "file name với space.png", "image/png");
+        when(mediaRepository.findByIdWithoutFileInReturn(1L)).thenReturn(noFileMediaVm);
+        when(yasConfig.publicUrl()).thenReturn("http://localhost:8080");
+
+        // When
+        MediaVm result = mediaService.getMediaById(1L);
+
+        // Then
+        // Kiểm tra URL chứa đúng tên file thô nếu code không gọi .encode()
+        assertThat(result.getUrl()).contains("file/file name với space.png");
+    }
+
+    @Test
+    void getMediaById_whenRepositoryReturnsNull_thenReturnNull() {
+        // Given
+        when(mediaRepository.findByIdWithoutFileInReturn(1L)).thenReturn(null);
+
+        // When
+        MediaVm result = mediaService.getMediaById(1L);
+
+        // Then
+        assertNull(result);
+    }
 }
