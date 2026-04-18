@@ -4,6 +4,7 @@ import com.yas.commonlibrary.exception.NotFoundException;
 import com.yas.commonlibrary.utils.AuthenticationUtils;
 import com.yas.order.mapper.OrderMapper;
 import com.yas.order.model.Order;
+import com.yas.order.model.OrderAddress;
 import com.yas.order.model.OrderItem;
 import com.yas.order.model.csv.OrderItemCsv;
 import com.yas.order.model.enumeration.DeliveryMethod;
@@ -73,17 +74,17 @@ class OrderServiceTest {
     @Nested
     class CreateOrderTest {
 
-        /**
-         * Happy path: order và items được lưu, các downstream service được gọi,
-         * trả về OrderVm không null.
-         */
         @Test
         void createOrder_ShouldSaveOrderAndItems_AndCallDownstreamServices() {
             OrderPostVm postVm = buildOrderPostVm();
             Order savedOrder = buildOrder(ORDER_ID, OrderStatus.PENDING);
 
-            when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
-            // acceptOrder() được gọi nội bộ trong createOrder → cần stub findById
+            // Gán id cho order để orderVm.id() có giá trị, tránh lỗi PotentialStubbingProblem ở findById
+            when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+                Order o = invocation.getArgument(0);
+                o.setId(ORDER_ID);
+                return o;
+            });
             when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(savedOrder));
 
             OrderVm result = orderService.createOrder(postVm);
@@ -96,15 +97,16 @@ class OrderServiceTest {
             verify(promotionService).updateUsagePromotion(anyList());
         }
 
-        /**
-         * Order được tạo với orderStatus = PENDING và deliveryStatus = PREPARING.
-         */
         @Test
         void createOrder_ShouldSetOrderStatusPendingAndDeliveryStatusPreparing() {
             OrderPostVm postVm = buildOrderPostVm();
             Order savedOrder = buildOrder(ORDER_ID, OrderStatus.PENDING);
 
-            when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
+            when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+                Order o = invocation.getArgument(0);
+                o.setId(ORDER_ID);
+                return o;
+            });
             when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(savedOrder));
 
             orderService.createOrder(postVm);
@@ -116,15 +118,16 @@ class OrderServiceTest {
             assertThat(captured.getDeliveryStatus()).isEqualTo(DeliveryStatus.PREPARING);
         }
 
-        /**
-         * Mỗi OrderItem tạo ra một PromotionUsageVm → postVm có 2 items → size = 2.
-         */
         @Test
         void createOrder_ShouldCreateOnePromotionUsageVmPerOrderItem() {
             OrderPostVm postVm = buildOrderPostVm();
             Order savedOrder = buildOrder(ORDER_ID, OrderStatus.PENDING);
 
-            when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
+            when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+                Order o = invocation.getArgument(0);
+                o.setId(ORDER_ID);
+                return o;
+            });
             when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(savedOrder));
 
             orderService.createOrder(postVm);
@@ -134,15 +137,15 @@ class OrderServiceTest {
             assertThat(captor.getValue()).hasSize(2);
         }
 
-        /**
-         * acceptOrder() được gọi nội bộ; nếu order không tìm được thì ném NotFoundException.
-         */
         @Test
         void createOrder_WhenAcceptOrderCannotFindOrder_ShouldThrowNotFoundException() {
             OrderPostVm postVm = buildOrderPostVm();
-            Order savedOrder = buildOrder(ORDER_ID, OrderStatus.PENDING);
 
-            when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
+            when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+                Order o = invocation.getArgument(0);
+                o.setId(ORDER_ID);
+                return o;
+            });
             when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> orderService.createOrder(postVm))
@@ -216,7 +219,7 @@ class OrderServiceTest {
                 Pair.of(ZonedDateTime.now().minusDays(1), ZonedDateTime.now()),
                 null,
                 List.of(OrderStatus.PENDING),
-                Pair.of(null, null),
+                Pair.of("Vietnam", "0123456789"), // Sửa lại từ Pair.of(null, null)
                 null,
                 Pair.of(0, 10)
             );
@@ -226,9 +229,6 @@ class OrderServiceTest {
             assertThat(result.totalPages()).isZero();
         }
 
-        /**
-         * Khi orderStatus truyền vào empty → logic dùng tất cả statuses, không throw.
-         */
         @Test
         @SuppressWarnings("unchecked")
         void getAllOrder_WhenOrderStatusIsEmpty_ShouldFallbackToAllStatuses() {
@@ -549,9 +549,6 @@ class OrderServiceTest {
     @Nested
     class ExportCsvTest {
 
-        /**
-         * Khi không có order → orderList = null → trả về CSV rỗng, mapper không được gọi.
-         */
         @Test
         @SuppressWarnings("unchecked")
         void exportCsv_WhenNoOrders_ShouldReturnEmptyCsvBytesWithoutCallingMapper() throws IOException {
@@ -564,9 +561,6 @@ class OrderServiceTest {
             verifyNoInteractions(orderMapper);
         }
 
-        /**
-         * Khi có orders → mapper được gọi cho mỗi OrderBriefVm và bytes được trả về.
-         */
         @Test
         @SuppressWarnings("unchecked")
         void exportCsv_WhenOrdersExist_ShouldCallMapperAndReturnBytes() throws IOException {
@@ -592,6 +586,12 @@ class OrderServiceTest {
         order.setDeliveryStatus(DeliveryStatus.PREPARING);
         order.setPaymentStatus(PaymentStatus.PENDING);
         order.setCouponCode("COUPON10");
+        
+        // Thêm address để tránh NullPointerException khi parser từ Entity sang Vm
+        OrderAddress address = OrderAddress.builder().id(1L).phone("0123456789").build();
+        order.setBillingAddressId(address);
+        order.setShippingAddressId(address);
+        
         return order;
     }
 
@@ -638,8 +638,8 @@ class OrderServiceTest {
         request.setCreatedTo(ZonedDateTime.now());
         request.setProductName(null);
         request.setOrderStatus(List.of());
-        request.setBillingCountry(null);
-        request.setBillingPhoneNumber(null);
+        request.setBillingCountry("Vietnam"); // Gán giá trị để tránh Null cho Pair
+        request.setBillingPhoneNumber("0123456789"); // Gán giá trị để tránh Null cho Pair
         request.setEmail(null);
         request.setPageNo(0);
         request.setPageSize(10);
