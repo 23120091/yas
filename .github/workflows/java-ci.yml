@@ -36,8 +36,6 @@ jobs:
           filters: |
             backoffice: 'backoffice/**'
             order: 'order/**'
-            payment: 'payment/**'
-
   # Job scan gitleaks cho root files
   gitleak-scan-root:
     needs: filter-changes
