@@ -23,6 +23,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -35,13 +36,12 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT) // Thêm dòng này để nới lỏng cơ chế kiểm tra Stub của Mockito
+@MockitoSettings(strictness = Strictness.LENIENT)
 class ProductServiceTest {
 
     @Mock private RestClient restClient;
     @Mock private ServiceUrlConfig serviceUrlConfig;
 
-    // Fluent chain mocks cho RestClient
     @SuppressWarnings("rawtypes")
     @Mock private RestClient.RequestHeadersUriSpec getSpec;
     @SuppressWarnings("rawtypes")
@@ -148,13 +148,16 @@ class ProductServiceTest {
             when(restClient.put()).thenReturn(putSpec);
             when(putSpec.uri(any(URI.class))).thenReturn(bodySpec);
             when(bodySpec.headers(any())).thenReturn(bodySpec);
-            when(bodySpec.body(any())).thenReturn(bodySpec);
+            
+            // Fix NPE bằng việc sử dụng doReturn và match Argument explicitly
+            doReturn(bodySpec).when(bodySpec).body(any(Object.class));
+            
             when(bodySpec.retrieve()).thenReturn(responseSpec);
 
             productService.subtractProductStockQuantity(orderVm);
 
             verify(restClient).put();
-            verify(bodySpec).body(any());
+            verify(bodySpec).body(any(Object.class));
             verify(bodySpec).retrieve();
         }
 
@@ -166,7 +169,9 @@ class ProductServiceTest {
             when(restClient.put()).thenReturn(putSpec);
             when(putSpec.uri(any(URI.class))).thenReturn(bodySpec);
             when(bodySpec.headers(any())).thenReturn(bodySpec);
-            when(bodySpec.body(any())).thenReturn(bodySpec);
+            
+            doReturn(bodySpec).when(bodySpec).body(any(Object.class));
+            
             when(bodySpec.retrieve()).thenReturn(responseSpec);
 
             productService.subtractProductStockQuantity(orderVm);
@@ -182,7 +187,9 @@ class ProductServiceTest {
             when(restClient.put()).thenReturn(putSpec);
             when(putSpec.uri(any(URI.class))).thenReturn(bodySpec);
             when(bodySpec.headers(any())).thenReturn(bodySpec);
-            when(bodySpec.body(any())).thenReturn(bodySpec);
+            
+            doReturn(bodySpec).when(bodySpec).body(any(Object.class));
+            
             when(bodySpec.retrieve()).thenThrow(new RuntimeException("connection refused"));
 
             assertThatThrownBy(() -> productService.subtractProductStockQuantity(orderVm))
@@ -296,36 +303,4 @@ class ProductServiceTest {
 
         @Test
         void handleProductInfomationFallback_ShouldRethrowException() {
-            RuntimeException ex = new RuntimeException("circuit breaker open");
-
-            assertThatThrownBy(() -> productService.handleProductInfomationFallback(ex))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("circuit breaker open");
-        }
-    }
-
-    // =========================================================================
-    // Helpers
-    // =========================================================================
-
-    // Thay vì dùng hàm new khởi tạo Vm thủ công dễ sai thứ tự, dùng mock sẽ an toàn và tránh NPE
-    private OrderItemVm buildOrderItemVm(Long productId, int quantity) {
-        OrderItemVm mockItem = mock(OrderItemVm.class);
-        lenient().when(mockItem.productId()).thenReturn(productId);
-        lenient().when(mockItem.quantity()).thenReturn(quantity);
-        return mockItem;
-    }
-
-    private OrderVm buildOrderVm(Set<OrderItemVm> items) {
-        OrderVm mockVm = mock(OrderVm.class);
-        lenient().when(mockVm.orderItemVms()).thenReturn(items);
-        return mockVm;
-    }
-
-    private ProductCheckoutListVm buildProductCheckoutListVm(Long id, String name) {
-        ProductCheckoutListVm mockVm = mock(ProductCheckoutListVm.class);
-        lenient().when(mockVm.getId()).thenReturn(id);
-        lenient().when(mockVm.getName()).thenReturn(name);
-        return mockVm;
-    }
-}
+            RuntimeException ex = new RuntimeException("
