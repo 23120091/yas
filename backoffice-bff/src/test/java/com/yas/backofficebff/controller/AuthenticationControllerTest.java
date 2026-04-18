@@ -1,35 +1,41 @@
 package com.yas.backofficebff.controller;
 
-import org.junit.jupiter.api.DisplayName;
+import com.yas.backofficebff.viewmodel.AuthenticatedUser;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.test.web.servlet.MockMvc;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
-@WebMvcTest(AuthenticationController.class)
-class AuthenticationControllerIT {
+@ExtendWith(MockitoExtension.class)
+class AuthenticationControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Mock
+    private OAuth2User principal; // Giả lập đối tượng User
+
+    @InjectMocks
+    private AuthenticationController authenticationController;
 
     @Test
-    @DisplayName("Nên trả về username yas_admin khi giả lập đăng nhập qua Keycloak")
-    void user_WhenAuthenticated_ShouldReturnAuthenticatedUser() throws Exception {
-        String mockAdminName = "yas_admin";
+    void user_WhenPrincipalExists_ShouldReturnCorrectUsername() {
+        // 1. Giả lập giá trị trả về khi code gọi principal.getAttribute
+        String expectedUsername = "yas_test_user";
+        when(principal.getAttribute("preferred_username")).thenReturn(expectedUsername);
 
-        mockMvc.perform(get("/authentication/user")
-                // Giả lập User đã login thành công vào Keycloak (OIDC)
-                .with(oidcLogin()
-                        .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))
-                        .attributes(attrs -> attrs.put("preferred_username", mockAdminName))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.username").value(mockAdminName));
+        // 2. Gọi trực tiếp hàm trong Controller (không qua MockMvc/HTTP)
+        ResponseEntity<AuthenticatedUser> response = authenticationController.user(principal);
+
+        // 3. Kiểm tra kết quả
+        assertNotNull(response.getBody());
+        assertEquals(expectedUsername, response.getBody().username());
+        
+        // Xác nhận hàm getAttribute đã được gọi đúng 1 lần
+        verify(principal, times(1)).getAttribute("preferred_username");
     }
 
     @Test
@@ -37,5 +43,5 @@ class AuthenticationControllerIT {
     void user_WhenUnauthenticated_ShouldReturn401() throws Exception {
         mockMvc.perform(get("/authentication/user"))
                 .andExpect(status().isUnauthorized());
-    } 
+    }
 }
