@@ -395,6 +395,16 @@ class MediaServiceUnitTest {
     }
 
     @Test
+    void getFile_whenMediaTypeIsInvalid_thenThrowsException() {
+        media.setMediaType("not-a-valid-mime-type");
+        media.setFileName("test.png");
+        when(mediaRepository.findById(1L)).thenReturn(Optional.of(media));
+
+        // Nhánh này kiểm tra việc parse MediaType lỗi
+        assertThrows(RuntimeException.class, () -> mediaService.getFile(1L, "test.png"));
+    }
+
+    @Test
     void getMediaByIds_whenEmptyList_thenReturnEmptyList() {
         // Given
         List<Long> ids = List.of();
