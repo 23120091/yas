@@ -35,6 +35,7 @@ jobs:
           # Them service moi vao danh sach nay khi can
           filters: |
             backoffice: 'backoffice/**'
+            payment: 'payment/**'
             order: 'order/**'
   # Job scan gitleaks cho root files
   gitleak-scan-root:
