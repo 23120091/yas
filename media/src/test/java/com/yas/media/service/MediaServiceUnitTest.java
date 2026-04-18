@@ -9,16 +9,14 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.anyLong;
 
 import com.yas.commonlibrary.exception.NotFoundException;
 import com.yas.media.config.YasConfig;
@@ -116,6 +114,17 @@ class MediaServiceUnitTest {
         mediaService.removeMedia(1L);
 
         verify(mediaRepository, times(1)).deleteById(1L);
+    }
+
+    @Test
+    void removeMedia_whenMediaDoesNotExist_shouldNeverCallDelete() {
+        // Given
+        when(mediaRepository.findByIdWithoutFileInReturn(99L)).thenReturn(null);
+
+        // When & Then
+        assertThrows(NotFoundException.class, () -> mediaService.removeMedia(99L));
+        // Verify rằng deleteById chưa bao giờ được thực hiện để bảo vệ dữ liệu
+        verify(mediaRepository, never()).deleteById(anyLong());
     }
 
     @Test
@@ -233,6 +242,54 @@ class MediaServiceUnitTest {
     }
 
     @Test
+    void saveMedia_whenOriginalFilenameHasNoExtension_shouldStillSave() {
+        // Given: File tên "README" không có đuôi .txt hay .png
+        MockMultipartFile file = new MockMultipartFile("file", "README", "text/plain", "data".getBytes());
+        MediaPostVm vm = new MediaPostVm("no extension", file, null);
+
+        when(mediaRepository.save(any(Media.class))).thenAnswer(i -> i.getArgument(0));
+
+        // When
+        Media result = mediaService.saveMedia(vm);
+
+        // Then
+        assertEquals("README", result.getFileName());
+        assertNotNull(result.getMediaType());
+    }
+
+    @Test
+    void saveMedia_whenFileIsEmpty_shouldStillProcess() throws IOException {
+        // Given: File rỗng
+        MockMultipartFile emptyFile = new MockMultipartFile("file", "empty.txt", "text/plain", new byte[0]);
+        MediaPostVm vm = new MediaPostVm("empty file", emptyFile, null);
+
+        when(mediaRepository.save(any(Media.class))).thenAnswer(i -> i.getArgument(0));
+
+        // When
+        Media result = mediaService.saveMedia(vm);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(0, emptyFile.getSize());
+        verify(fileSystemRepository).persistFile(eq("empty.txt"), any(byte[].class));
+    }
+
+    @Test
+    void saveMedia_whenFileNameOverrideHasSpaces_shouldTrimCorrectly() {
+        // Given: Tên override có khoảng trắng thừa
+        MockMultipartFile file = new MockMultipartFile("file", "test.png", "image/png", "data".getBytes());
+        MediaPostVm vm = new MediaPostVm("caption", file, "  my-clean-name.png  ");
+
+        when(mediaRepository.save(any(Media.class))).thenAnswer(i -> i.getArgument(0));
+
+        // When
+        Media result = mediaService.saveMedia(vm);
+
+        // Then: Tên file lưu vào DB phải được cắt bỏ khoảng trắng
+        assertEquals("my-clean-name.png", result.getFileName());
+    }
+
+    @Test
     void getFile_whenMediaNotFound_thenReturnMediaDto() {
         MediaDto expectedDto = MediaDto.builder().build();
         when(mediaRepository.findById(1L)).thenReturn(Optional.ofNullable(null));
@@ -254,6 +311,21 @@ class MediaServiceUnitTest {
 
         assertEquals(expectedDto.getMediaType(), mediaDto.getMediaType());
         assertEquals(expectedDto.getContent(), mediaDto.getContent());
+    }
+
+    @Test
+    void getFile_whenFileSystemThrowsException_shouldPropagateException() {
+        // Given
+        media.setFileName("test.png");
+        media.setFilePath("path/to/test.png");
+        media.setMediaType("image/png");
+        when(mediaRepository.findById(1L)).thenReturn(Optional.of(media));
+        
+        // Giả lập FileSystemRepository ném RuntimeException
+        when(fileSystemRepository.getFile(anyString())).thenThrow(new RuntimeException("Storage access denied"));
+
+        // When & Then
+        assertThrows(RuntimeException.class, () -> mediaService.getFile(1L, "test.png"));
     }
 
     @Test
@@ -303,6 +375,23 @@ class MediaServiceUnitTest {
         // Assert
         assertNotNull(result.getContent());
         assertEquals(org.springframework.http.MediaType.IMAGE_PNG, result.getMediaType());
+    }
+
+    @Test
+    void getFile_whenFileNameMatchesCaseInsensitive_shouldStillReturnData() throws IOException {
+        // Given: Tên trong DB là viết hoa hoàn toàn
+        media.setFileName("PHOTO.PNG");
+        media.setMediaType("image/png");
+        media.setFilePath("path/photo.png");
+        when(mediaRepository.findById(1L)).thenReturn(Optional.of(media));
+        when(fileSystemRepository.getFile(anyString())).thenReturn(new ByteArrayInputStream("data".getBytes()));
+
+        // When: Yêu cầu file bằng chữ thường
+        MediaDto result = mediaService.getFile(1L, "photo.png");
+
+        // Then: Vẫn phải trả về dữ liệu thành công
+        assertNotNull(result.getContent());
+        assertEquals(MediaType.IMAGE_PNG, result.getMediaType());
     }
 
     @Test
@@ -455,5 +544,25 @@ class MediaServiceUnitTest {
 
         // Then
         assertNull(result);
+    }
+
+    @Test
+    void getMediaById_shouldMapAllFieldsCorrectly() {
+        // Given
+        NoFileMediaVm dto = new NoFileMediaVm(10L, "Super Caption", "image.jpg", "image/jpeg");
+        when(mediaRepository.findByIdWithoutFileInReturn(10L)).thenReturn(dto);
+        when(yasConfig.publicUrl()).thenReturn("http://api.yas.com");
+
+        // When
+        MediaVm result = mediaService.getMediaById(10L);
+
+        // Then
+        assertAll("Verify all fields mapped",
+            () -> assertEquals(10L, result.getId()),
+            () -> assertEquals("Super Caption", result.getCaption()),
+            () -> assertEquals("image.jpg", result.getFileName()),
+            () -> assertEquals("image/jpeg", result.getMediaType()),
+            () -> assertTrue(result.getUrl().contains("/medias/10/file/image.jpg"))
+        );
     }
 }
