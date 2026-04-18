@@ -75,9 +75,6 @@ class ProductServiceTest {
     @Nested
     class GetProductVariationsTest {
 
-        /**
-         * Happy path: REST trả về danh sách variations, method trả về đúng body.
-         */
         @Test
         @SuppressWarnings("unchecked")
         void getProductVariations_WhenServiceReturnsData_ShouldReturnVariationList() {
@@ -101,9 +98,6 @@ class ProductServiceTest {
             assertThat(result.get(1).id()).isEqualTo(2L);
         }
 
-        /**
-         * Khi body trả về null thì method trả về null (không throw).
-         */
         @Test
         @SuppressWarnings("unchecked")
         void getProductVariations_WhenResponseBodyIsNull_ShouldReturnNull() {
@@ -119,9 +113,6 @@ class ProductServiceTest {
             assertThat(result).isNull();
         }
 
-        /**
-         * Khi REST call ném exception thì exception được propagate.
-         */
         @Test
         @SuppressWarnings("unchecked")
         void getProductVariations_WhenRestCallThrows_ShouldPropagateException() {
@@ -143,39 +134,27 @@ class ProductServiceTest {
     @Nested
     class SubtractProductStockQuantityTest {
 
-        /**
-         * Happy path: PUT endpoint được gọi với body chứa danh sách ProductQuantityItem.
-         */
         @Test
         @SuppressWarnings("unchecked")
-        void getProductInfomation_WhenServiceReturnsData_ShouldReturnMapKeyedById() {
-            // Thay vì dùng lệnh new bị cấm, ta gọi hàm mock helper
-            ProductCheckoutListVm p1 = buildProductCheckoutListVm(1L, "Product A");
-            ProductCheckoutListVm p2 = buildProductCheckoutListVm(2L, "Product B");
-            ProductGetCheckoutListVm response =
-                new ProductGetCheckoutListVm(List.of(p1, p2), 0, 2, 2, 1, false);
+        void subtractProductStockQuantity_WhenCalled_ShouldCallPutEndpoint() {
+            OrderVm orderVm = buildOrderVm(Set.of(
+                buildOrderItemVm(1L, 2),
+                buildOrderItemVm(2L, 3)
+            ));
 
-            when(restClient.get()).thenReturn(getSpec);
-            when(getSpec.uri(any(URI.class))).thenReturn(headersSpec);
-            when(headersSpec.headers(any())).thenReturn(headersSpec);
-            when(headersSpec.retrieve()).thenReturn(responseSpec);
-            when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
-                .thenReturn(ResponseEntity.ok(response));
+            when(restClient.put()).thenReturn(putSpec);
+            when(putSpec.uri(any(URI.class))).thenReturn(bodySpec);
+            when(bodySpec.headers(any())).thenReturn(bodySpec);
+            when(bodySpec.body(any())).thenReturn(bodySpec);
+            when(bodySpec.retrieve()).thenReturn(responseSpec);
 
-            Map<Long, ProductCheckoutListVm> result =
-                productService.getProductInfomation(Set.of(1L, 2L), 0, 10);
+            productService.subtractProductStockQuantity(orderVm);
 
-            assertThat(result).hasSize(2);
-            assertThat(result).containsKey(1L);
-            assertThat(result).containsKey(2L);
-            assertThat(result.get(1L).getName()).isEqualTo("Product A");
-            assertThat(result.get(2L).getName()).isEqualTo("Product B");
+            verify(restClient).put();
+            verify(bodySpec).body(any());
+            verify(bodySpec).retrieve();
         }
 
-        /**
-         * buildProductQuantityItems (private) được test gián tiếp:
-         * với orderItems rỗng → body được gọi với List rỗng.
-         */
         @Test
         @SuppressWarnings("unchecked")
         void subtractProductStockQuantity_WhenOrderItemsEmpty_ShouldSendEmptyBody() {
@@ -192,9 +171,6 @@ class ProductServiceTest {
             verify(bodySpec).body(argThat(b -> b instanceof List && ((List<?>) b).isEmpty()));
         }
 
-        /**
-         * Khi REST call ném exception thì exception được propagate.
-         */
         @Test
         @SuppressWarnings("unchecked")
         void subtractProductStockQuantity_WhenRestCallThrows_ShouldPropagateException() {
@@ -219,14 +195,12 @@ class ProductServiceTest {
     @Nested
     class GetProductInfomationTest {
 
-        /**
-         * Happy path: trả về Map keyed theo productId.
-         */
         @Test
         @SuppressWarnings("unchecked")
         void getProductInfomation_WhenServiceReturnsData_ShouldReturnMapKeyedById() {
-            ProductCheckoutListVm p1 = new ProductCheckoutListVm(1L, "Product A", 0.0, 1L);
-            ProductCheckoutListVm p2 = new ProductCheckoutListVm(2L, "Product B", 0.0, 1L);
+            // Đã dùng hàm mock thay vì lệnh new
+            ProductCheckoutListVm p1 = buildProductCheckoutListVm(1L, "Product A");
+            ProductCheckoutListVm p2 = buildProductCheckoutListVm(2L, "Product B");
             ProductGetCheckoutListVm response =
                 new ProductGetCheckoutListVm(List.of(p1, p2), 0, 2, 2, 1, false);
 
@@ -247,9 +221,6 @@ class ProductServiceTest {
             assertThat(result.get(2L).getName()).isEqualTo("Product B");
         }
 
-        /**
-         * Khi response body là null → throw NotFoundException với message "PRODUCT_NOT_FOUND".
-         */
         @Test
         @SuppressWarnings("unchecked")
         void getProductInfomation_WhenResponseBodyIsNull_ShouldThrowNotFoundException() {
@@ -265,9 +236,6 @@ class ProductServiceTest {
                 .hasMessageContaining("PRODUCT_NOT_FOUND");
         }
 
-        /**
-         * Khi productCheckoutListVms trong response là null → throw NotFoundException.
-         */
         @Test
         @SuppressWarnings("unchecked")
         void getProductInfomation_WhenProductListIsNull_ShouldThrowNotFoundException() {
@@ -286,9 +254,6 @@ class ProductServiceTest {
                 .hasMessageContaining("PRODUCT_NOT_FOUND");
         }
 
-        /**
-         * Khi REST call ném exception thì exception được propagate.
-         */
         @Test
         @SuppressWarnings("unchecked")
         void getProductInfomation_WhenRestCallThrows_ShouldPropagateException() {
@@ -310,9 +275,6 @@ class ProductServiceTest {
     @Nested
     class HandleProductVariationListFallbackTest {
 
-        /**
-         * Fallback delegate sang handleTypedFallback → rethrow exception.
-         */
         @Test
         void handleProductVariationListFallback_ShouldRethrowException() {
             RuntimeException ex = new RuntimeException("circuit breaker open");
@@ -330,9 +292,6 @@ class ProductServiceTest {
     @Nested
     class HandleProductInfomationFallbackTest {
 
-        /**
-         * Fallback delegate sang handleTypedFallback → rethrow exception.
-         */
         @Test
         void handleProductInfomationFallback_ShouldRethrowException() {
             RuntimeException ex = new RuntimeException("circuit breaker open");
@@ -364,7 +323,8 @@ class ProductServiceTest {
             items, "note"
         );
     }
-    // Thêm hàm mock này vào phần Helpers
+
+    // Hàm mock helper an toàn
     private ProductCheckoutListVm buildProductCheckoutListVm(Long id, String name) {
         ProductCheckoutListVm mockVm = mock(ProductCheckoutListVm.class);
         lenient().when(mockVm.getId()).thenReturn(id);
