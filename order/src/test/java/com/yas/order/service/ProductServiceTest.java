@@ -96,9 +96,7 @@ class ProductServiceTest {
         when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
             .thenReturn(ResponseEntity.ok(null));
 
-        List<ProductVariationVm> result = productService.getProductVariations(10L);
-
-        assertThat(result).isNull();
+        assertThat(productService.getProductVariations(10L)).isNull();
     }
 
     @Test
@@ -170,8 +168,9 @@ class ProductServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void getProductInfomation_ShouldReturnMapKeyedByProductId() {
-        ProductCheckoutListVm product1 = buildProductCheckoutListVm(1L, "Product A");
-        ProductCheckoutListVm product2 = buildProductCheckoutListVm(2L, "Product B");
+        // FIX: dùng constructor (Long, String, Double, Long) thay vì no-arg constructor
+        ProductCheckoutListVm product1 = new ProductCheckoutListVm(1L, "Product A", 50000.0, 10L);
+        ProductCheckoutListVm product2 = new ProductCheckoutListVm(2L, "Product B", 30000.0, 10L);
         ProductGetCheckoutListVm response = new ProductGetCheckoutListVm(List.of(product1, product2), 1, 1, 2, 2, false);
 
         when(restClient.get()).thenReturn((RestClient.RequestHeadersUriSpec) getSpec);
@@ -238,7 +237,7 @@ class ProductServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void getProductInfomation_ShouldCollectResultsIntoMapCorrectly() {
-        ProductCheckoutListVm product = buildProductCheckoutListVm(5L, "Single Product");
+        ProductCheckoutListVm product = new ProductCheckoutListVm(5L, "Single Product", 99000.0, 10L);
         ProductGetCheckoutListVm response = new ProductGetCheckoutListVm(List.of(product), 1, 1, 1, 1, false);
 
         when(restClient.get()).thenReturn((RestClient.RequestHeadersUriSpec) getSpec);
@@ -279,13 +278,6 @@ class ProductServiceTest {
 
     private ProductVariationVm buildProductVariationVm(Long id, String name) {
         return new ProductVariationVm(id, name, "SKU-DUMMY");
-    }
-
-    private ProductCheckoutListVm buildProductCheckoutListVm(Long id, String name) {
-        ProductCheckoutListVm vm = new ProductCheckoutListVm();
-        vm.setId(id);
-        vm.setName(name);
-        return vm;
     }
 
     private OrderItemVm buildOrderItemVm(Long productId, int quantity) {
