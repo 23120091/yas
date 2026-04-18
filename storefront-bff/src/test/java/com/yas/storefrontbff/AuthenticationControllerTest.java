@@ -1,4 +1,4 @@
-package com.yas.storefront.controller;
+package com.yas.storefrontbff;
 
 import com.yas.storefront.viewmodel.AuthenticationInfoVm; 
 import com.yas.storefront.viewmodel.AuthenticatedUserVm;
