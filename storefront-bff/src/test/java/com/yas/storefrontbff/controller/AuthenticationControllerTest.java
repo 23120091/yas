@@ -1,7 +1,6 @@
-package com.yas.storefrontbff;
+package com.yas.storefrontbff.controller;
 
-import com.yas.storefrontbff.viewmodel.AuthenticationInfoVm; 
-import com.yas.storefrontbff.viewmodel.AuthenticatedUserVm;
+import com.yas.storefrontbff.viewmodel.AuthenticatedUser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
