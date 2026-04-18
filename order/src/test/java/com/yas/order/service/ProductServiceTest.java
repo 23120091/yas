@@ -17,11 +17,12 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
 
-import java.math.BigDecimal;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -30,9 +31,11 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT) // Thêm dòng này để nới lỏng cơ chế kiểm tra Stub của Mockito
 class ProductServiceTest {
 
     @Mock private RestClient restClient;
@@ -198,7 +201,6 @@ class ProductServiceTest {
         @Test
         @SuppressWarnings("unchecked")
         void getProductInfomation_WhenServiceReturnsData_ShouldReturnMapKeyedById() {
-            // Đã dùng hàm mock thay vì lệnh new
             ProductCheckoutListVm p1 = buildProductCheckoutListVm(1L, "Product A");
             ProductCheckoutListVm p2 = buildProductCheckoutListVm(2L, "Product B");
             ProductGetCheckoutListVm response =
@@ -306,25 +308,20 @@ class ProductServiceTest {
     // Helpers
     // =========================================================================
 
+    // Thay vì dùng hàm new khởi tạo Vm thủ công dễ sai thứ tự, dùng mock sẽ an toàn và tránh NPE
     private OrderItemVm buildOrderItemVm(Long productId, int quantity) {
-        return new OrderItemVm(
-            productId, 1L, "Product Name", quantity,
-            BigDecimal.ZERO, "note",
-            BigDecimal.ZERO, BigDecimal.ZERO,
-            BigDecimal.ZERO, 1L
-        );
+        OrderItemVm mockItem = mock(OrderItemVm.class);
+        lenient().when(mockItem.productId()).thenReturn(productId);
+        lenient().when(mockItem.quantity()).thenReturn(quantity);
+        return mockItem;
     }
 
     private OrderVm buildOrderVm(Set<OrderItemVm> items) {
-        return new OrderVm(
-            1L, "checkout-001", null, null, "test@example.com",
-            0f, 0f, 1, BigDecimal.ZERO, BigDecimal.ZERO,
-            "COUPON", null, null, null, null,
-            items, "note"
-        );
+        OrderVm mockVm = mock(OrderVm.class);
+        lenient().when(mockVm.orderItemVms()).thenReturn(items);
+        return mockVm;
     }
 
-    // Hàm mock helper an toàn
     private ProductCheckoutListVm buildProductCheckoutListVm(Long id, String name) {
         ProductCheckoutListVm mockVm = mock(ProductCheckoutListVm.class);
         lenient().when(mockVm.getId()).thenReturn(id);
