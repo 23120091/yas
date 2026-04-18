@@ -22,24 +22,34 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - run: |
-        mvn checkstyle:checkstyle \
+    - name: Run Checkstyle Analysis
+      run: |
+        mvn compile checkstyle:checkstyle \
           -pl ${{ inputs.service_path }} -am \
-          -Dcheckstyle.output.file=${{ inputs.service_path }}-checkstyle-result.xml
+          -Dcheckstyle.output.file=${{ inputs.service_path }}-checkstyle-result.xml \
+          -B -ntp
       shell: bash
 
-    - uses: jwgmeligmeyling/checkstyle-github-action@master
+    - name: Parse and Report Checkstyle Results
+      uses: jwgmeligmeyling/checkstyle-github-action@master
       with:
         path: '**/${{ inputs.service_path }}-checkstyle-result.xml'
 
-    - env:
+    - name: Run SonarQube Scanner
+      env:
         SONAR_TOKEN: ${{ inputs.sonar_token }}
       run: |
-        mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
-          -f ${{ inputs.service_path }}
+        mvn sonar:sonar \
+          -pl ${{ inputs.service_path }} -am \
+          -Dsonar.organization=23120091 \
+          -Dsonar.projectKey=23120091_yas \
+          -Dsonar.host.url=https://sonarcloud.io \
+          -Dsonar.token=${{ inputs.sonar_token }} \
+          -Drevision=1.0-SNAPSHOT
       shell: bash
 
-    - uses: madrapps/jacoco-report@v1.6.1
+    - name: Generate and Comment JaCoCo Coverage Report
+      uses: madrapps/jacoco-report@v1.6.1
       with:
         paths: ${{ github.workspace }}/${{ inputs.service_path }}/target/site/jacoco/jacoco.xml
         token: ${{ inputs.github_token }}
@@ -53,7 +63,12 @@ runs:
       run: |
         OVERALL=$(python3 - <<'EOF'
         import xml.etree.ElementTree as ET
-        tree = ET.parse('${{ github.workspace }}/${{ inputs.service_path }}/target/site/jacoco/jacoco.xml')
+        import os
+        path = '${{ github.workspace }}/${{ inputs.service_path }}/target/site/jacoco/jacoco.xml'
+        if not os.path.exists(path):
+            print("0.00")
+            exit(0)
+        tree = ET.parse(path)
         root = tree.getroot()
         for counter in root.findall('counter'):
             if counter.get('type') == 'INSTRUCTION':
@@ -67,12 +82,10 @@ runs:
         )
         echo "Overall instruction coverage: ${OVERALL}%"
         MIN=${{ inputs.min_coverage_overall }}
-
         PASS=$(awk -v val="$OVERALL" -v min="$MIN" 'BEGIN { print (val >= min) ? "yes" : "no" }')
-
         if [ "$PASS" = "no" ]; then
-        echo "Coverage ${OVERALL}% is below required ${MIN}%"
-        exit 1   # ← Đây mới là điểm fail thật sự
+          echo "Coverage ${OVERALL}% is below required ${MIN}%"
+          exit 1
         else
-        echo "Coverage ${OVERALL}% passed threshold ${MIN}%"
+          echo "Coverage ${OVERALL}% passed threshold ${MIN}%"
         fi

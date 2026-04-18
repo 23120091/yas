@@ -21,6 +21,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -54,6 +55,29 @@ class PaymentServiceTest {
         payment.setAmount(BigDecimal.valueOf(100.0));
         payment.setFailureMessage(null);
         payment.setGatewayTransactionId("gatewayId");
+    }
+
+    @Test
+    void initPayment_NotFoundProvider() {
+        InitPaymentRequestVm initPaymentRequestVm = InitPaymentRequestVm.builder()
+                .paymentMethod("NON_EXISTENT")
+                .totalPrice(BigDecimal.TEN)
+                .checkoutId("123")
+                .build();
+        
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> paymentService.initPayment(initPaymentRequestVm));
+        assertEquals("No payment handler found for provider: NON_EXISTENT", exception.getMessage());
+    }
+
+    @Test
+    void capturePayment_NotFoundProvider() {
+        CapturePaymentRequestVm capturePaymentRequestVM = CapturePaymentRequestVm.builder()
+                .paymentMethod("NON_EXISTENT")
+                .token("123")
+                .build();
+        
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> paymentService.capturePayment(capturePaymentRequestVM));
+        assertEquals("No payment handler found for provider: NON_EXISTENT", exception.getMessage());
     }
 
     @Test

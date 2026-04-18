@@ -1,0 +1,14 @@
+services:
+  java-env:
+    image: eclipse-temurin:25-jdk
+    container_name: yas-java-25
+    volumes:
+      - .:/app
+      - maven-repo:/root/.m2
+    working_dir: /app
+    tty: true
+    stdin_open: true
+    command: tail -f /dev/null
+
+volumes:
+  maven-repo:

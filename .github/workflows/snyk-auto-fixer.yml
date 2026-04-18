@@ -1,0 +1,63 @@
+name: Snyk Auto Fixer (Remediation)
+
+on:
+  workflow_dispatch:
+    inputs:
+      service_name:
+        description: 'Service name to fix'
+        required: true
+        type: choice
+        options:
+          - payment
+          - backoffice
+          - common-library
+      service_path:
+        description: 'Service path (e.g., payment)'
+        required: true
+        type: string
+  
+  schedule:
+     - cron: '0 19 * * 6'
+
+jobs:
+  snyk-remediation:
+    name: Auto Upgrade Vulnerabilities for ${{ github.event.inputs.service_name || 'All Services' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java Runtime
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Apply Snyk Fix (Upgrade Dependencies)
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          npm install -g snyk
+          snyk auth $SNYK_TOKEN
+          
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            TARGET_FILE="${{ github.event.inputs.service_path }}/pom.xml"
+            snyk fix --file=$TARGET_FILE || echo "Snyk fix completed for $TARGET_FILE."
+          
+          else
+            snyk fix --all-projects || echo "Snyk fix completed for all projects."
+          fi
+
+      - name: Create Pull Request for Fixes
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(security): [Snyk] upgrade dependencies to fix vulnerabilities"
+          title: "Security Fix: Upgrade dependencies to fix vulnerabilities"
+          body: |
+            Snyk đã tìm thấy và tự động nâng cấp các thư viện lỗi bảo mật trong file `pom.xml`..
+            
+            Vui lòng xem xét các thay đổi và merge nếu phù hợp.
+          branch: "snyk-auto-fix-${{ github.event.inputs.service_name || 'scheduled' }}-${{ github.run_id }}"
+          labels: "security, dependencies, snyk"
