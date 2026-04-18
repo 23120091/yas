@@ -9,12 +9,13 @@ on:
 
 jobs:
   filter-changes:
+    name: Filter Changed Paths
     runs-on: ubuntu-latest
     outputs:
       root: ${{ steps.filter-root.outputs.root }}
       services: ${{ steps.filter-services.outputs.changes }}
     steps:
-      - name: Checkout
+      - name: Checkout Source Code
         uses: actions/checkout@v4
 
       - name: Filter Root Changes
@@ -31,21 +32,20 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter-services
         with:
-          # Thêm service mới vào danh sách này khi cần
+          # Them service moi vao danh sach nay khi can
           filters: |
             backoffice: 'backoffice/**'
             order: 'order/**'
+            payment: 'payment/**'
 
-  # =========================================================
-  # JOB 1: XỬ LÝ ROOT FILES
-  # =========================================================
+  # Job scan gitleaks cho root files
   gitleak-scan-root:
     needs: filter-changes
     name: Gitleaks Scan Root Files
     if: ${{ needs.filter-changes.outputs.root == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout Source Code
         uses: actions/checkout@v4
 
       - name: Setup Target Folder
@@ -59,9 +59,7 @@ jobs:
           tar -xzf gitleaks.tar.gz
           ./gitleaks detect --source root_files --config gitleaks.toml --no-git --verbose
 
-  # =========================================================
-  # JOB 2: XỬ LÝ DYNAMIC MATRIX CHO SERVICES
-  # =========================================================
+  # Job chay CI theo dynamic matrix cho tung service da thay doi
   services-ci:
     needs: filter-changes
     if: ${{ needs.filter-changes.outputs.services != '[]' && needs.filter-changes.outputs.services != '' }}
@@ -77,5 +75,23 @@ jobs:
       service_path: ${{ matrix.service }}
       java_version: '25'
       min_coverage_overall: 70
-      docker_image: ghcr.io/${{ github.repository }}/${{ matrix.service }}:${{ github.sha }}
+      docker_image: ghcr.io/23120091/${{ matrix.service }}:${{ github.sha }}
     secrets: inherit
+
+
+  # Job kiem tra trang thai cuoi cung cua tat ca CI checks
+  ci-gate:
+    name: CI Gate Passed
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [filter-changes, services-ci]
+    steps:
+      - name: Check Status of All Triggered Services
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" || "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "FAILED: One or more services failed their CI checks. Please review the details above."
+            exit 1
+          else
+            echo "PASSED: All triggered services passed their CI checks. Ready for merge."
+            exit 0
+          fi
