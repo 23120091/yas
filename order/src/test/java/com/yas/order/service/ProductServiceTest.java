@@ -220,8 +220,8 @@ class ProductServiceTest {
         @Test
         @SuppressWarnings("unchecked")
         void getProductInfomation_WhenServiceReturnsData_ShouldReturnMapKeyedById() {
-            ProductCheckoutListVm p1 = new ProductCheckoutListVm(1L, "Product A", 50000.0, 10L);
-            ProductCheckoutListVm p2 = new ProductCheckoutListVm(2L, "Product B", 30000.0, 10L);
+            ProductCheckoutListVm p1 = new ProductCheckoutListVm(1L, "Product A");
+            ProductCheckoutListVm p2 = new ProductCheckoutListVm(2L, "Product B");
             ProductGetCheckoutListVm response =
                 new ProductGetCheckoutListVm(List.of(p1, p2), 0, 2, 2, 1, false);
 

@@ -309,7 +309,7 @@ class OrderServiceTest {
             OrderExistsByProductAndUserGetVm result =
                 orderService.isOrderCompletedWithUserIdAndProductId(10L);
 
-            assertThat(result.isOrderWithUserIdAndProductIdExisted()).isTrue();
+            assertThat(result.isPresent()).isTrue();
         }
 
         @Test
@@ -326,7 +326,7 @@ class OrderServiceTest {
             OrderExistsByProductAndUserGetVm result =
                 orderService.isOrderCompletedWithUserIdAndProductId(10L);
 
-            assertThat(result.isOrderWithUserIdAndProductIdExisted()).isFalse();
+            assertThat(result.isPresent()).isFalse();
         }
 
         @Test
@@ -339,7 +339,7 @@ class OrderServiceTest {
             OrderExistsByProductAndUserGetVm result =
                 orderService.isOrderCompletedWithUserIdAndProductId(10L);
 
-            assertThat(result.isOrderWithUserIdAndProductIdExisted()).isFalse();
+            assertThat(result.isPresent()).isFalse();
         }
     }
 
