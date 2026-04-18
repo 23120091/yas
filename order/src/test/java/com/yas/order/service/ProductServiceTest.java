@@ -303,4 +303,41 @@ class ProductServiceTest {
 
         @Test
         void handleProductInfomationFallback_ShouldRethrowException() {
-            RuntimeException ex = new RuntimeException("
+            RuntimeException ex = new RuntimeException("circuit breaker open");
+
+            assertThatThrownBy(() -> productService.handleProductInfomationFallback(ex))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("circuit breaker open");
+        }
+    }
+
+    // =========================================================================
+    // Helpers
+    // =========================================================================
+
+    // Dùng constructor chuẩn của POJO/Record để tránh các lỗi ẩn khi Mock Object.
+    private OrderItemVm buildOrderItemVm(Long productId, int quantity) {
+        return new OrderItemVm(
+            productId, 1L, "Product Name", quantity,
+            BigDecimal.ZERO, "note",
+            BigDecimal.ZERO, BigDecimal.ZERO,
+            BigDecimal.ZERO, 1L
+        );
+    }
+
+    private OrderVm buildOrderVm(Set<OrderItemVm> items) {
+        return new OrderVm(
+            1L, "checkout-001", null, null, "test@example.com",
+            0f, 0f, items.size(), BigDecimal.ZERO, BigDecimal.ZERO,
+            "COUPON", null, null, null, null,
+            items, "note"
+        );
+    }
+
+    private ProductCheckoutListVm buildProductCheckoutListVm(Long id, String name) {
+        ProductCheckoutListVm mockVm = mock(ProductCheckoutListVm.class);
+        lenient().when(mockVm.getId()).thenReturn(id);
+        lenient().when(mockVm.getName()).thenReturn(name);
+        return mockVm;
+    }
+}
