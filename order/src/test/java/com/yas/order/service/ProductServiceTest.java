@@ -148,23 +148,28 @@ class ProductServiceTest {
          */
         @Test
         @SuppressWarnings("unchecked")
-        void subtractProductStockQuantity_WhenCalled_ShouldCallPutEndpoint() {
-            OrderVm orderVm = buildOrderVm(Set.of(
-                buildOrderItemVm(1L, 2),
-                buildOrderItemVm(2L, 3)
-            ));
+        void getProductInfomation_WhenServiceReturnsData_ShouldReturnMapKeyedById() {
+            // Thay vì dùng lệnh new bị cấm, ta gọi hàm mock helper
+            ProductCheckoutListVm p1 = buildProductCheckoutListVm(1L, "Product A");
+            ProductCheckoutListVm p2 = buildProductCheckoutListVm(2L, "Product B");
+            ProductGetCheckoutListVm response =
+                new ProductGetCheckoutListVm(List.of(p1, p2), 0, 2, 2, 1, false);
 
-            when(restClient.put()).thenReturn(putSpec);
-            when(putSpec.uri(any(URI.class))).thenReturn(bodySpec);
-            when(bodySpec.headers(any())).thenReturn(bodySpec);
-            when(bodySpec.body(any())).thenReturn(bodySpec);
-            when(bodySpec.retrieve()).thenReturn(responseSpec);
+            when(restClient.get()).thenReturn(getSpec);
+            when(getSpec.uri(any(URI.class))).thenReturn(headersSpec);
+            when(headersSpec.headers(any())).thenReturn(headersSpec);
+            when(headersSpec.retrieve()).thenReturn(responseSpec);
+            when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
+                .thenReturn(ResponseEntity.ok(response));
 
-            productService.subtractProductStockQuantity(orderVm);
+            Map<Long, ProductCheckoutListVm> result =
+                productService.getProductInfomation(Set.of(1L, 2L), 0, 10);
 
-            verify(restClient).put();
-            verify(bodySpec).body(any());
-            verify(bodySpec).retrieve();
+            assertThat(result).hasSize(2);
+            assertThat(result).containsKey(1L);
+            assertThat(result).containsKey(2L);
+            assertThat(result.get(1L).getName()).isEqualTo("Product A");
+            assertThat(result.get(2L).getName()).isEqualTo("Product B");
         }
 
         /**
@@ -358,5 +363,12 @@ class ProductServiceTest {
             "COUPON", null, null, null, null,
             items, "note"
         );
+    }
+    // Thêm hàm mock này vào phần Helpers
+    private ProductCheckoutListVm buildProductCheckoutListVm(Long id, String name) {
+        ProductCheckoutListVm mockVm = mock(ProductCheckoutListVm.class);
+        lenient().when(mockVm.getId()).thenReturn(id);
+        lenient().when(mockVm.getName()).thenReturn(name);
+        return mockVm;
     }
 }
