@@ -1,4 +1,11 @@
-package com.yas.media;
+package com.yas.media.service;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import org.springframework.http.MediaType;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -274,5 +281,57 @@ class MediaServiceUnitTest {
         return media;
     }
 
+    @Test
+    void getFile_WhenValidIdAndName_ShouldReturnMediaDto() throws IOException {
+        // Arrange
+        Long mediaId = 1L;
+        String fileName = "test.png";
+        media.setFileName(fileName);
+        media.setMediaType("image/png");
+        media.setFilePath("path/to/test.png");
 
+        byte[] content = "fake-image-data".getBytes();
+        java.io.InputStream inputStream = new java.io.ByteArrayInputStream(content);
+
+        when(mediaRepository.findById(mediaId)).thenReturn(Optional.of(media));
+        when(fileSystemRepository.getFile(media.getFilePath())).thenReturn(inputStream);
+
+        // Act
+        MediaDto result = mediaService.getFile(mediaId, fileName);
+
+        // Assert
+        assertNotNull(result.getContent());
+        assertEquals(org.springframework.http.MediaType.IMAGE_PNG, result.getMediaType());
+    }
+
+    @Test
+    void getMediaByIds_whenEmptyList_thenReturnEmptyList() {
+        // Given
+        List<Long> ids = List.of();
+        when(mediaRepository.findAllById(ids)).thenReturn(List.of());
+
+        // When
+        List<MediaVm> result = mediaService.getMediaByIds(ids);
+
+        // Then
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void saveMedia_withFileNameOverride_shouldUseOverrideName() throws IOException {
+        // Given
+        String overrideName = "new-name.png";
+        MockMultipartFile file = new MockMultipartFile("file", "original.png", "image/png", "data".getBytes());
+        MediaPostVm vm = new MediaPostVm("caption", file, overrideName);
+
+        when(fileSystemRepository.persistFile(anyString(), any())).thenReturn("stored/path");
+        when(mediaRepository.save(any(Media.class))).thenAnswer(i -> i.getArgument(0));
+
+        // When
+        Media result = mediaService.saveMedia(vm);
+
+        // Then
+        assertEquals(overrideName, result.getFileName());
+        verify(fileSystemRepository).persistFile(eq(overrideName), any());
+    }
 }

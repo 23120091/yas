@@ -1,4 +1,4 @@
-package com.yas.media;
+package com.yas.media.repository;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
