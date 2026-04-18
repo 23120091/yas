@@ -71,7 +71,7 @@ class ProductServiceTest {
         );
 
         when(restClient.get()).thenReturn((RestClient.RequestHeadersUriSpec) getSpec);
-        when(getSpec.uri(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
+        when(getSpec.uri(any(URI.class))).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
         when(headersSpec.headers(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
         when(headersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
@@ -88,7 +88,7 @@ class ProductServiceTest {
     @SuppressWarnings("unchecked")
     void getProductVariations_WhenResponseBodyIsNull_ShouldReturnNull() {
         when(restClient.get()).thenReturn((RestClient.RequestHeadersUriSpec) getSpec);
-        when(getSpec.uri(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
+        when(getSpec.uri(any(URI.class))).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
         when(headersSpec.headers(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
         when(headersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
@@ -103,7 +103,7 @@ class ProductServiceTest {
     @SuppressWarnings("unchecked")
     void getProductVariations_WhenServiceFails_ShouldPropagate() {
         when(restClient.get()).thenReturn((RestClient.RequestHeadersUriSpec) getSpec);
-        when(getSpec.uri(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
+        when(getSpec.uri(any(URI.class))).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
         when(headersSpec.headers(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
         when(headersSpec.retrieve()).thenThrow(new RuntimeException("product service down"));
 
@@ -121,7 +121,7 @@ class ProductServiceTest {
         ));
 
         when(restClient.put()).thenReturn(putSpec);
-        when(putSpec.uri(any())).thenReturn(bodySpec);
+        when(putSpec.uri(any(URI.class))).thenReturn(bodySpec);
         when(bodySpec.headers(any())).thenReturn(bodySpec);
         when(bodySpec.body(any())).thenReturn(bodySpec);
         when(bodySpec.retrieve()).thenReturn(responseSpec);
@@ -139,7 +139,7 @@ class ProductServiceTest {
         OrderVm orderVm = buildOrderVm(Set.of(buildOrderItemVm(1L, 1)));
 
         when(restClient.put()).thenReturn(putSpec);
-        when(putSpec.uri(any())).thenReturn(bodySpec);
+        when(putSpec.uri(any(URI.class))).thenReturn(bodySpec);
         when(bodySpec.headers(any())).thenReturn(bodySpec);
         when(bodySpec.body(any())).thenReturn(bodySpec);
         when(bodySpec.retrieve()).thenThrow(new RuntimeException("subtract stock failed"));
@@ -155,7 +155,7 @@ class ProductServiceTest {
         OrderVm orderVm = buildOrderVm(Set.of());
 
         when(restClient.put()).thenReturn(putSpec);
-        when(putSpec.uri(any())).thenReturn(bodySpec);
+        when(putSpec.uri(any(URI.class))).thenReturn(bodySpec);
         when(bodySpec.headers(any())).thenReturn(bodySpec);
         when(bodySpec.body(any())).thenReturn(bodySpec);
         when(bodySpec.retrieve()).thenReturn(responseSpec);
@@ -170,10 +170,10 @@ class ProductServiceTest {
     void getProductInfomation_ShouldReturnMapKeyedByProductId() {
         ProductCheckoutListVm product1 = buildProductCheckoutListVm(1L, "Product A");
         ProductCheckoutListVm product2 = buildProductCheckoutListVm(2L, "Product B");
-        ProductGetCheckoutListVm response = new ProductGetCheckoutListVm(List.of(product1, product2));
+        ProductGetCheckoutListVm response = new ProductGetCheckoutListVm(List.of(product1, product2), 1, 1, 2, 2, false);
 
         when(restClient.get()).thenReturn((RestClient.RequestHeadersUriSpec) getSpec);
-        when(getSpec.uri(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
+        when(getSpec.uri(any(URI.class))).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
         when(headersSpec.headers(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
         when(headersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
@@ -192,7 +192,7 @@ class ProductServiceTest {
     @SuppressWarnings("unchecked")
     void getProductInfomation_WhenResponseIsNull_ShouldThrowNotFoundException() {
         when(restClient.get()).thenReturn((RestClient.RequestHeadersUriSpec) getSpec);
-        when(getSpec.uri(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
+        when(getSpec.uri(any(URI.class))).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
         when(headersSpec.headers(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
         when(headersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
@@ -206,10 +206,10 @@ class ProductServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void getProductInfomation_WhenProductListIsNull_ShouldThrowNotFoundException() {
-        ProductGetCheckoutListVm response = new ProductGetCheckoutListVm(null);
+        ProductGetCheckoutListVm response = new ProductGetCheckoutListVm(null, 1, 1, 2, 2, false);
 
         when(restClient.get()).thenReturn((RestClient.RequestHeadersUriSpec) getSpec);
-        when(getSpec.uri(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
+        when(getSpec.uri(any(URI.class))).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
         when(headersSpec.headers(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
         when(headersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
@@ -224,7 +224,7 @@ class ProductServiceTest {
     @SuppressWarnings("unchecked")
     void getProductInfomation_WhenServiceFails_ShouldPropagate() {
         when(restClient.get()).thenReturn((RestClient.RequestHeadersUriSpec) getSpec);
-        when(getSpec.uri(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
+        when(getSpec.uri(any(URI.class))).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
         when(headersSpec.headers(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
         when(headersSpec.retrieve()).thenThrow(new RuntimeException("product info service down"));
 
@@ -238,10 +238,10 @@ class ProductServiceTest {
     void getProductInfomation_ShouldCollectResultsIntoMapCorrectly() {
         // Verify duplicate IDs don't cause issues (last write wins with toMap)
         ProductCheckoutListVm product = buildProductCheckoutListVm(5L, "Single Product");
-        ProductGetCheckoutListVm response = new ProductGetCheckoutListVm(List.of(product));
+        ProductGetCheckoutListVm response = new ProductGetCheckoutListVm(List.of(product), 1, 1, 1, 1, false);
 
         when(restClient.get()).thenReturn((RestClient.RequestHeadersUriSpec) getSpec);
-        when(getSpec.uri(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
+        when(getSpec.uri(any(URI.class))).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
         when(headersSpec.headers(any())).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
         when(headersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.toEntity(any(ParameterizedTypeReference.class)))
@@ -272,8 +272,9 @@ class ProductServiceTest {
             .hasMessage("cb open");
     }
 
-    private ProductVariationVm buildProductVariationVm(Long id, String name) {
-        return new ProductVariationVm(id, name);
+private ProductVariationVm buildProductVariationVm(Long id, String name) {
+        // Record yêu cầu 3 tham số: Long, String, String
+        return new ProductVariationVm(id, name, "SKU-DUMMY");
     }
 
     private ProductCheckoutListVm buildProductCheckoutListVm(Long id, String name) {
@@ -284,10 +285,21 @@ class ProductServiceTest {
     }
 
     private OrderItemVm buildOrderItemVm(Long productId, int quantity) {
-        return new OrderItemVm(productId, quantity);
+        // Record OrderItemVm yêu cầu 10 tham số
+        return new OrderItemVm(
+            productId, 1L, "Product Name", quantity, 
+            java.math.BigDecimal.ZERO, "Note", 
+            java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO, 
+            java.math.BigDecimal.ZERO, 1L
+        );
     }
 
     private OrderVm buildOrderVm(Set<OrderItemVm> items) {
-        return new OrderVm(items);
+        // Record OrderVm yêu cầu 17 tham số
+        return new OrderVm(
+            1L, "checkout-001", null, null, "test@example.com", 
+            0f, 0f, 1, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO, 
+            "COUPON", null, null, null, null, 
+            items, "note"
+        );
     }
-}

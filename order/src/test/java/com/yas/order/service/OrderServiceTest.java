@@ -29,6 +29,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.util.Pair;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.*;
 
@@ -260,7 +261,8 @@ class OrderServiceTest {
 
             OrderExistsByProductAndUserGetVm result = orderService.isOrderCompletedWithUserIdAndProductId(10L);
 
-            assertThat(result.isOrderWithUserIdAndProductIdExisted()).isTrue();
+            // Chú ý: Hãy sửa lại chữ .existedOrder() cho đúng với tên hàm Get trong class OrderExistsByProductAndUserGetVm của bạn
+            assertThat(result.existedOrder()).isTrue();
         }
 
         @Test
@@ -268,12 +270,13 @@ class OrderServiceTest {
         void isOrderCompletedWithUserIdAndProductId_WhenVariationsExist_ShouldUseVariationIds() {
             authUtilsMock.when(AuthenticationUtils::extractUserId).thenReturn(USER_ID);
             when(productService.getProductVariations(10L))
-                .thenReturn(List.of(new ProductVariationVm(11L, "Red"), new ProductVariationVm(12L, "Blue")));
+                .thenReturn(List.of(new ProductVariationVm(11L, "Red", "SKU-1"), new ProductVariationVm(12L, "Blue", "SKU-2")));
             when(orderRepository.findOne(any(Specification.class))).thenReturn(Optional.empty());
 
             OrderExistsByProductAndUserGetVm result = orderService.isOrderCompletedWithUserIdAndProductId(10L);
 
-            assertThat(result.isOrderWithUserIdAndProductIdExisted()).isFalse();
+            // Chú ý: Hãy sửa lại chữ .existedOrder() cho khớp với Record
+            assertThat(result.existedOrder()).isFalse();
         }
 
         @Test
@@ -285,7 +288,8 @@ class OrderServiceTest {
 
             OrderExistsByProductAndUserGetVm result = orderService.isOrderCompletedWithUserIdAndProductId(10L);
 
-            assertThat(result.isOrderWithUserIdAndProductIdExisted()).isFalse();
+            // Chú ý: Hãy sửa lại chữ .existedOrder() cho khớp với Record
+            assertThat(result.existedOrder()).isFalse();
         }
     }
 
@@ -362,7 +366,7 @@ class OrderServiceTest {
 
             PaymentOrderStatusVm input = PaymentOrderStatusVm.builder()
                 .orderId(ORDER_ID)
-                .paymentId("pay-001")
+                .paymentId(1L)
                 .paymentStatus(PaymentStatus.COMPLETED.name())
                 .build();
 
@@ -370,7 +374,7 @@ class OrderServiceTest {
 
             assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAID);
             assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.COMPLETED);
-            assertThat(result.paymentId()).isEqualTo("pay-001");
+            assertThat(result.paymentId()).isEqualTo(1L);
         }
 
         @Test
@@ -381,7 +385,7 @@ class OrderServiceTest {
 
             PaymentOrderStatusVm input = PaymentOrderStatusVm.builder()
                 .orderId(ORDER_ID)
-                .paymentId("pay-002")
+                .paymentId(2L)
                 .paymentStatus(PaymentStatus.PENDING.name())
                 .build();
 
@@ -397,7 +401,7 @@ class OrderServiceTest {
 
             PaymentOrderStatusVm input = PaymentOrderStatusVm.builder()
                 .orderId(ORDER_ID)
-                .paymentId("pay-003")
+                .paymentId(3L)
                 .paymentStatus(PaymentStatus.COMPLETED.name())
                 .build();
 
@@ -476,7 +480,7 @@ class OrderServiceTest {
             Page<Order> page = new PageImpl<>(List.of(order));
             when(orderRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
 
-            OrderItemCsv csvRow = new OrderItemCsv();
+            OrderItemCsv csvRow = OrderItemCsv.builder().build();
             when(orderMapper.toCsv(any(OrderBriefVm.class))).thenReturn(csvRow);
 
             byte[] result = orderService.exportCsv(request);
@@ -514,16 +518,26 @@ class OrderServiceTest {
     }
 
     private OrderPostVm buildOrderPostVm() {
-        Set<OrderItemPostVm> items = Set.of(
-            new OrderItemPostVm(1L, "Product A", 2, 50000.0, "note1"),
-            new OrderItemPostVm(2L, "Product B", 1, 30000.0, "note2")
+        List<OrderItemPostVm> items = List.of(
+            new OrderItemPostVm(1L, "Product A", 2, BigDecimal.valueOf(50000), "note1", BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO),
+            new OrderItemPostVm(2L, "Product B", 1, BigDecimal.valueOf(30000), "note2", BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)
         );
+        
         return new OrderPostVm(
-            "test@example.com", "Note",
-            0.0, 10.0, 3, 130000.0,
-            "COUPON10", PaymentStatus.PENDING,
-            5000.0, "GHN", "checkout-001",
-            buildAddressPostVm(), buildAddressPostVm(),
+            "test@example.com", 
+            "Note",
+            buildAddressPostVm(), 
+            buildAddressPostVm(),
+            "COUPON10", 
+            0.0f, 
+            10.0f, 
+            3, 
+            BigDecimal.valueOf(130000), 
+            BigDecimal.valueOf(5000), 
+            "checkout-001", 
+            com.yas.order.model.enumeration.DeliveryMethod.GHN, 
+            null, 
+            PaymentStatus.PENDING,
             items
         );
     }
