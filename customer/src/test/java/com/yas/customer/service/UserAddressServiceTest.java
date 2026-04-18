@@ -187,9 +187,9 @@ class UserAddressServiceTest {
     }
     private void mockSecurityContext(String name) {
         Authentication authentication = mock(Authentication.class);
-        when(authentication.getName()).thenReturn(name);
+        lenient().when(authentication.getName()).thenReturn(name);
         SecurityContext securityContext = mock(SecurityContext.class);
-        when(securityContext.getAuthentication()).thenReturn(authentication);
+        lenient().when(securityContext.getAuthentication()).thenReturn(authentication);
         SecurityContextHolder.setContext(securityContext);
     }
 
