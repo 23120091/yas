@@ -107,5 +107,23 @@ class FileSystemRepositoryTest {
         assertThrows(IllegalStateException.class, () -> fileSystemRepository.getFile(filePathStr));
     }
 
+    @Test
+    void persistFile_whenInvalidFilename_thenThrowsIllegalArgumentException() {
+        // Test chống tấn công Path Traversal
+        String invalidFilename = "../etc/passwd";
+        byte[] content = "data".getBytes();
+
+        assertThrows(IllegalArgumentException.class, () -> 
+            fileSystemRepository.persistFile(invalidFilename, content));
+    }
+
+    @Test
+    void getFile_whenFileNotExists_thenThrowsIllegalStateException() {
+        String filePath = "non-existent-file.txt";
+        when(filesystemConfig.getDirectory()).thenReturn("src/test/resources");
+
+        assertThrows(IllegalStateException.class, () -> 
+            fileSystemRepository.getFile(filePath));
+    }
 }
 

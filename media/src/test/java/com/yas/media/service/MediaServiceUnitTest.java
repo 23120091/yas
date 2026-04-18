@@ -334,4 +334,62 @@ class MediaServiceUnitTest {
         assertEquals(overrideName, result.getFileName());
         verify(fileSystemRepository).persistFile(eq(overrideName), any());
     }
+
+    @Test
+    void getFile_whenIdFoundButNameNotMatch_thenReturnEmptyContent() {
+        // Trường hợp tìm thấy ID nhưng tên file cung cấp khác với tên file trong DB
+        media.setFileName("real-file.png");
+        when(mediaRepository.findById(1L)).thenReturn(Optional.of(media));
+
+        MediaDto result = mediaService.getFile(1L, "wrong-file-name.png");
+
+        assertNull(result.getContent());
+        assertNull(result.getMediaType());
+    }
+
+    @Test
+    void getMediaByIds_whenSomeIdsExistAndSomeNot_thenReturnOnlyFound() {
+        // Case: Truy vấn danh sách ID nhưng chỉ một số ID tồn tại trong DB
+        Media m1 = getMedia(1L, "found.png");
+        when(mediaRepository.findAllById(any())).thenReturn(List.of(m1));
+        when(yasConfig.publicUrl()).thenReturn("http://localhost");
+
+        List<MediaVm> result = mediaService.getMediaByIds(List.of(1L, 99L));
+
+        assertEquals(1, result.size());
+        assertEquals("found.png", result.get(0).getFileName());
+    }
+
+    @Test
+    void getMediaByIds_whenListHasPartialMatches_shouldReturnOnlyFoundOnes() {
+        // Given: Chỉ có media 1 tồn tại
+        Media m1 = new Media();
+        m1.setId(1L);
+        m1.setFileName("file1.png");
+        
+        when(mediaRepository.findAllById(any())).thenReturn(List.of(m1));
+        when(yasConfig.publicUrl()).thenReturn("http://localhost");
+
+        // When
+        List<MediaVm> results = mediaService.getMediaByIds(List.of(1L, 99L));
+
+        // Then: Chỉ trả về 1 phần tử
+        assertEquals(1, results.size());
+        assertEquals("file1.png", results.get(0).getFileName());
+    }
+
+    @Test
+        void saveMedia_whenOverrideNameIsBlank_shouldUseOriginalFileName() {
+            // Given: Tên override để trống
+            MockMultipartFile file = new MockMultipartFile("file", "original_name.jpg", "image/jpeg", "data".getBytes());
+            MediaPostVm vm = new MediaPostVm("caption", file, ""); // Tên trống
+
+            when(mediaRepository.save(any(Media.class))).thenAnswer(i -> i.getArgument(0));
+
+            // When
+            Media result = mediaService.saveMedia(vm);
+
+            // Then: Code sẽ lấy tên gốc "original_name.jpg"
+            assertEquals("original_name.jpg", result.getFileName());
+        }
 }
