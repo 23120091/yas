@@ -117,7 +117,7 @@ class UserAddressServiceTest {
         when(userAddressRepository.findAllByUserId(USER_ID)).thenReturn(Collections.emptyList());
 
         AddressPostVm postVm = buildAddressPostVm();
-        AddressVm addressVm = new AddressVm(99L);
+        AddressVm addressVm = buildAddressVm(99L); 
         when(locationService.createAddress(postVm)).thenReturn(addressVm);
 
         UserAddress savedAddress = buildUserAddress(99L, true);
@@ -135,7 +135,7 @@ class UserAddressServiceTest {
         when(userAddressRepository.findAllByUserId(USER_ID)).thenReturn(List.of(existing));
 
         AddressPostVm postVm = buildAddressPostVm();
-        AddressVm addressVm = new AddressVm(100L);
+        AddressVm addressVm = buildAddressVm(100L); 
         when(locationService.createAddress(postVm)).thenReturn(addressVm);
 
         UserAddress savedAddress = buildUserAddress(100L, false);
@@ -212,4 +212,7 @@ class UserAddressServiceTest {
             "456 Le Loi", "HCMC", "70000",
             2L, 2L, 84L);
     }
+    private AddressVm buildAddressVm(Long id) {
+        return new AddressVm(id, "Jane", "0987654321", "456 Le Loi", "HCMC", "70000", 2L, 2L, 84L);
+    }   
 }
