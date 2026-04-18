@@ -1,6 +1,8 @@
 package com.yas.storefrontbff.controller;
 
-import com.yas.storefrontbff.viewmodel.AuthenticatedUser;
+import com.yas.storefrontbff.viewmodel.AuthenticationInfoVm;
+import com.yas.storefrontbff.viewmodel.AuthenticatedUserVm; 
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -23,21 +25,22 @@ class AuthenticationControllerTest {
 
     @Test
     void user_WhenLoggedIn_ShouldReturnTrueAndUsername() {
-        // Giả lập có user
         String username = "customer_123";
         when(principal.getAttribute("preferred_username")).thenReturn(username);
 
         ResponseEntity<AuthenticationInfoVm> response = authenticationController.user(principal);
 
-        assertTrue(response.getBody().isAuthenticated()); // Check field isAuthenticated
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody().isAuthenticated());
+        // Chỗ này phải gọi .authenticatedUser() để lấy object bên trong
         assertEquals(username, response.getBody().authenticatedUser().username());
     }
 
     @Test
     void user_WhenNotLoggedIn_ShouldReturnFalseAndNullUser() {
-        // Trường hợp principal là null (chưa đăng nhập)
         ResponseEntity<AuthenticationInfoVm> response = authenticationController.user(null);
 
+        assertNotNull(response.getBody());
         assertFalse(response.getBody().isAuthenticated());
         assertNull(response.getBody().authenticatedUser());
     }
