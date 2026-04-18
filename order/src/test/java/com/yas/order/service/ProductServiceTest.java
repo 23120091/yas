@@ -20,6 +20,8 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
 
+import java.math.BigDecimal;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -236,7 +238,6 @@ class ProductServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void getProductInfomation_ShouldCollectResultsIntoMapCorrectly() {
-        // Verify duplicate IDs don't cause issues (last write wins with toMap)
         ProductCheckoutListVm product = buildProductCheckoutListVm(5L, "Single Product");
         ProductGetCheckoutListVm response = new ProductGetCheckoutListVm(List.of(product), 1, 1, 1, 1, false);
 
@@ -272,8 +273,11 @@ class ProductServiceTest {
             .hasMessage("cb open");
     }
 
-private ProductVariationVm buildProductVariationVm(Long id, String name) {
-        // Record yêu cầu 3 tham số: Long, String, String
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
+    private ProductVariationVm buildProductVariationVm(Long id, String name) {
         return new ProductVariationVm(id, name, "SKU-DUMMY");
     }
 
@@ -285,21 +289,20 @@ private ProductVariationVm buildProductVariationVm(Long id, String name) {
     }
 
     private OrderItemVm buildOrderItemVm(Long productId, int quantity) {
-        // Record OrderItemVm yêu cầu 10 tham số
         return new OrderItemVm(
-            productId, 1L, "Product Name", quantity, 
-            java.math.BigDecimal.ZERO, "Note", 
-            java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO, 
-            java.math.BigDecimal.ZERO, 1L
+            productId, 1L, "Product Name", quantity,
+            BigDecimal.ZERO, "Note",
+            BigDecimal.ZERO, BigDecimal.ZERO,
+            BigDecimal.ZERO, 1L
         );
     }
 
     private OrderVm buildOrderVm(Set<OrderItemVm> items) {
-        // Record OrderVm yêu cầu 17 tham số
         return new OrderVm(
-            1L, "checkout-001", null, null, "test@example.com", 
-            0f, 0f, 1, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO, 
-            "COUPON", null, null, null, null, 
+            1L, "checkout-001", null, null, "test@example.com",
+            0f, 0f, 1, BigDecimal.ZERO, BigDecimal.ZERO,
+            "COUPON", null, null, null, null,
             items, "note"
         );
     }
+}
