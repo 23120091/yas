@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -32,7 +33,6 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -149,7 +149,6 @@ class ProductServiceTest {
             when(putSpec.uri(any(URI.class))).thenReturn(bodySpec);
             when(bodySpec.headers(any())).thenReturn(bodySpec);
             
-            // Fix NPE bằng việc sử dụng doReturn và match Argument explicitly
             doReturn(bodySpec).when(bodySpec).body(any(Object.class));
             
             when(bodySpec.retrieve()).thenReturn(responseSpec);
@@ -176,7 +175,13 @@ class ProductServiceTest {
 
             productService.subtractProductStockQuantity(orderVm);
 
-            verify(bodySpec).body(argThat(b -> b instanceof List && ((List<?>) b).isEmpty()));
+            // Sử dụng ArgumentCaptor để tránh lỗi ClassCastException do overload method
+            ArgumentCaptor<Object> bodyCaptor = ArgumentCaptor.forClass(Object.class);
+            verify(bodySpec).body(bodyCaptor.capture());
+            
+            Object capturedBody = bodyCaptor.getValue();
+            assertThat(capturedBody).isInstanceOf(List.class);
+            assertThat((List<?>) capturedBody).isEmpty();
         }
 
         @Test
@@ -315,7 +320,6 @@ class ProductServiceTest {
     // Helpers
     // =========================================================================
 
-    // Dùng constructor chuẩn của POJO/Record để tránh các lỗi ẩn khi Mock Object.
     private OrderItemVm buildOrderItemVm(Long productId, int quantity) {
         return new OrderItemVm(
             productId, 1L, "Product Name", quantity,
