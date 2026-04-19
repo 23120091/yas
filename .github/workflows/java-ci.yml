@@ -34,9 +34,6 @@ jobs:
         with:
           # Them service moi vao danh sach nay khi can
           filters: |
-            backoffice: 'backoffice/**'
-            payment: 'payment/**'
-            customer: 'customer/**'
             backoffice-bff:
               - 'backoffice-bff/**'
               - 'pom.xml'
