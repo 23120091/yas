@@ -2,6 +2,11 @@ package com.yas.storefrontbff.controller;
 
 import com.yas.storefrontbff.viewmodel.AuthenticationInfoVm;
 import com.yas.storefrontbff.viewmodel.AuthenticatedUserVm; 
+import com.yas.storefrontbff.viewmodel.CartDetailVm;
+import com.yas.storefrontbff.viewmodel.CartGetDetailVm;
+import com.yas.storefrontbff.viewmodel.CartItemVm;
+import com.yas.storefrontbff.viewmodel.GuestUserVm;
+import com.yas.storefrontbff.viewmodel.TokenResponseVm;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,5 +48,28 @@ class AuthenticationControllerTest {
         assertNotNull(response.getBody());
         assertFalse(response.getBody().isAuthenticated());
         assertNull(response.getBody().authenticatedUser());
+    }
+
+    @Test
+    void testRemainingViewModels() {
+        // 1. Test CartDetailVm và CartGetDetailVm
+        CartDetailVm detail = new CartDetailVm(1L, 101L, 2);
+        CartGetDetailVm cartGet = new CartGetDetailVm(10L, "user_id", List.of(detail));
+        
+        assertEquals(101L, detail.productId());
+        assertEquals("user_id", cartGet.customerId());
+        assertFalse(cartGet.cartDetails().isEmpty());
+
+        // 2. Test CartItemVm (Có chứa logic static method)
+        CartItemVm item = CartItemVm.fromCartDetailVm(detail);
+        assertEquals(101L, item.productId());
+        assertEquals(2, item.quantity());
+
+        // 3. Test GuestUserVm và TokenResponseVm
+        GuestUserVm guest = new GuestUserVm("G1", "guest@example.com", "secret");
+        TokenResponseVm token = new TokenResponseVm("access_token", "refresh_token");
+
+        assertEquals("guest@example.com", guest.email());
+        assertEquals("access_token", token.accessToken());
     }
 }
