@@ -37,5 +37,5 @@ class AuthenticationControllerIT {
     void user_WhenUnauthenticated_ShouldReturn401() throws Exception {
         mockMvc.perform(get("/authentication/user"))
                 .andExpect(status().isUnauthorized());
-    }
+    } 
 }
