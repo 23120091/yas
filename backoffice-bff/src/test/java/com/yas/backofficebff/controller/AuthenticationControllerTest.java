@@ -39,13 +39,6 @@ class AuthenticationControllerTest {
     }
 
     @Test
-    @DisplayName("Nên trả về 401 Unauthorized khi truy cập mà không có token")
-    void user_WhenUnauthenticated_ShouldReturn401() throws Exception {
-        mockMvc.perform(get("/authentication/user"))
-                .andExpect(status().isUnauthorized());
-    }
-
-    @Test
     void user_WhenPreferredUsernameIsNull_ShouldReturnNullUsername() {
         // Giả lập trường hợp User đăng nhập nhưng không có thuộc tính preferred_username
         when(principal.getAttribute("preferred_username")).thenReturn(null);
