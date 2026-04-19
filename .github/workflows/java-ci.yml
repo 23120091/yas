@@ -34,9 +34,60 @@ jobs:
         with:
           # Them service moi vao danh sach nay khi can
           filters: |
-            backoffice: 'backoffice/**'
-            payment: 'payment/**'
-            rating: 'rating/**'
+            backoffice-bff:
+              - 'backoffice-bff/**'
+              - 'pom.xml'
+            cart:
+              - 'cart/**'
+              - 'pom.xml'
+            customer:
+              - 'customer/**'
+              - 'pom.xml'
+            inventory:
+              - 'inventory/**'
+              - 'pom.xml'
+            location:
+              - 'location/**'
+              - 'pom.xml'
+            media:
+              - 'media/**'
+              - 'pom.xml'
+            order:
+              - 'order/**'
+              - 'pom.xml'
+            payment:
+              - 'payment/**'
+              - 'pom.xml'
+            payment-paypal:
+              - 'payment-paypal/**'
+              - 'pom.xml'
+            product:
+              - 'product/**'
+              - 'pom.xml'
+            promotion:
+              - 'promotion/**'
+              - 'pom.xml'
+            rating:
+              - 'rating/**'
+              - 'pom.xml'
+            recommendation:
+              - 'recommendation/**'
+              - 'pom.xml'
+            sampledata:
+              - 'sampledata/**'
+              - 'pom.xml'
+            search:
+              - 'search/**'
+              - 'pom.xml'
+            storefront-bff:
+              - 'storefront-bff/**'
+              - 'pom.xml'
+            tax:
+              - 'tax/**'
+              - 'pom.xml'
+            webhook:
+              - 'webhook/**'
+              - 'pom.xml'
 
   # Job scan gitleaks cho root files
   gitleak-scan-root:
