@@ -1,0 +1,84 @@
+name: Release Docker Image and Create GitHub Release
+
+on:
+  push:
+    tags:
+      - '*-*' # Khớp với các tag như 'cart-1.0.0' hoặc 'backoffice-bff-v2.1'
+
+jobs:
+  build-and-release:
+    name: Build, Push and Release
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Extract Service Name and Version from Tag
+        id: extract
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          # Lấy Service Path: tất cả phần trước dấu gạch ngang cuối cùng
+          SERVICE_PATH=$(echo $TAG_NAME | rev | cut -d'-' -f2- | rev)
+          # Lấy Version: phần sau dấu gạch ngang cuối cùng
+          VERSION=$(echo $TAG_NAME | rev | cut -d'-' -f1 | rev)
+          
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "service_path=$SERVICE_PATH" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if Service Path Exists
+        run: |
+          if [ ! -d "${{ steps.extract.outputs.service_path }}" ] || [ ! -f "${{ steps.extract.outputs.service_path }}/Dockerfile" ]; then
+            echo "Directory or Dockerfile for ${{ steps.extract.outputs.service_path }} not found."
+            exit 1
+          fi
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ steps.extract.outputs.service_path }}
+          tags: |
+            type=raw,value=${{ steps.extract.outputs.version }}
+            type=sha,format=short
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ steps.extract.outputs.service_path }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      # Tạo GitHub Release sau khi Docker image đã được push thành công
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.extract.outputs.tag_name }}
+          name: "Release ${{ steps.extract.outputs.service_path }} - ${{ steps.extract.outputs.version }}"
+          body: |
+            ## Automated Release for ${{ steps.extract.outputs.service_path }}
+            
+            - **Service:** `${{ steps.extract.outputs.service_path }}`
+            - **Version:** `${{ steps.extract.outputs.version }}`
+            - **Docker Image:** `ghcr.io/${{ github.repository_owner }}/${{ steps.extract.outputs.service_path }}:${{ steps.extract.outputs.version }}`
+            
+            ---
+            *Released by GitHub Actions*
+          draft: false
+          prerelease: false
+          generate_release_notes: true # Tự động tạo changelog từ commit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
