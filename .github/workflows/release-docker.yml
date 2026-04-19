@@ -3,7 +3,7 @@ name: Release Docker Image and Create GitHub Release
 on:
   push:
     tags:
-      - '*-*' # Khớp với các tag như 'cart-1.0.0' hoặc 'backoffice-bff-v2.1'
+      - '*-*'
 
 jobs:
   build-and-release:
@@ -13,6 +13,7 @@ jobs:
     permissions:
       contents: write
       packages: write
+      checks: write
 
     steps:
       - name: Checkout Source Code
@@ -22,21 +23,18 @@ jobs:
         id: extract
         run: |
           TAG_NAME=${GITHUB_REF#refs/tags/}
-          # Lấy Service Path: tất cả phần trước dấu gạch ngang cuối cùng
           SERVICE_PATH=$(echo $TAG_NAME | rev | cut -d'-' -f2- | rev)
-          # Lấy Version: phần sau dấu gạch ngang cuối cùng
           VERSION=$(echo $TAG_NAME | rev | cut -d'-' -f1 | rev)
-          
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
           echo "service_path=$SERVICE_PATH" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Check if Service Path Exists
-        run: |
-          if [ ! -d "${{ steps.extract.outputs.service_path }}" ] || [ ! -f "${{ steps.extract.outputs.service_path }}/Dockerfile" ]; then
-            echo "Directory or Dockerfile for ${{ steps.extract.outputs.service_path }} not found."
-            exit 1
-          fi
+      - name: Setup Java, Build and Run Tests
+        uses: ./.github/workflows/actions/java-setup-build-test
+        with:
+          java_version: '25'
+          service_path: ${{ steps.extract.outputs.service_path }}
+          service_name: ${{ steps.extract.outputs.service_path }}
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -62,23 +60,15 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      # Tạo GitHub Release sau khi Docker image đã được push thành công
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.extract.outputs.tag_name }}
           name: "Release ${{ steps.extract.outputs.service_path }} - ${{ steps.extract.outputs.version }}"
           body: |
-            ## Automated Release for ${{ steps.extract.outputs.service_path }}
-            
+            ## Release Info
             - **Service:** `${{ steps.extract.outputs.service_path }}`
-            - **Version:** `${{ steps.extract.outputs.version }}`
             - **Docker Image:** `ghcr.io/${{ github.repository_owner }}/${{ steps.extract.outputs.service_path }}:${{ steps.extract.outputs.version }}`
-            
-            ---
-            *Released by GitHub Actions*
-          draft: false
-          prerelease: false
-          generate_release_notes: true # Tự động tạo changelog từ commit
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
