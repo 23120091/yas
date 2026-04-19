@@ -26,7 +26,7 @@
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <springboot.version>3.3.2</springboot.version>
+        <springboot.version>3.3.5</springboot.version>
 
         <revision>1.0-SNAPSHOT</revision>
         <testng.version>7.10.2</testng.version>
