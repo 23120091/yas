@@ -26,12 +26,12 @@
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <springboot.version>3.3.2</springboot.version>
+        <springboot.version>3.3.3</springboot.version>
 
         <revision>1.0-SNAPSHOT</revision>
         <testng.version>7.10.2</testng.version>
         <selenium-java.version>4.14.0</selenium-java.version>
-        <webdrivermanager.version>5.7.0</webdrivermanager.version>
+        <webdrivermanager.version>6.0.1</webdrivermanager.version>
 
         <cucumber-java.version>7.18.1</cucumber-java.version>
         <cucumber-testng.version>7.18.1</cucumber-testng.version>
