@@ -124,7 +124,7 @@ public class WarehouseServiceUnitTest {
         when(warehouseRepository.findById(1L)).thenReturn(Optional.empty());
 
         NotFoundException exception = assertThrows(NotFoundException.class, () -> warehouseService.findById(1L));
-        assertEquals("Warehouse 1 is not found", exception.getMessage());
+        assertEquals("The warehouse 1 is not found", exception.getMessage());
     }
 
     @Test
@@ -145,7 +145,7 @@ public class WarehouseServiceUnitTest {
         when(warehouseRepository.existsByName(warehousePostVm.name())).thenReturn(true);
 
         DuplicatedException exception = assertThrows(DuplicatedException.class, () -> warehouseService.create(warehousePostVm));
-        assertEquals("Name Warehouse 1 is already existed", exception.getMessage());
+        assertEquals("Request name Warehouse 1 is already existed", exception.getMessage());
     }
 
     @Test
@@ -165,7 +165,7 @@ public class WarehouseServiceUnitTest {
         when(warehouseRepository.existsByNameWithDifferentId(warehousePostVm.name(), 1L)).thenReturn(true);
 
         DuplicatedException exception = assertThrows(DuplicatedException.class, () -> warehouseService.update(warehousePostVm, 1L));
-        assertEquals("Name Warehouse 1 is already existed", exception.getMessage());
+        assertEquals("Request name Warehouse 1 is already existed", exception.getMessage());
     }
 
     @Test
