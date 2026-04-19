@@ -34,24 +34,78 @@ jobs:
         with:
           # Them service moi vao danh sach nay khi can
           filters: |
-            backoffice-bff: 'backoffice-bff/**'
-            cart: 'cart/**'
-            customer: 'customer/**'
-            inventory: 'inventory/**'
-            location: 'location/**'
-            media: 'media/**'
-            order: 'order/**'
-            payment: 'payment/**'
-            payment-paypal: 'payment-paypal/**'
-            product: 'product/**'
-            promotion: 'promotion/**'
-            rating: 'rating/**'
-            recommendation: 'recommendation/**'
-            sampledata: 'sampledata/**'
-            search: 'search/**'
-            storefront-bff: 'storefront-bff/**'
-            tax: 'tax/**'
-            webhook: 'webhook/**'
+            backoffice-bff:
+              - 'backoffice-bff/**'
+              - '.github/workflows/**'
+              - 'pom.xml'
+            cart:
+              - 'cart/**'
+              - '.github/workflows/**'
+              - 'pom.xml'
+            customer:
+              - 'customer/**'
+              - '.github/workflows/**'
+              - 'pom.xml'
+            inventory:
+              - 'inventory/**'
+              - '.github/workflows/**'
+              - 'pom.xml'
+            location:
+              - 'location/**'
+              - '.github/workflows/**'
+              - 'pom.xml'
+            media:
+              - 'media/**'
+              - '.github/workflows/**'
+              - 'pom.xml'
+            order:
+              - 'order/**'
+              - '.github/workflows/**'
+              - 'pom.xml'
+            payment:
+              - 'payment/**'
+              - '.github/workflows/**'
+              - 'pom.xml'
+            payment-paypal:
+              - 'payment-paypal/**'
+              - '.github/workflows/**'
+              - 'pom.xml'
+            product:
+              - 'product/**'
+              - '.github/workflows/**'
+              - 'pom.xml'
+            promotion:
+              - 'promotion/**'
+              - '.github/workflows/**'
+              - 'pom.xml'
+            rating:
+              - 'rating/**'
+              - '.github/workflows/**'
+              - 'pom.xml'
+            recommendation:
+              - 'recommendation/**'
+              - '.github/workflows/**'
+              - 'pom.xml'
+            sampledata:
+              - 'sampledata/**'
+              - '.github/workflows/**'
+              - 'pom.xml'
+            search:
+              - 'search/**'
+              - '.github/workflows/**'
+              - 'pom.xml'
+            storefront-bff:
+              - 'storefront-bff/**'
+              - '.github/workflows/**'
+              - 'pom.xml'
+            tax:
+              - 'tax/**'
+              - '.github/workflows/**'
+              - 'pom.xml'
+            webhook:
+              - 'webhook/**'
+              - '.github/workflows/**'
+              - 'pom.xml'
 
   # Job scan gitleaks cho root files
   gitleak-scan-root:
