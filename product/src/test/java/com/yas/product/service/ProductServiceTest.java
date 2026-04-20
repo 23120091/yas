@@ -478,16 +478,42 @@ class ProductServiceTest {
     // =========================
     @Test
     void exportProducts_ShouldReturnList() {
+        // 1. Tạo product giả
         Brand brand = new Brand();
         brand.setId(1L);
         brand.setName("Nike");
 
-        when(brandRepository.findById(1L))
-            .thenReturn(Optional.of(brand));
+        Product product = Product.builder()
+                .id(1L)
+                .name("Test Product")
+                .shortDescription("short")
+                .description("desc")
+                .specification("spec")
+                .sku("sku1")
+                .gtin("gtin1")
+                .slug("slug1")
+                .price(100.0)
+                .brand(brand)
+                .isAllowedToOrder(true)
+                .isPublished(true)
+                .isFeatured(false)
+                .isVisibleIndividually(true)
+                .stockTrackingEnabled(true)
+                .metaTitle("meta")
+                .metaKeyword("keyword")
+                .metaDescription("desc")
+                .build();
 
-        var result = productService.exportProducts("a","b");
+        // 2. Mock đúng repository
+        when(productRepository.getExportingProducts(any(), any()))
+                .thenReturn(List.of(product));
 
+        // 3. Call service
+        var result = productService.exportProducts("a", "b");
+
+        // 4. Verify
         assertThat(result).hasSize(1);
+        assertThat(result.get(0).name()).isEqualTo("Test Product");
     }
 
     // =========================
