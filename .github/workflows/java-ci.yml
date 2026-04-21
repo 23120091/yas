@@ -28,6 +28,16 @@ jobs:
               - '.*'
               - '.github/workflows/**'
 
+      - name: Filter Frontend Changes
+        id: filter-frontend
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backoffice:
+              - 'backoffice/**'
+            storefront:
+              - 'storefront/**'
+
       - name: Filter Service Changes
         uses: dorny/paths-filter@v3
         id: filter-services
@@ -88,9 +98,8 @@ jobs:
             webhook:
               - 'webhook/**'
               - 'pom.xml'
-            backoffice:
+            frontend:
               - 'backoffice/**'
-            storefront:
               - 'storefront/**'
 
   # Job scan gitleaks cho root files
@@ -123,9 +132,6 @@ jobs:
       fail-fast: false 
       matrix:
         service: ${{ fromJson(needs.filter-changes.outputs.services) }}
-        exclude:
-          - service: backoffice   
-          - service: storefront
     
     uses: ./.github/workflows/shared-java-ci.yml
     with:
@@ -139,11 +145,11 @@ jobs:
   # Job chay CI cho cac service Frontend nodeJS (backoffice va storefront) neu co thay doi 
   services-ci-node:
     needs: filter-changes
+    if: ${{ needs.filter-changes.outputs.frontend != '[]' && needs.filter-changes.outputs.frontend != '' }}
+    name: Node CI for ${{ matrix.service }}
     strategy:
       matrix:
-        service: ${{ fromJson(needs.filter-changes.outputs.services) }}
-    
-    if: ${{ matrix.service == 'backoffice' || matrix.service == 'storefront' }}
+        service: ${{ fromJson(needs.filter-changes.outputs.frontend) }}
 
     uses: ./.github/workflows/shared-node-ci.yml
     with:
@@ -158,7 +164,7 @@ jobs:
     name: CI Gate Passed
     runs-on: ubuntu-latest
     if: always()
-    needs: [filter-changes, services-ci]
+    needs: [filter-changes, services-ci, filter-frontend]
     steps:
       - name: Check Status of All Triggered Services
         run: |
