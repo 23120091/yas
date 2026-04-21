@@ -14,6 +14,7 @@ jobs:
     outputs:
       root: ${{ steps.filter-root.outputs.root }}
       services: ${{ steps.filter-services.outputs.changes }}
+      frontend: ${{ steps.filter-frontend.outputs.changes }}
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
