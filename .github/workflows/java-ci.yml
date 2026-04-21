@@ -123,9 +123,9 @@ jobs:
       fail-fast: false 
       matrix:
         service: ${{ fromJson(needs.filter-changes.outputs.services) }}
-      exclude:
-      - service: backoffice   
-      - service: storefront
+        exclude:
+          - service: backoffice   
+          - service: storefront
     
     uses: ./.github/workflows/shared-java-ci.yml
     with:
