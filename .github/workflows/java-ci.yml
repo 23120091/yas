@@ -123,16 +123,21 @@ jobs:
       fail-fast: false 
       matrix:
         service: ${{ fromJson(needs.filter-changes.outputs.services) }}
-    if: ${{ matrix.service != 'backoffice' && matrix.service != 'storefront' }}
+    step:
+      - name: Skip frontend services
+        if: ${{ matrix.service == 'backoffice' || matrix.service == 'storefront' }}
+        run: echo "Skipping frontend service"
 
-    uses: ./.github/workflows/shared-java-ci.yml
-    with:
-      service_name: ${{ matrix.service }}
-      service_path: ${{ matrix.service }}
-      java_version: '25'
-      min_coverage_overall: 70
-      docker_image: ghcr.io/23120091/${{ matrix.service }}:${{ github.sha }}
-    secrets: inherit
+      - name: Run Java CI    
+        if: ${{ matrix.service != 'backoffice' && matrix.service != 'storefront' }}
+        uses: ./.github/workflows/shared-java-ci.yml
+        with:
+          service_name: ${{ matrix.service }}
+          service_path: ${{ matrix.service }}
+          java_version: '25'
+          min_coverage_overall: 70
+          docker_image: ghcr.io/23120091/${{ matrix.service }}:${{ github.sha }}
+        secrets: inherit
 
   # Job chay CI cho cac service Frontend nodeJS (backoffice va storefront) neu co thay doi 
   services-ci-node:
@@ -140,16 +145,17 @@ jobs:
     strategy:
       matrix:
         service: ${{ fromJson(needs.filter-changes.outputs.services) }}
+    steps:  
+      - name: Run Node CI
+        if: ${{ matrix.service == 'backoffice' || matrix.service == 'storefront' }}
 
-    if: ${{ matrix.service == 'backoffice' || matrix.service == 'storefront' }}
-
-    uses: ./.github/workflows/shared-node-ci.yml
-    with:
-      service_name: ${{ matrix.service }}
-      service_path: ${{ matrix.service }}
-      min_coverage_overall: 70
-      docker_image: ghcr.io/23120091/${{ matrix.service }}:${{ github.sha }}
-    secrets: inherit
+        uses: ./.github/workflows/shared-node-ci.yml
+        with:
+          service_name: ${{ matrix.service }}
+          service_path: ${{ matrix.service }}
+          min_coverage_overall: 70
+          docker_image: ghcr.io/23120091/${{ matrix.service }}:${{ github.sha }}
+        secrets: inherit
 
   # Job kiem tra trang thai cuoi cung cua tat ca CI checks
   ci-gate:
