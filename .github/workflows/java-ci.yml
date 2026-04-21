@@ -115,6 +115,7 @@ jobs:
           ./gitleaks detect --source root_files --config gitleaks.toml --no-git --verbose
 
   # Job chay CI theo dynamic matrix cho tung service da thay doi, tru backoffice va storefront (frontend nodeJS)
+  services-ci:
     needs: filter-changes
     if: ${{ needs.filter-changes.outputs.services != '[]' && needs.filter-changes.outputs.services != '' }}
     name: CI for ${{ matrix.service }}
