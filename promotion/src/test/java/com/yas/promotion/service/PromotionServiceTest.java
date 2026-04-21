@@ -29,14 +29,22 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
+import org.mockito.MockedStatic;
+import static org.mockito.Mockito.mockStatic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import com.yas.promotion.repository.PromotionUsageRepository;
+import com.yas.promotion.viewmodel.PromotionUsageVm;
+import com.yas.promotion.viewmodel.PromotionPutVm;
+import com.yas.promotion.utils.AuthenticationUtils;
 
 @SpringBootTest(classes = PromotionApplication.class)
 class PromotionServiceTest {
     @Autowired
     private PromotionRepository promotionRepository;
+    @Autowired
+    private PromotionUsageRepository promotionUsageRepository;
     @MockitoBean
     private ProductService productService;
     @Autowired
@@ -135,6 +143,7 @@ class PromotionServiceTest {
 
     @AfterEach
     void tearDown() {
+        promotionUsageRepository.deleteAll();
         promotionRepository.deleteAll();
     }
 
@@ -331,6 +340,83 @@ class PromotionServiceTest {
         assertEquals(1L, result.productId());
         assertEquals(DiscountType.FIXED, result.discountType());
         assertEquals(200L, result.discountValue().longValue());
+    }
+
+    @Test
+    void updatePromotion_WhenNotExist_ThenNotFoundExceptionThrown() {
+        PromotionPutVm promotionPutVm = PromotionPutVm.builder()
+                .id(0L).build();
+        NotFoundException exception = assertThrows(NotFoundException.class, () -> promotionService.updatePromotion(promotionPutVm));
+        assertEquals("Promotion 0 is not found", exception.getMessage());
+    }
+
+    @Test
+    void updatePromotion_ThenSuccess() {
+        PromotionPutVm promotionPutVm = PromotionPutVm.builder()
+                .id(promotion1.getId())
+                .name("Promotion 1 Updated")
+                .slug("promotion-1-updated")
+                .description("Description 1 Updated")
+                .couponCode("code1-updated")
+                .discountType(DiscountType.FIXED)
+                .discountAmount(400L)
+                .discountPercentage(40L)
+                .isActive(true)
+                .startDate(Date.from(Instant.now().plus(60, ChronoUnit.DAYS)))
+                .endDate(Date.from(Instant.now().plus(90, ChronoUnit.DAYS)))
+                .applyTo(ApplyTo.BRAND)
+                .brandIds(List.of(1L, 2L))
+                .usageType(UsageType.UNLIMITED)
+                .build();
+
+        PromotionDetailVm result = promotionService.updatePromotion(promotionPutVm);
+        assertEquals("promotion-1-updated", result.slug());
+        assertEquals("Promotion 1 Updated", result.name());
+        assertEquals(true, result.isActive());
+        assertEquals(DiscountType.FIXED, result.discountType());
+    }
+
+    @Test
+    void deletePromotion_ThenSuccess() {
+        promotionService.deletePromotion(promotion1.getId());
+        NotFoundException exception = assertThrows(NotFoundException.class, () -> promotionService.getPromotion(promotion1.getId()));
+        assertEquals("Promotion " + promotion1.getId() + " is not found", exception.getMessage());
+    }
+
+    @Test
+    void deletePromotion_WhenInUse_ThenBadRequestExceptionThrown() {
+        try (MockedStatic<AuthenticationUtils> authUtils = mockStatic(AuthenticationUtils.class)) {
+            authUtils.when(AuthenticationUtils::extractUserId).thenReturn("user-id");
+            promotionService.updateUsagePromotion(List.of(new PromotionUsageVm(promotion1.getCouponCode(), 1L, "user-id", 1L)));
+        }
+
+        BadRequestException exception = assertThrows(BadRequestException.class, () -> promotionService.deletePromotion(promotion1.getId()));
+        assertEquals("Can't delete promotion " + promotion1.getId() + " because it is in use", exception.getMessage());
+    }
+
+    @Test
+    void updateUsagePromotion_WhenPromotionNotFound_ThenNotFoundExceptionThrown() {
+        var promotionUsageVms = List.of(new PromotionUsageVm("WRONG_CODE", 1L, "user-id", 1L));
+        var exception = assertThrows(NotFoundException.class, () -> promotionService.updateUsagePromotion(promotionUsageVms));
+        assertEquals("Promotion WRONG_CODE is not found", exception.getMessage());
+    }
+
+    @Test
+    void updateUsagePromotion_ThenSuccess() {
+        int initialCount = promotion1.getUsageCount();
+        var promotionUsageVms = List.of(new PromotionUsageVm(promotion1.getCouponCode(), 1L, "user-id", 1L));
+        try (MockedStatic<AuthenticationUtils> authUtils = mockStatic(AuthenticationUtils.class)) {
+            authUtils.when(AuthenticationUtils::extractUserId).thenReturn("user-id");
+            promotionService.updateUsagePromotion(promotionUsageVms);
+
+            var usages = promotionUsageRepository.findAll();
+            assertEquals(1, usages.size());
+            var usage = usages.getFirst();
+            assertEquals("user-id", usage.getUserId());
+
+            var updatedPromotion = promotionRepository.findById(promotion1.getId()).get();
+            assertEquals(initialCount + 1, updatedPromotion.getUsageCount());
+        }
     }
 
     private List<ProductVm> createProductVms() {
