@@ -164,7 +164,7 @@ jobs:
     name: CI Gate Passed
     runs-on: ubuntu-latest
     if: always()
-    needs: [filter-changes, services-ci, filter-frontend]
+    needs: [filter-changes, services-ci]
     steps:
       - name: Check Status of All Triggered Services
         run: |
