@@ -5,24 +5,47 @@ on:
     inputs:
       service_name: { required: true, type: string }
       service_path: { required: true, type: string }
+      min_coverage_overall: { required: false, type: number, default: 70 }
+      docker_image: { required: false, type: string, default: '' }
+    secrets:
+      SNYK_TOKEN: { required: true }
 
 jobs:
-  test-only:
-    name: Run Unit Tests Only
+
+  build-and-test:
+    name: Build & Unit Test (Node)
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
+      # ✅ Setup Node + cache đúng path
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: ${{ inputs.service_path }}/package-lock.json
 
+      # ✅ Install dependencies
       - name: Install dependencies
         run: npm ci
         working-directory: ${{ inputs.service_path }}
 
-      - name: Run tests
+      # ✅ Run test + coverage
+      - name: Run unit tests
         run: npm test
         working-directory: ${{ inputs.service_path }}
+
+      # ✅ Check coverage >= 70%
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(cat ${{ inputs.service_path }}/coverage/coverage-summary.json | jq '.total.lines.pct')
+          echo "Coverage = $COVERAGE"
+
+          if (( $(echo "$COVERAGE < ${{ inputs.min_coverage_overall }}" | bc -l) )); then
+            echo "❌ Coverage is below threshold"
+            exit 1
+          else
+            echo "✅ Coverage passed"
+          fi
