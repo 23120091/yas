@@ -1,0 +1,148 @@
+name: Shared Node Service CI Optimized
+
+on:
+  workflow_call:
+    inputs:
+      service_name: { required: true, type: string }
+      service_path: { required: true, type: string }
+      node_version: { required: false, type: string, default: '20' }
+      min_coverage_overall: { required: false, type: number, default: 70 }
+      docker_image: { required: false, type: string, default: '' }
+    secrets:
+      SNYK_TOKEN: { required: true }
+
+jobs:
+  gitleaks-scan-service:
+    name: Gitleaks Scan Service Files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Run Gitleaks on Service Files
+        run: |
+          wget -qO gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz"
+          tar -xzf gitleaks.tar.gz
+          ./gitleaks detect \
+            --source ${{ inputs.service_path }} \
+            --config gitleaks.toml \
+            --no-git \
+            --verbose \
+            --exit-code=2 \
+            --report-format=sarif \
+            --report-path=gitleaks-results.sarif
+
+      - name: Upload SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: gitleaks-results.sarif
+          category: gitleaks-${{ inputs.service_path }}
+
+  snyk-dependency-scan:
+    name: Snyk SCA Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Snyk Security Scan
+        uses: ./.github/workflows/actions/snyk-security-scan
+        with:
+          service_path: ${{ inputs.service_path }}
+          snyk_token: ${{ secrets.SNYK_TOKEN }}
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: snyk.sarif
+
+  build-and-test:
+    name: Build & Unit Test (Node)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ${{ inputs.service_path }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Unit Test with Coverage
+        run: npm test -- --coverage
+
+      # 🔥 enforce coverage giống Java (>= threshold)
+      - name: Enforce Coverage Threshold
+        run: |
+          if [ ! -f coverage/coverage-summary.json ]; then
+            echo "Coverage file not found!"
+            exit 1
+          fi
+
+          COVERAGE=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
+          echo "Total coverage: $COVERAGE"
+
+          if (( $(echo "$COVERAGE < ${{ inputs.min_coverage_overall }}" | bc -l) )); then
+            echo "Coverage below threshold (${{ inputs.min_coverage_overall }}%)"
+            exit 1
+          fi
+
+      - name: Build Next.js App
+        run: npm run build
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifact-${{ inputs.service_name }}
+          path: ${{ inputs.service_path }}/.next/
+          if-no-files-found: error
+
+  docker-publish:
+    name: Docker Publish
+    needs: [build-and-test]
+    if: ${{ github.ref == 'refs/heads/main' && inputs.docker_image != '' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifact-${{ inputs.service_name }}
+          path: ${{ inputs.service_path }}/.next/
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ inputs.service_path }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:latest
+            ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:${{ github.sha }}
+
+      - name: Snyk Container Scan
+        uses: snyk/actions/docker@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:latest

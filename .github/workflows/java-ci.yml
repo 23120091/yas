@@ -88,6 +88,10 @@ jobs:
             webhook:
               - 'webhook/**'
               - 'pom.xml'
+            backoffice:
+              - 'backoffice/**'
+            storefront:
+              - 'storefront/**'
 
   # Job scan gitleaks cho root files
   gitleak-scan-root:
@@ -119,7 +123,8 @@ jobs:
       fail-fast: false 
       matrix:
         service: ${{ fromJson(needs.filter-changes.outputs.services) }}
-    
+    if: ${{ matrix.service != 'backoffice' && matrix.service != 'storefront' }}
+
     uses: ./.github/workflows/shared-java-ci.yml
     with:
       service_name: ${{ matrix.service }}
@@ -129,6 +134,22 @@ jobs:
       docker_image: ghcr.io/23120091/${{ matrix.service }}:${{ github.sha }}
     secrets: inherit
 
+  # Job chay CI cho cac service Frontend nodeJS (backoffice va storefront) neu co thay doi 
+  services-ci-node:
+    needs: filter-changes
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.filter-changes.outputs.services) }}
+
+    if: ${{ matrix.service == 'backoffice' || matrix.service == 'storefront' }}
+
+    uses: ./.github/workflows/shared-node-ci.yml
+    with:
+      service_name: ${{ matrix.service }}
+      service_path: ${{ matrix.service }}
+      min_coverage_overall: 70
+      docker_image: ghcr.io/23120091/${{ matrix.service }}:${{ github.sha }}
+    secrets: inherit
 
   # Job kiem tra trang thai cuoi cung cua tat ca CI checks
   ci-gate:
