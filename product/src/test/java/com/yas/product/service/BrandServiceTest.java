@@ -2,10 +2,12 @@ package com.yas.product.service;
 
 import com.yas.commonlibrary.exception.DuplicatedException;
 import com.yas.commonlibrary.exception.NotFoundException;
+import com.yas.commonlibrary.exception.BadRequestException;
 import com.yas.product.model.Brand;
 import com.yas.product.repository.BrandRepository;
 import com.yas.product.viewmodel.brand.BrandListGetVm;
 import com.yas.product.viewmodel.brand.BrandPostVm;
+import com.yas.product.model.Product;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,9 +19,11 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -106,4 +110,16 @@ class BrandServiceTest {
             brandService.update(brandPostVm, 1L);
         });
     }
+
+    // Attempt to delete a brand has product
+    @Test
+    void delete_WhenBrandHasProducts_ShouldThrowBadRequestException() {
+        Brand brand = new Brand();
+        brand.setProducts(List.of(new Product())); // Giả lập có sản phẩm
+        when(brandRepository.findById(1L)).thenReturn(Optional.of(brand));
+
+        assertThrows(BadRequestException.class, () -> brandService.delete(1L));
+    }
+
+    
 }
