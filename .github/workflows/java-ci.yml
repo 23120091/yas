@@ -98,9 +98,6 @@ jobs:
             webhook:
               - 'webhook/**'
               - 'pom.xml'
-            frontend:
-              - 'backoffice/**'
-              - 'storefront/**'
 
   # Job scan gitleaks cho root files
   gitleak-scan-root:
