@@ -46,7 +46,7 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter-services
         with:
-          # Them service moi vao danh sach nay khi can
+          # Add new services to this list when needed
           filters: |
             backoffice-bff:
               - 'backoffice-bff/**'
@@ -103,7 +103,7 @@ jobs:
               - 'webhook/**'
               - 'pom.xml'
 
-  # Job scan gitleaks cho root files
+  # Scan root files with gitleaks
   gitleaks-scan-root:
     needs: filter-changes
     name: Gitleaks Scan Root Files
@@ -124,7 +124,7 @@ jobs:
         with:
           source_path: root_files
 
-  # Job chay CI theo dynamic matrix cho tung service da thay doi, tru backoffice va storefront (frontend nodeJS)
+  # Run CI with dynamic matrix for changed backend services
   services-ci:
     needs: filter-changes
     if: ${{ needs.filter-changes.outputs.services != '[]' && needs.filter-changes.outputs.services != '' }}
@@ -143,7 +143,7 @@ jobs:
       docker_image: ghcr.io/23120091/${{ matrix.service }}:${{ github.sha }}
     secrets: inherit
 
-  # Job chay CI cho cac service Frontend nodeJS (backoffice va storefront) neu co thay doi 
+  # Run CI for frontend Node.js services when changed
   services-ci-node:
     needs: filter-changes
     if: ${{ needs.filter-changes.outputs.frontend != '[]' && needs.filter-changes.outputs.frontend != '' }}
@@ -160,7 +160,7 @@ jobs:
       docker_image: ghcr.io/23120091/${{ matrix.service }}:${{ github.sha }}
     secrets: inherit
 
-  # Job kiem tra trang thai cuoi cung cua tat ca CI checks
+  # Check final status of all triggered CI jobs
   ci-gate:
     name: CI Gate Passed
     runs-on: ubuntu-latest
