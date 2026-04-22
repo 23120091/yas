@@ -11,6 +11,11 @@ on:
     secrets:
       SNYK_TOKEN: { required: true }
 
+permissions:
+  contents: read
+  security-events: write
+  packages: write
+
 jobs:
   gitleaks-scan-service:
     name: Gitleaks Scan Service Files

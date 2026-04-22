@@ -7,6 +7,9 @@ on:
     branches: [ "main", "dev" ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   filter-changes:
     name: Filter Changed Paths
@@ -101,7 +104,7 @@ jobs:
               - 'pom.xml'
 
   # Job scan gitleaks cho root files
-  gitleak-scan-root:
+  gitleaks-scan-root:
     needs: filter-changes
     name: Gitleaks Scan Root Files
     if: ${{ needs.filter-changes.outputs.root == 'true' }}
@@ -161,7 +164,7 @@ jobs:
     name: CI Gate Passed
     runs-on: ubuntu-latest
     if: always()
-    needs: [filter-changes, gitleak-scan-root, services-ci, services-ci-node]
+    needs: [filter-changes, gitleaks-scan-root, services-ci, services-ci-node]
     steps:
       - name: Check Status of All Triggered Services
         run: |

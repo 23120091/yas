@@ -11,6 +11,13 @@ on:
       SONAR_TOKEN: { required: true }
       SNYK_TOKEN: { required: true }
 
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+  security-events: write
+  packages: write
+
 jobs:
   gitleaks-scan-service:
     name: Gitleaks Scan Service Files
