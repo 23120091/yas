@@ -7,7 +7,9 @@ import type { ProductTemplate } from '@catalogModels/ProductTemplate';
 import { getPageableProductTemplates } from '@catalogServices/ProductTemplateService';
 import { DEFAULT_PAGE_NUMBER, DEFAULT_PAGE_SIZE } from '@constants/Common';
 
-const ProductTemplate: NextPage = () => {
+interface ProductTemplatePageProps {}
+
+const ProductTemplate: NextPage<ProductTemplatePageProps> = () => {
   const [productTemplates, setProductTemplates] = useState<ProductTemplate[]>();
   const [isLoading, setLoading] = useState<boolean>(false);
   const [pageNo, setPageNo] = useState<number>(DEFAULT_PAGE_NUMBER);
