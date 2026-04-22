@@ -1,4 +1,4 @@
-name: Shared Java Service CI Optimized
+name: Shared Java Service CI
 on:
   workflow_call:
     inputs:
@@ -13,31 +13,23 @@ on:
 
 jobs:
   gitleaks-scan-service:
-      name: Gitleaks Scan Service Files
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout Source Code
-          uses: actions/checkout@v4
+    name: Gitleaks Scan Service Files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
 
-        - name: Run Gitleaks on Service Files
-          run: |
-            wget -qO gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz"
-            tar -xzf gitleaks.tar.gz
-            ./gitleaks detect \
-              --source ${{ inputs.service_path }} \
-              --config gitleaks.toml \
-              --no-git \
-              --verbose \
-              --exit-code=2 \
-              --report-format=sarif \
-              --report-path=gitleaks-results.sarif
+      - name: Run Gitleaks on Service Files
+        uses: ./.github/workflows/actions/gitleaks-scan
+        with:
+          source_path: ${{ inputs.service_path }}
 
-        - name: Upload SARIF to GitHub Security
-          if: always()
-          uses: github/codeql-action/upload-sarif@v3
-          with:
-            sarif_file: gitleaks-results.sarif
-            category: gitleaks-${{ inputs.service_path }}
+      - name: Upload SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: gitleaks-results.sarif
+          category: gitleaks-${{ inputs.service_path }}
 
   snyk-dependency-scan:
     name: Snyk SCA Scan
@@ -48,6 +40,7 @@ jobs:
         uses: ./.github/workflows/actions/snyk-security-scan
         with:
           service_path: ${{ inputs.service_path }}
+          manifest_file: ${{ inputs.service_path }}/pom.xml
           snyk_token: ${{ secrets.SNYK_TOKEN }}
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v4

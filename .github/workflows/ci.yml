@@ -1,4 +1,4 @@
-name: Java CI Orchestrator
+name: CI
 
 on:
   push:
@@ -116,16 +116,15 @@ jobs:
           find . -maxdepth 1 -type f -exec cp {} root_files/ \;
         
       - name: Run Gitleaks on Root Files
-        run: |
-          wget -qO gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz"
-          tar -xzf gitleaks.tar.gz
-          ./gitleaks detect --source root_files --config gitleaks.toml --no-git --verbose
+        uses: ./.github/workflows/actions/gitleaks-scan
+        with:
+          source_path: root_files
 
   # Job chay CI theo dynamic matrix cho tung service da thay doi, tru backoffice va storefront (frontend nodeJS)
   services-ci:
     needs: filter-changes
     if: ${{ needs.filter-changes.outputs.services != '[]' && needs.filter-changes.outputs.services != '' }}
-    name: CI for ${{ matrix.service }}
+    name: Java CI for ${{ matrix.service }}
     strategy:
       fail-fast: false 
       matrix:
@@ -162,7 +161,7 @@ jobs:
     name: CI Gate Passed
     runs-on: ubuntu-latest
     if: always()
-    needs: [filter-changes, services-ci]
+    needs: [filter-changes, gitleak-scan-root, services-ci, services-ci-node]
     steps:
       - name: Check Status of All Triggered Services
         run: |

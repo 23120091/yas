@@ -4,6 +4,9 @@ inputs:
   service_path:
     description: 'Path to the service'
     required: true
+  manifest_file:
+    description: 'Path to dependency manifest file'
+    required: true
   snyk_token:
     description: 'Snyk API Token'
     required: true
@@ -22,7 +25,7 @@ runs:
         find . -name "mvnw" -exec chmod +x {} \;
         
         snyk test \
-          --file=${{ inputs.service_path }}/pom.xml \
+          --file=${{ inputs.manifest_file }} \
           --severity-threshold=high \
           --sarif-file-output=${{ github.workspace }}/snyk.sarif || true
 
