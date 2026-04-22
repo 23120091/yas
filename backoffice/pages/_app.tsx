@@ -6,7 +6,6 @@ import Layout from '../common/components/Layout';
 
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import 'react-quill/dist/quill.snow.css';
 import 'react-toastify/dist/ReactToastify.css';
 
 import '../styles/common/style.css';

@@ -18,6 +18,38 @@ permissions:
   pull-requests: write
 
 jobs:
+  lint-service:
+    name: Lint & Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ${{ inputs.service_path }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ${{ inputs.service_path }}
+
+      - name: Run ESLint & Generate SARIF
+        run: |
+          npm install eslint-formatter-sarif --no-save
+          npx eslint . \
+            --format sarif \
+            --output-file eslint-results.sarif || true
+        working-directory: ${{ inputs.service_path }}
+
+      - name: Upload Lint Results to GitHub
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: ${{ inputs.service_path }}/eslint-results.sarif
+          category: eslint-${{ inputs.service_name }}
+
   gitleaks-scan-service:
     name: Gitleaks Scan Service Files
     runs-on: ubuntu-latest
@@ -93,11 +125,10 @@ jobs:
           reporter: jest-junit
 
       - name: Comment Coverage Report on PR
-        uses: MishaKav/jest-coverage-report-summary@v1.0.11
+        uses: MishaKav/jest-coverage-comment@main
         if: always()
         with:
-          filename: ${{ inputs.service_path }}/coverage/coverage-summary.json
-          badge: true
+          coverage-summary-path: ${{ inputs.service_path }}/coverage/coverage-summary.json
           title: "${{ inputs.service_name }} Coverage Report"
 
       - name: Enforce coverage threshold
