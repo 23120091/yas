@@ -9,6 +9,10 @@ on:
 
 permissions:
   contents: read
+  checks: write
+  pull-requests: write
+  security-events: write
+  packages: write
 
 jobs:
   filter-changes:
