@@ -107,18 +107,19 @@ jobs:
   gitleaks-scan-root:
     needs: filter-changes
     name: Gitleaks Scan Root Files
-    if: ${{ needs.filter-changes.outputs.root == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
       - name: Setup Target Folder
+        if: ${{ needs.filter-changes.outputs.root == 'true' }}
         run: |
           mkdir -p root_files
           find . -maxdepth 1 -type f -exec cp {} root_files/ \;
         
       - name: Run Gitleaks on Root Files
+        if: ${{ needs.filter-changes.outputs.root == 'true' }}
         uses: ./.github/workflows/actions/gitleaks-scan
         with:
           source_path: root_files

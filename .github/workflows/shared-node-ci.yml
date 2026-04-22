@@ -5,7 +5,6 @@ on:
     inputs:
       service_name: { required: true, type: string }
       service_path: { required: true, type: string }
-      node_version: { required: false, type: string, default: '20' }
       min_coverage_overall: { required: false, type: number, default: 70 }
       docker_image: { required: false, type: string, default: '' }
     secrets:
@@ -64,7 +63,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ inputs.node_version }}
+          node-version: '20'
           cache: npm
           cache-dependency-path: ${{ inputs.service_path }}/package-lock.json
 
@@ -127,9 +126,7 @@ jobs:
         with:
           context: ./${{ inputs.service_path }}
           push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:latest
-            ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:${{ github.sha }}
+          tags: ${{ inputs.docker_image }}
 
       - name: Snyk Container Scan
         uses: snyk/actions/docker@master
@@ -137,4 +134,4 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          image: ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:latest
+          image: ${{ inputs.docker_image }}
