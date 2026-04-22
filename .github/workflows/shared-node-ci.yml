@@ -63,7 +63,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
           cache: npm
           cache-dependency-path: ${{ inputs.service_path }}/package-lock.json
 
@@ -73,6 +73,10 @@ jobs:
 
       - name: Run unit tests
         run: |
+          if [ ! -f package.json ]; then
+            echo "No package.json found. Skipping unit tests."
+            exit 0
+          fi
           HAS_TEST_SCRIPT=$(node -p "Boolean((require('./package.json').scripts || {}).test)")
           if [ "$HAS_TEST_SCRIPT" = "false" ]; then
             echo "No test script found. Skipping unit tests."
