@@ -73,11 +73,12 @@ jobs:
 
       - name: Run unit tests
         run: |
-          if [ "$(node -p "Boolean((require('./package.json').scripts || {}).test)")" != "true" ]; then
+          HAS_TEST_SCRIPT=$(node -p "Boolean((require('./package.json').scripts || {}).test)")
+          if [ "$HAS_TEST_SCRIPT" = "false" ]; then
             echo "No test script found. Skipping unit tests."
             exit 0
           fi
-          npm run test -- --coverage --coverageReporters=json-summary --passWithNoTests
+          npm test -- --coverage --coverageReporters=json-summary --passWithNoTests
         working-directory: ${{ inputs.service_path }}
 
       - name: Check coverage threshold
