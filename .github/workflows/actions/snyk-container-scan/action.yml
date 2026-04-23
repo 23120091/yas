@@ -1,15 +1,16 @@
-name: 'Snyk Container Scan & Report'
-description: 'Scan container images and report to PR/Security tab'
+name: 'Snyk Container Scan & PR Reporter'
+description: 'Scans container images for vulnerabilities, updates a summary table in the PR, and uploads results to GitHub Security.'
+
 inputs:
   image_name:
+    description: 'The full name and tag of the Docker image to scan (e.g., ghcr.io/user/repo:tag).'
     required: true
-    description: 'Full image name with tag (e.g., ghcr.io/owner/repo/image:tag)'
   snyk_token:
+    description: 'Snyk API Token used for authentication.'
     required: true
-    description: 'Snyk API token with permissions to test container images'
   github_token:
+    description: 'GitHub Token (usually secrets.GITHUB_TOKEN) used to post and update PR comments.'
     required: true
-    description: 'GitHub token for posting PR comments and uploading SARIF'
 
 runs:
   using: "composite"
@@ -17,26 +18,29 @@ runs:
     - name: Setup Snyk CLI
       uses: snyk/actions/setup@master
 
-    - name: Snyk Container Scan
+    - name: Run Snyk Scan
       shell: bash
       env:
         SNYK_TOKEN: ${{ inputs.snyk_token }}
       run: |
-        # 1. Tạo file JSON để script JS parse
-        snyk container test ${{ inputs.image_name }} --json > snyk.json || true
+        # 1. Generate JSON for the JS parser (handles multi-project Maven/OS detection)
+        snyk container test ${{ inputs.image_name }} --all-projects --json > snyk.json || true
         
-        # 2. Tạo file SARIF
-        snyk container test ${{ inputs.image_name }} --sarif-file-output=snyk.sarif > snyk_raw.txt || true
+        # 2. Generate SARIF for the Security Tab (using stdout redirect for better reliability)
+        snyk container test ${{ inputs.image_name }} --all-projects --sarif > snyk.sarif || true
 
-        # 3. Dọn dẹp mã màu ANSI cho log thô
+        # 3. Generate raw text for the PR comment details
+        snyk container test ${{ inputs.image_name }} --all-projects > snyk_raw.txt || true
+
+        # 4. Strip ANSI color codes from raw text for clean Markdown display
         sed 's/\x1b\[[0-9;]*[mGKHF]//g' snyk_raw.txt | tr -d '\r' > snyk_result.txt
 
-        # 4. Kiểm tra và tạo fallback nếu SARIF bị lỗi
-        if [ ! -f snyk.sarif ] || [ ! -s snyk.sarif ]; then
+        # 5. Create a dummy SARIF if the file is missing or empty to prevent upload errors
+        if [ ! -s snyk.sarif ]; then
           echo '{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","runs":[{"tool":{"driver":{"name":"Snyk","version":"1.0.0","rules":[]}},"results":[]}]}' > snyk.sarif
         fi
 
-    - name: Parse Snyk JSON & Post PR Comment
+    - name: Post or Update PR Comment
       uses: actions/github-script@v7
       if: github.event_name == 'pull_request'
       with:
@@ -47,70 +51,78 @@ runs:
           let targetOS = 'N/A';
           let hasJson = false;
 
-          // Đọc JSON
+          // Process the JSON output
           if (fs.existsSync('snyk.json')) {
             try {
-              const fileContent = fs.readFileSync('snyk.json', 'utf8');
-              if (fileContent.trim()) {
-                const json = JSON.parse(fileContent);
-                const data = Array.isArray(json) ? json[0] : json;
-                hasJson = true;
+              const raw = fs.readFileSync('snyk.json', 'utf8');
+              const json = JSON.parse(raw);
+              // Snyk container scan returns an array if multiple projects (OS + App) are found
+              const reports = Array.isArray(json) ? json : [json];
+              hasJson = true;
 
-                const vulns = data.vulnerabilities || [];
-                totalIssues = vulns.length;
-                critical = vulns.filter(v => v.severity === 'critical').length;
-                high     = vulns.filter(v => v.severity === 'high').length;
-                medium   = vulns.filter(v => v.severity === 'medium').length;
-                low      = vulns.filter(v => v.severity === 'low').length;
-                targetOS  = data.operatingSystem || 'N/A';
-              }
-            } catch (e) { console.log("JSON Parse Error: " + e); }
-          }
-
-          // Fallback nếu không có JSON
-          if (!hasJson) {
-            const clean = fs.readFileSync('snyk_result.txt', 'utf8');
-            const m = clean.match(/found (\d+) issues/);
-            totalIssues = m ? parseInt(m[1]) : (clean.includes('no vulnerable paths found') ? 0 : -1);
+              reports.forEach(report => {
+                const vulns = report.vulnerabilities || [];
+                totalIssues += vulns.length;
+                critical += vulns.filter(v => v.severity === 'critical').length;
+                high     += vulns.filter(v => v.severity === 'high').length;
+                medium   += vulns.filter(v => v.severity === 'medium').length;
+                low      += vulns.filter(v => v.severity === 'low').length;
+                if (report.operatingSystem) targetOS = report.operatingSystem;
+              });
+            } catch (e) { console.log("Error parsing Snyk JSON: " + e); }
           }
 
           const isClean = totalIssues === 0;
-          const statusIcon = isClean ? '🟢' : (critical > 0 ? '🔴' : '🟠');
-          const statusBadge = isClean ? '✅ PASSED' : '❌ ACTION REQUIRED';
-
+          const statusIcon = isClean ? '✅' : (critical > 0 ? '❌' : '⚠️');
           const cleanText = fs.readFileSync('snyk_result.txt', 'utf8');
-          const upgradeLines = cleanText.split('\n')
-            .filter(l => l.toLowerCase().includes('upgrade'))
-            .slice(0, 5).join('\n');
 
-          const body = `## ${statusIcon} Snyk Container Scan — ${statusBadge}
-          **Image:** \`${{ inputs.image_name }}\` | **OS:** \`${targetOS}\`
+          const body = `### ${statusIcon} Snyk Scan Result for \`${{ inputs.image_name }}\`
+          
+          | Severity | Count | Status |
+          | :--- | :---: | :--- |
+          | 🔴 **Critical** | ${critical} | ${critical > 0 ? 'Fix immediately' : 'Clean'} |
+          | 🟠 **High** | ${high} | ${high > 0 ? 'Review required' : 'Clean'} |
+          | 🟡 **Medium** | ${medium} | - |
+          | 🔵 **Low** | ${low} | - |
+          | **Total** | **${totalIssues}** | ${isClean ? 'Safe to deploy' : 'Vulnerabilities found'} |
 
-          ### Summary
-          | Metric | Value |
-          | :--- | :--- |
-          | Total Vulnerabilities | ${totalIssues} |
-          | Critical | ${critical} 🔴 |
-          | High | ${high} 🟠 |
+          **OS:** \`${targetOS}\`
 
-          ${!isClean ? `### Recommended fixes\n\`\`\`\n${upgradeLines || 'Check full log below.'}\n\`\`\`` : ''}
+          <details>
+          <summary>🔍 Click to view full log</summary>
 
-          <details><summary>Full scan output</summary>\n\n\`\`\`\n${cleanText.slice(0, 5000)}\n\`\`\`\n</details>`;
+          \`\`\`text
+          ${cleanText.slice(0, 5000)}${cleanText.length > 5000 ? '\n... (truncated, check Security tab for full report)' : ''}
+          \`\`\`
+          </details>
+          
+          *Remediation details have been uploaded to the [Security Tab](../../security/code-scanning).*`;
 
-          // Logic Upsert Comment (giữ nguyên của bạn)
+          // Find existing bot comment to update instead of creating new ones
           const { data: comments } = await github.rest.issues.listComments({
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: context.issue.number,
           });
-          const prev = comments.find(c => c.user.type === 'Bot' && c.body.includes('Snyk Container Scan'));
-          if (prev) {
-            await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: prev.id, body: body });
+          const botComment = comments.find(c => c.user.type === 'Bot' && c.body.includes('Snyk Scan Result'));
+          
+          if (botComment) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body: body
+            });
           } else {
-            await github.rest.issues.createComment({ issue_number: context.issue.number, owner: context.repo.owner, repo: context.repo.repo, body: body });
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
           }
 
-    - name: Upload SARIF to GitHub Security tab
+    - name: Upload Results to GitHub Security
       uses: github/codeql-action/upload-sarif@v4
       if: always()
       with:
