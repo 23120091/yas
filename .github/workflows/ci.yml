@@ -43,8 +43,7 @@ jobs:
           filters: |
             backoffice:
               - 'backoffice/**'
-            storefront:
-              - 'storefront/**'
+            
 
       - name: Filter Service Changes
         uses: dorny/paths-filter@v3
