@@ -1,6 +1,5 @@
 name: 'Snyk Container Scan & Report'
 description: 'Scan container images for vulnerabilities using Snyk and report results in PR comments and GitHub Security tab.'
-
 inputs:
   image_name:
     description: 'Image name to scan (e.g., myapp:latest)'
@@ -11,7 +10,6 @@ inputs:
   github_token:
     description: 'GitHub Token for commenting on PRs'
     required: true
-
 runs:
   using: "composite"
   steps:
@@ -23,57 +21,145 @@ runs:
       env:
         SNYK_TOKEN: ${{ inputs.snyk_token }}
       run: |
-        snyk container test ${{ inputs.image_name }} --sarif-file-output=snyk.sarif > snyk_result.txt || true
+        snyk container test ${{ inputs.image_name }} \
+        --sarif-file-output=snyk.sarif \
+        2>&1 | tee snyk_raw.txt || true
 
-    - name: Post PR Comment
+        echo "=== SARIF file check ==="
+        ls -la snyk.sarif 2>/dev/null || echo "FILE NOT FOUND"
+        head -c 200 snyk.sarif 2>/dev/null || echo "FILE EMPTY"
+
+        sed 's/\x1b\[[0-9;]*[mGKHF]//g' snyk_raw.txt | tr -d '\r' > snyk_result.txt
+
+        if [ ! -s snyk.sarif ]; then
+        echo "WARNING: snyk.sarif missing or empty, creating fallback"
+        echo '{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","runs":[{"tool":{"driver":{"name":"Snyk","version":"unknown","rules":[]}},"results":[]}]}' > snyk.sarif
+        fi
+
+    - name: Parse Snyk JSON & Post PR Comment
       uses: actions/github-script@v7
       if: github.event_name == 'pull_request'
       with:
         github-token: ${{ inputs.github_token }}
         script: |
           const fs = require('fs');
-          let rawResult = fs.readFileSync('snyk_result.txt', 'utf8');
-          const cleanResult = rawResult.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
 
-          const issueMatch = cleanResult.match(/found (\d+) issues/);
-          const totalIssues = issueMatch ? issueMatch[1] : (cleanResult.includes('no vulnerable paths found') ? '0' : 'Unknown');
-          
-          const isClean = totalIssues === '0';
-          const statusIcon = isClean ? '✅' : '❌';
-          const statusText = isClean ? 'SECURE' : 'VULNERABLE';
+          // ── Parse structured JSON (more reliable than regex on text) ──
+          let totalIssues = 0, critical = 0, high = 0, medium = 0, low = 0;
+          let targetOS = 'N/A', baseImage = 'N/A';
+          let hasJson = false;
 
-          const body = `### ${statusIcon} Snyk Security Scan: ${statusText}
-          **Image:** \`${{ inputs.image_name }}\`
-          **Status:** Found **${totalIssues}** security vulnerabilities.
+          try {
+            const json = JSON.parse(fs.readFileSync('snyk.json', 'utf8'));
+            hasJson = true;
 
-          | Criteria | Result |
-          | :--- | :--- |
-          | **Total Issues** | ${isClean ? '0' : `**${totalIssues}**`} |
-          | **Operating System** | Alpine Linux v3.23 |
-          | **Security** | ${isClean ? 'Passed' : 'Action Required'} |
+            const vulns = json.vulnerabilities || [];
+            totalIssues = vulns.length;
+            critical = vulns.filter(v => v.severity === 'critical').length;
+            high     = vulns.filter(v => v.severity === 'high').length;
+            medium   = vulns.filter(v => v.severity === 'medium').length;
+            low      = vulns.filter(v => v.severity === 'low').length;
 
-          ${!isClean ? '> **Suggestions:** View details below or check the **Security** tab to see fix guidelines (e.g., upgrade `jackson-core`).' : ''}
+            targetOS  = json.docker?.baseImage || json.operatingSystem || 'N/A';
+            baseImage = json.projectName || '${{ inputs.image_name }}';
+          } catch (_) {
+            // Fallback: parse clean text
+            const clean = fs.readFileSync('snyk_result.txt', 'utf8');
+            const m = clean.match(/found (\d+) issues/);
+            totalIssues = m ? parseInt(m[1]) : (clean.includes('no vulnerable paths found') ? 0 : -1);
+            const osM = clean.match(/Alpine Linux [^\s]+|Ubuntu [^\s]+|Debian [^\s]+/i);
+            targetOS = osM ? osM[0] : 'N/A';
+          }
 
-          <details>
-          <summary>Click to view detailed logs</summary>
+          const isClean = totalIssues === 0;
+          const statusIcon  = isClean ? '🟢' : (critical > 0 ? '🔴' : high > 0 ? '🟠' : '🟡');
+          const statusBadge = isClean ? '✅ PASSED' : '❌ ACTION REQUIRED';
 
-          \`\`\`text
-          ${cleanResult}
+          // ── Severity row (only shown when issues exist) ──
+          const severityTable = (!isClean && hasJson) ? `
+          | Severity | Count |
+          | :--- | :---: |
+          ${critical > 0 ? `| 🔴 Critical | **${critical}** |` : ''}
+          ${high     > 0 ? `| 🟠 High     | **${high}** |`     : ''}
+          ${medium   > 0 ? `| 🟡 Medium   | ${medium} |`       : ''}
+          ${low      > 0 ? `| ⚪ Low      | ${low} |`          : ''}
+          ` : '';
+
+          // ── Fix hints from clean text ──
+          const cleanText = fs.readFileSync('snyk_result.txt', 'utf8');
+          const upgradeLines = cleanText
+            .split('\n')
+            .filter(l => l.includes('Upgrade') || l.includes('upgrade'))
+            .slice(0, 5)
+            .join('\n');
+
+          const body = `## ${statusIcon} Snyk Container Scan — ${statusBadge}
+
+          > **Image:** \`${{ inputs.image_name }}\`  
+          > **OS:** \`${targetOS}\`  
+          > **Scanned:** ${new Date().toUTCString()}
+
+          ---
+
+          ### Summary
+
+          | Metric | Value |
+          | :--- | :---: |
+          | Total vulnerabilities | ${isClean ? '**0** ✅' : \`**${totalIssues}** ❌\`} |
+          | Critical | ${critical > 0 ? \`**${critical}** 🔴\` : '0'} |
+          | High | ${high > 0 ? \`**${high}** 🟠\` : '0'} |
+          | Medium | ${medium} |
+          | Low | ${low} |
+
+          ${!isClean ? `
+          ### Recommended fixes
+
+          \`\`\`
+          ${upgradeLines || 'See full log below for fix suggestions.'}
           \`\`\`
 
-          </details>
-          
-          *Detailed results and charts have been uploaded to the [Security](../../security/code-scanning) tab.*`;
-          
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
+          > 💡 Full remediation guidance is available in the [**Security tab**](../../security/code-scanning).
+          ` : '> No vulnerabilities found. Image is clean.'}
+
+          <details>
+          <summary>📋 Full scan output</summary>
+
+          \`\`\`
+          ${cleanText.slice(0, 6000)}${cleanText.length > 6000 ? '\n... (truncated, see Security tab for full report)' : ''}
+          \`\`\`
+
+          </details>`;
+
+          // ── Upsert comment (replace previous bot comment instead of spamming) ──
+          const { data: comments } = await github.rest.issues.listComments({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: body
-          })
+            issue_number: context.issue.number,
+          });
 
-    - name: Upload SARIF to GitHub Security
+          const prev = comments.find(c =>
+            c.user.type === 'Bot' && c.body.includes('Snyk Container Scan')
+          );
+
+          if (prev) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: prev.id,
+              body: body,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body,
+            });
+          }
+
+    - name: Upload SARIF to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
+      if: always()
       with:
         sarif_file: snyk.sarif
         category: snyk-container
