@@ -32,20 +32,38 @@ runs:
         github-token: ${{ inputs.github_token }}
         script: |
           const fs = require('fs');
-          const result = fs.readFileSync('snyk_result.txt', 'utf8');
-          const body = `### 🛡️ Snyk Security Scan Results
-          **Image:** \`${{ inputs.image_name }}\`
+          let rawResult = fs.readFileSync('snyk_result.txt', 'utf8');
+          const cleanResult = rawResult.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
+
+          const issueMatch = cleanResult.match(/found (\d+) issues/);
+          const totalIssues = issueMatch ? issueMatch[1] : (cleanResult.includes('no vulnerable paths found') ? '0' : 'Unknown');
           
+          const isClean = totalIssues === '0';
+          const statusIcon = isClean ? '✅' : '❌';
+          const statusText = isClean ? 'SECURE' : 'VULNERABLE';
+
+          const body = `### ${statusIcon} Snyk Security Scan: ${statusText}
+          **Image:** \`${{ inputs.image_name }}\`
+          **Status:** Found **${totalIssues}** security vulnerabilities.
+
+          | Criteria | Result |
+          | :--- | :--- |
+          | **Total Issues** | ${isClean ? '0' : `**${totalIssues}**`} |
+          | **Operating System** | Alpine Linux v3.23 |
+          | **Security** | ${isClean ? 'Passed' : 'Action Required'} |
+
+          ${!isClean ? '> **Suggestions:** View details below or check the **Security** tab to see fix guidelines (e.g., upgrade `jackson-core`).' : ''}
+
           <details>
-          <summary>Vulnerability Details</summary>
+          <summary>Click to view detailed logs</summary>
 
           \`\`\`text
-          ${result}
+          ${cleanResult}
           \`\`\`
 
           </details>
           
-          *Detailed results have been uploaded to the **Security** tab of the repository.*`;
+          *Detailed results and charts have been uploaded to the [Security](../../security/code-scanning) tab.*`;
           
           github.rest.issues.createComment({
             issue_number: context.issue.number,

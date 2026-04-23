@@ -135,6 +135,9 @@ jobs:
           uses: ./.github/workflows/actions/snyk-container-scan
           continue-on-error: true
           with:
-            image_name: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+            image_name: |
+              ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:${{ 
+                github.ref == 'refs/heads/main' && 'latest' || format('pr-{0}', github.event.number) 
+              }}
             snyk_token: ${{ secrets.SNYK_TOKEN }}
             github_token: ${{ secrets.GITHUB_TOKEN }}
