@@ -1,5 +1,9 @@
 package com.yas.product.service;
 
+import java.util.Optional; 
+
+import com.yas.commonlibrary.exception.NotFoundException; 
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
@@ -11,10 +15,14 @@ import com.yas.product.repository.CategoryRepository;
 import com.yas.product.repository.ProductCategoryRepository;
 import com.yas.product.viewmodel.NoFileMediaVm;
 import com.yas.product.viewmodel.category.CategoryGetDetailVm;
+import com.yas.product.viewmodel.category.CategoryPostVm; 
 import com.yas.product.viewmodel.category.CategoryGetVm;
+import com.yas.commonlibrary.exception.BadRequestException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -79,5 +87,23 @@ class CategoryServiceTest {
         Assertions.assertEquals(1, categoryService.getPageableCategories(0, 1).categoryContent().size());
         CategoryGetVm categoryGetVm = categoryService.getCategories("a").getFirst();
         assertEquals("name", categoryGetVm.name());
+    }
+
+    @Test
+    void createCategory_WhenParentIdNotFound_ShouldThrowNotFoundException() {
+        // Thêm một giá trị null hoặc 1L vào cuối để đủ 9 tham số
+        CategoryPostVm postVm = new CategoryPostVm(
+            "Name",           // name
+            "slug",           // slug
+            "desc",           // description
+            99L,              // parentId
+            null,             // metaKeywords
+            null,             // metaDescription
+            (short) 1,        // displayOrder (kiểu Short)
+            true,             // isPublished
+            null              // imageId (Tham số thứ 9 còn thiếu)
+        );
+        
+        assertThrows(BadRequestException.class, () -> categoryService.create(postVm));
     }
 }

@@ -1,4 +1,4 @@
-package com.yas.media;
+package com.yas.media.repository;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -35,8 +35,14 @@ class FileSystemRepositoryTest {
     private FileSystemRepository fileSystemRepository;
 
     @BeforeEach
-    public void setUp() {
+    public void setUp() throws IOException {
         MockitoAnnotations.openMocks(this);
+        Path testDir = Paths.get("src/test/resources/test-directory");
+        if (!Files.exists(testDir)) {
+            Files.createDirectories(testDir);
+        }
+        
+        Files.createDirectories(Paths.get("src/test/resources/test-directory"));
     }
 
     @AfterEach
@@ -55,6 +61,7 @@ class FileSystemRepositoryTest {
                 });
         }
     }
+
 
     @Test
     void testPersistFile_whenDirectoryNotExist_thenThrowsException() {
@@ -107,5 +114,14 @@ class FileSystemRepositoryTest {
         assertThrows(IllegalStateException.class, () -> fileSystemRepository.getFile(filePathStr));
     }
 
+
+    @Test
+    void getFile_whenFileNotExists_thenThrowsIllegalStateException() {
+        String filePath = "non-existent-file.txt";
+        when(filesystemConfig.getDirectory()).thenReturn("src/test/resources");
+
+        assertThrows(IllegalStateException.class, () -> 
+            fileSystemRepository.getFile(filePath));
+    }
 }
 

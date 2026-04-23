@@ -1,52 +1,74 @@
-name: Shared Java Service CI
+name: Shared Java Service CI Optimized
 on:
   workflow_call:
     inputs:
-      service_name:
-        required: true
-        type: string
-      service_path:
-        required: true
-        type: string
-      java_version:
-        required: false
-        type: string
-        default: '25'
-      min_coverage_overall:
-        required: false
-        type: number
-        default: 70
-      min_coverage_changed:
-        required: false
-        type: number
-        default: 70
-      docker_image:
-        required: false
-        type: string
-        default: ''
+      service_name: { required: true, type: string }
+      service_path: { required: true, type: string }
+      java_version: { required: false, type: string, default: '25' }
+      min_coverage_overall: { required: false, type: number, default: 70 }
+      docker_image: { required: false, type: string, default: '' }
     secrets:
-      SONAR_TOKEN:
-        required: true
-      SNYK_TOKEN:
-        required: true
+      SONAR_TOKEN: { required: true }
+      SNYK_TOKEN: { required: true }
 
 jobs:
-  build-test-and-scan:
-    name: Build, Test and Analysis
+  gitleaks-scan-service:
+      name: Gitleaks Scan Service Files
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout Source Code
+          uses: actions/checkout@v4
+
+        - name: Run Gitleaks on Service Files
+          run: |
+            wget -qO gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz"
+            tar -xzf gitleaks.tar.gz
+            ./gitleaks detect \
+              --source ${{ inputs.service_path }} \
+              --config gitleaks.toml \
+              --no-git \
+              --verbose \
+              --exit-code=2 \
+              --report-format=sarif \
+              --report-path=gitleaks-results.sarif
+
+        - name: Upload SARIF to GitHub Security
+          if: always()
+          uses: github/codeql-action/upload-sarif@v3
+          with:
+            sarif_file: gitleaks-results.sarif
+            category: gitleaks-${{ inputs.service_path }}
+
+  snyk-dependency-scan:
+    name: Snyk SCA Scan
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Source Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: Snyk Security Scan
+        uses: ./.github/workflows/actions/snyk-security-scan
+        with:
+          service_path: ${{ inputs.service_path }}
+          snyk_token: ${{ secrets.SNYK_TOKEN }}
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: snyk.sarif
+
+  build-and-test:
+    name: Build & Unit Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Setup Java, Build and Run Tests
+      - name: Setup & Build
         uses: ./.github/workflows/actions/java-setup-build-test
         with:
           java_version: ${{ inputs.java_version }}
           service_path: ${{ inputs.service_path }}
           service_name: ${{ inputs.service_name }}
-
+      
       - name: Java Code Quality
         uses: ./.github/workflows/actions/java-static-analysis
         with:
@@ -55,73 +77,46 @@ jobs:
           sonar_token: ${{ secrets.SONAR_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           min_coverage_overall: ${{ inputs.min_coverage_overall }}
-          min_coverage_changed: ${{ inputs.min_coverage_changed }}
 
-      - name: Install Snyk CLI
-        uses: snyk/actions/setup@master
-
-      - name: Run Snyk Security Scan
-        continue-on-error: true
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: |
-          # 1. Tìm và cấp quyền thực thi cho tất cả file mvnw (nếu có) để tránh lỗi EACCES (-13)
-          find . -name "mvnw" -exec chmod +x {} \;
-          
-          # 2. Chạy Snyk CLI
-          snyk test \
-            --file=${{ inputs.service_path }}/pom.xml \
-            --severity-threshold=high \
-            --sarif-file-output=${{ github.workspace }}/snyk.sarif || true
-
-          # Tạo file sarif rỗng nếu snyk fail
-          if [ ! -f "${{ github.workspace }}/snyk.sarif" ]; then
-            echo '{"version":"2.1.0","$schema":"https://json.schemastore.org/sarif-2.1.0.json","runs":[{"tool":{"driver":{"name":"Snyk","rules":[]}},"results":[]}]}' \
-              > ${{ github.workspace }}/snyk.sarif
-          fi
-
-      - name: Upload Snyk Report to GitHub Security
-        uses: github/codeql-action/upload-sarif@v4
-        if: always()
-        continue-on-error: true
-        with:
-          sarif_file: ${{ github.workspace }}/snyk.sarif
-
-      - name: Upload Java Build Artifacts
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.service_name }}-java-build-target
+          name: build-artifact-${{ inputs.service_name }}
           path: ${{ inputs.service_path }}/target/
-          retention-days: 90
+          if-no-files-found: error
 
   docker-publish:
-    name: Build Docker Image and Publish to GHCR
-    needs: [build-test-and-scan]
+    name: Docker Publish
+    needs: [build-and-test]
     if: ${{ github.ref == 'refs/heads/main' && inputs.docker_image != '' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Source Code
-        uses: actions/checkout@v4
-
-      - name: Download Java Build Artifacts
+      - uses: actions/checkout@v4
+      
+      - name: Download Artifact
         uses: actions/download-artifact@v4
         with:
-          name: ${{ inputs.service_name }}-java-build-target
+          name: build-artifact-${{ inputs.service_name }}
           path: ${{ inputs.service_path }}/target/
 
-      - name: Log in to GitHub Container Registry
+      - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push Docker Image
+      - name: Generate short SHA
+        run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
+
+      - name: Build and Push
         uses: docker/build-push-action@v6
         with:
           context: ./${{ inputs.service_path }}
           push: true
-          tags: ${{ inputs.docker_image }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:latest
+            ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:${{ env.SHORT_SHA }}
 
       - name: Snyk Container Scan
         uses: snyk/actions/docker@master
@@ -129,5 +124,4 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          image: ${{ inputs.docker_image }}
-          args: --severity-threshold=high
+          image: ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:latest
