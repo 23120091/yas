@@ -135,8 +135,12 @@ jobs:
           uses: ./.github/workflows/actions/snyk-container-scan
           continue-on-error: true
           with:
-            image_name: |
-              ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:${{ 
-                github.ref == 'refs/heads/main' && 'latest' || format('pr-{0}', github.event.number) 
-              }}
+            image_name: ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:${{ github.ref == 'refs/heads/main' && 'latest' || format('pr-{0}', github.event.number) }}
             snyk_token: ${{ secrets.SNYK_TOKEN }}
+
+        - name: Upload SARIF
+          uses: github/codeql-action/upload-sarif@v3
+          if: always()
+          with:
+            sarif_file: snyk.sarif
+            category: snyk-container-${{ inputs.service_name }}
