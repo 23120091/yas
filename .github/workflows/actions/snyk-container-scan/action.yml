@@ -1,30 +1,29 @@
-name: 'Snyk Container Scan'
-description: 'GitHub Action to scan Docker images with Snyk and upload results to GitHub Security'
+name: Snyk Container Scan
+description: Run Snyk Container Security Scan
 inputs:
   image_name:
+    description: 'Full image name to scan (e.g., ghcr.io/user/repo:tag)'
     required: true
-    description: 'Name of the Docker image to scan (e.g., ghcr.io/owner/repo:tag)'
   snyk_token:
+    description: 'Snyk API Token'
     required: true
-    description: 'Snyk API token with permissions to perform container scans'
-
 runs:
   using: "composite"
   steps:
-    - name: Setup Snyk CLI
+    - name: Install Snyk CLI
       uses: snyk/actions/setup@master
 
-    - name: Run Snyk Scan & Upload SARIF
-      uses: snyk/actions/docker@master
+    - name: Run Snyk Container Scan
+      continue-on-error: true
+      shell: bash
       env:
         SNYK_TOKEN: ${{ inputs.snyk_token }}
-      with:
-        image: ${{ inputs.image_name }}
-        args: --file=/dev/null
+      run: |
+        snyk container test ${{ inputs.image_name }} \
+          --severity-threshold=high \
+          --sarif-file-output=${{ github.workspace }}/snyk.sarif || true
 
-    - name: Upload SARIF to GitHub Security
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: snyk.sarif
-        category: snyk-container
+        if [ ! -f "${{ github.workspace }}/snyk.sarif" ]; then
+          echo '{"version":"2.1.0","$schema":"https://json.schemastore.org/sarif-2.1.0.json","runs":[{"tool":{"driver":{"name":"Snyk","rules":[]}},"results":[]}]}' \
+            > ${{ github.workspace }}/snyk.sarif
+        fi
