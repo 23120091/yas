@@ -86,42 +86,55 @@ jobs:
           if-no-files-found: error
 
   docker-publish:
-    name: Docker Publish
-    needs: [build-and-test]
-    if: ${{ github.ref == 'refs/heads/main' && inputs.docker_image != '' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Download Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: build-artifact-${{ inputs.service_name }}
-          path: ${{ inputs.service_path }}/target/
+      name: Docker Publish & Scan
+      needs: [build-and-test]
+      if: ${{ (github.ref == 'refs/heads/main' || github.event_name == 'pull_request') && inputs.docker_image != '' }}
+      runs-on: ubuntu-latest
+      permissions:
+        contents: read
+        packages: write
+        pull-requests: write
+        security-events: write
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      steps:
+        - uses: actions/checkout@v4
 
-      - name: Generate short SHA
-        run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
+        - name: Download Artifact
+          uses: actions/download-artifact@v4
+          with:
+            name: build-artifact-${{ inputs.service_name }}
+            path: ${{ inputs.service_path }}/target/
 
-      - name: Build and Push
-        uses: docker/build-push-action@v6
-        with:
-          context: ./${{ inputs.service_path }}
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:latest
-            ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:${{ env.SHORT_SHA }}
+        - name: Log in to GHCR
+          uses: docker/login-action@v3
+          with:
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Snyk Container Scan
-        uses: snyk/actions/docker@master
-        continue-on-error: true
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          image: ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:latest
+        - name: Docker metadata
+          id: meta
+          uses: docker/metadata-action@v5
+          with:
+            images: ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}
+            tags: |
+              type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+              type=sha,format=short
+              type=ref,event=pr
+
+        - name: Build and Push
+          id: build-and-push
+          uses: docker/build-push-action@v6
+          with:
+            context: ./${{ inputs.service_path }}
+            push: ${{ github.ref == 'refs/heads/main' }}
+            tags: ${{ steps.meta.outputs.tags }}
+            labels: ${{ steps.meta.outputs.labels }}
+
+        - name: Snyk Container Scan
+          uses: ./.github/workflows/actions/snyk-container-scan
+          continue-on-error: true
+          with:
+            image_name: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+            snyk_token: ${{ secrets.SNYK_TOKEN }}
+            github_token: ${{ secrets.GITHUB_TOKEN }}

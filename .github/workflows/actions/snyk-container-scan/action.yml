@@ -1,0 +1,61 @@
+name: 'Snyk Container Scan & Report'
+description: 'Scan container images for vulnerabilities using Snyk and report results in PR comments and GitHub Security tab.'
+
+inputs:
+  image_name:
+    description: 'Image name to scan (e.g., myapp:latest)'
+    required: true
+  snyk_token:
+    description: 'Snyk API Token'
+    required: true
+  github_token:
+    description: 'GitHub Token for commenting on PRs'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Snyk CLI
+      uses: snyk/actions/setup@master
+
+    - name: Snyk Container Scan
+      shell: bash
+      env:
+        SNYK_TOKEN: ${{ inputs.snyk_token }}
+      run: |
+        snyk container test ${{ inputs.image_name }} --sarif-file-output=snyk.sarif > snyk_result.txt || true
+
+    - name: Post PR Comment
+      uses: actions/github-script@v7
+      if: github.event_name == 'pull_request'
+      with:
+        github-token: ${{ inputs.github_token }}
+        script: |
+          const fs = require('fs');
+          const result = fs.readFileSync('snyk_result.txt', 'utf8');
+          const body = `### 🛡️ Snyk Security Scan Results
+          **Image:** \`${{ inputs.image_name }}\`
+          
+          <details>
+          <summary>Vulnerability Details</summary>
+
+          \`\`\`text
+          ${result}
+          \`\`\`
+
+          </details>
+          
+          *Detailed results have been uploaded to the **Security** tab of the repository.*`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: body
+          })
+
+    - name: Upload SARIF to GitHub Security
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: snyk.sarif
+        category: snyk-container
