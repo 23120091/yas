@@ -19,6 +19,15 @@ inputs:
   min_coverage_changed:
     description: Minimum code coverage for changed code
     required: true
+  sonar_organization:
+    description: SonarCloud Organization
+    required: false
+    default: "23120091"
+  sonar_project_key:
+    description: SonarCloud Project Key
+    required: false
+    default: "23120091_yas"
+
 runs:
   using: "composite"
   steps:
@@ -27,6 +36,7 @@ runs:
         mvn compile checkstyle:checkstyle \
           -pl ${{ inputs.service_path }} -am \
           -Dcheckstyle.output.file=${{ inputs.service_path }}-checkstyle-result.xml \
+          -DskipTests \
           -B -ntp
       shell: bash
 
@@ -41,11 +51,14 @@ runs:
       run: |
         mvn sonar:sonar \
           -pl ${{ inputs.service_path }} -am \
-          -Dsonar.organization=23120091 \
-          -Dsonar.projectKey=23120091_yas \
+          -Dsonar.organization=${{ inputs.sonar_organization }} \
+          -Dsonar.projectKey=${{ inputs.sonar_project_key }} \
           -Dsonar.host.url=https://sonarcloud.io \
           -Dsonar.token=${{ inputs.sonar_token }} \
-          -Drevision=1.0-SNAPSHOT
+          -Dsonar.coverage.jacoco.xmlReportPaths=${{ github.workspace }}/${{ inputs.service_path }}/target/site/jacoco/jacoco.xml \
+          -DskipTests \
+          -Drevision=1.0-SNAPSHOT \
+          -B -ntp
       shell: bash
 
     - name: Generate and Comment JaCoCo Coverage Report

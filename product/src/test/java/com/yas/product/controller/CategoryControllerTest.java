@@ -19,6 +19,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.List;
 import java.util.Arrays;
 import java.util.Optional;
 
@@ -129,6 +130,16 @@ class CategoryControllerTest {
     @Test
     void testDeleteCategoryBadRequest() throws Exception {
         when(categoryRepository.findById(1L)).thenReturn(Optional.empty());
+
+        mockMvc.perform(delete("/backoffice/categories/1"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deleteCategory_WhenContainsChildren_ShouldReturn400() throws Exception {
+        Category category = new Category();
+        category.setCategories(List.of(new Category())); // Có danh mục con
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
 
         mockMvc.perform(delete("/backoffice/categories/1"))
                 .andExpect(status().isBadRequest());

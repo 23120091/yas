@@ -16,6 +16,7 @@ import com.yas.product.model.attribute.ProductAttributeGroup;
 import com.yas.product.repository.ProductAttributeGroupRepository;
 import com.yas.product.viewmodel.productattribute.ProductAttributeGroupListGetVm;
 import com.yas.product.viewmodel.productattribute.ProductAttributeGroupVm;
+import com.yas.product.viewmodel.productattribute.ProductAttributeGroupPostVm;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -127,4 +128,15 @@ class ProductAttributeGroupServiceTest {
 
         assertThrows(DuplicatedException.class, () -> service.save(group));
     }
+
+    @Test
+    void create_WhenNameAlreadyExists_ShouldThrowDuplicatedException() {
+        ProductAttributeGroup group = new ProductAttributeGroup();
+        group.setName("Cấu hình");
+        
+        when(repository.findExistedName("Cấu hình", null)).thenReturn(new ProductAttributeGroup());
+
+        assertThrows(DuplicatedException.class, () -> service.save(group));
+    }
+
 }
