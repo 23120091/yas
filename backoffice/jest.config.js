@@ -5,10 +5,15 @@ const createJestConfig = nextJest({
 })
 
 const customJestConfig = {
+  setupFilesAfterEnv: ['<rootDir>/__tests__/setupTests.ts'],
   testEnvironment: 'jsdom',
   moduleNameMapper: {
     '^modules/(.*)$': '<rootDir>/modules/$1',
+    '^@catalogServices/(.*)$': '<rootDir>/modules/catalog/services/$1',
+    '^@catalogModels/(.*)$': '<rootDir>/modules/catalog/models/$1',
+    '^@commonServices/(.*)$': '<rootDir>/common/services/$1',
   },
+  testPathIgnorePatterns: ['<rootDir>/__tests__/setupTests.ts'],
 }
 
 module.exports = createJestConfig(customJestConfig)
