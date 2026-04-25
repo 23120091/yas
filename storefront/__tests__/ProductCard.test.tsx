@@ -3,12 +3,14 @@ import ProductCard from '../common/components/ProductCard';
 import * as mediaService from '@/modules/media/services/MediaService';
 
 // mock ProductCardBase để kiểm tra props
-jest.mock('../common/components/ProductCardBase', () => (props: any) => {
-  return (
-    <div data-testid="product-card-base">
-      {props.thumbnailUrl}
-    </div>
-  );
+jest.mock('../common/components/ProductCardBase', () => {
+  return function MockProductCardBase(props: any) {
+    return (
+      <div data-testid="product-card-base">
+        {props.thumbnailUrl}
+      </div>
+    );
+  };
 });
 
 // mock API
