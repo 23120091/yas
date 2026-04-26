@@ -119,4 +119,4 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          image: ${{ inputs.docker_image }}
+          image: ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:latest
