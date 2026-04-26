@@ -1,5 +1,5 @@
 name: Snyk Security Scan
-description: Run Snyk Security Scan
+description: Run Snyk Security Scan & Monitor
 inputs:
   service_path:
     description: 'Path to the service'
@@ -10,14 +10,17 @@ inputs:
   snyk_token:
     description: 'Snyk API Token'
     required: true
+  snyk_org:
+    description: 'Snyk Organization ID'
+    required: true
+
 runs:
   using: "composite"
   steps:
     - name: Install Snyk CLI
       uses: snyk/actions/setup@master
 
-    - name: Run Snyk Security Scan
-      continue-on-error: true
+    - name: Run Snyk Security Scan & Monitor
       shell: bash
       env:
         SNYK_TOKEN: ${{ inputs.snyk_token }}
@@ -27,9 +30,17 @@ runs:
         fi
         
         snyk test \
+          --org=${{ inputs.snyk_org }} \
           --file=${{ inputs.manifest_file }} \
           --severity-threshold=high \
+          --remote-repo-url=https://github.com/23120091/yas \
           --sarif-file-output=${{ github.workspace }}/snyk.sarif || true
+
+        snyk monitor \
+          --org=${{ inputs.snyk_org }} \
+          --file=${{ inputs.manifest_file }} \
+          --remote-repo-url=https://github.com/23120091/yas \
+          --project-name=yas-${{ inputs.service_path }}
 
         if [ ! -f "${{ github.workspace }}/snyk.sarif" ]; then
           echo '{"version":"2.1.0","$schema":"https://json.schemastore.org/sarif-2.1.0.json","runs":[{"tool":{"driver":{"name":"Snyk","rules":[]}},"results":[]}]}' \

@@ -92,6 +92,7 @@ jobs:
           service_path: ${{ inputs.service_path }}
           manifest_file: ${{ inputs.service_path }}/package.json
           snyk_token: ${{ secrets.SNYK_TOKEN }}
+          snyk_org: ${{ secrets.SNYK_ORG }}
           
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v4
