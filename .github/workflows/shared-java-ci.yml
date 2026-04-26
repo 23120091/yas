@@ -1,4 +1,4 @@
-name: Shared Java Service CI Optimized
+name: Shared Java Service CI
 on:
   workflow_call:
     inputs:
@@ -11,33 +11,32 @@ on:
       SONAR_TOKEN: { required: true }
       SNYK_TOKEN: { required: true }
 
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+  security-events: write
+  packages: write
+
 jobs:
   gitleaks-scan-service:
-      name: Gitleaks Scan Service Files
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout Source Code
-          uses: actions/checkout@v4
+    name: Gitleaks Scan Service Files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
 
-        - name: Run Gitleaks on Service Files
-          run: |
-            wget -qO gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz"
-            tar -xzf gitleaks.tar.gz
-            ./gitleaks detect \
-              --source ${{ inputs.service_path }} \
-              --config gitleaks.toml \
-              --no-git \
-              --verbose \
-              --exit-code=2 \
-              --report-format=sarif \
-              --report-path=gitleaks-results.sarif
+      - name: Run Gitleaks on Service Files
+        uses: ./.github/workflows/actions/gitleaks-scan
+        with:
+          source_path: ${{ inputs.service_path }}
 
-        - name: Upload SARIF to GitHub Security
-          if: always()
-          uses: github/codeql-action/upload-sarif@v3
-          with:
-            sarif_file: gitleaks-results.sarif
-            category: gitleaks-${{ inputs.service_path }}
+      - name: Upload SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: gitleaks-results.sarif
+          category: gitleaks-${{ inputs.service_path }}
 
   snyk-dependency-scan:
     name: Snyk SCA Scan
@@ -48,6 +47,7 @@ jobs:
         uses: ./.github/workflows/actions/snyk-security-scan
         with:
           service_path: ${{ inputs.service_path }}
+          manifest_file: ${{ inputs.service_path }}/pom.xml
           snyk_token: ${{ secrets.SNYK_TOKEN }}
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v4
@@ -86,62 +86,62 @@ jobs:
           if-no-files-found: error
 
   docker-publish:
-      name: Docker Publish & Scan
-      needs: [build-and-test]
-      if: ${{ (github.ref == 'refs/heads/main' || github.event_name == 'pull_request') && inputs.docker_image != '' }}
-      runs-on: ubuntu-latest
-      permissions:
-        contents: read
-        packages: write
-        pull-requests: write
-        security-events: write
+    name: Docker Publish & Scan
+    needs: [build-and-test]
+    if: ${{ (github.ref == 'refs/heads/main' || github.event_name == 'pull_request') && inputs.docker_image != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: write
+      security-events: write
 
-      steps:
-        - uses: actions/checkout@v4
+    steps:
+      - uses: actions/checkout@v4
 
-        - name: Download Artifact
-          uses: actions/download-artifact@v4
-          with:
-            name: build-artifact-${{ inputs.service_name }}
-            path: ${{ inputs.service_path }}/target/
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifact-${{ inputs.service_name }}
+          path: ${{ inputs.service_path }}/target/
 
-        - name: Log in to GHCR
-          uses: docker/login-action@v3
-          with:
-            registry: ghcr.io
-            username: ${{ github.actor }}
-            password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-        - name: Docker metadata
-          id: meta
-          uses: docker/metadata-action@v5
-          with:
-            images: ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}
-            tags: |
-              type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-              type=sha,format=short
-              type=ref,event=pr
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,format=short
+            type=ref,event=pr
 
-        - name: Build and Push
-          id: build-and-push
-          uses: docker/build-push-action@v6
-          with:
-            context: ./${{ inputs.service_path }}
-            push: ${{ github.ref == 'refs/heads/main' }}
-            tags: ${{ steps.meta.outputs.tags }}
-            labels: ${{ steps.meta.outputs.labels }}
+      - name: Build and Push
+        id: build-and-push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ inputs.service_path }}
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
-        - name: Snyk Container Scan
-          uses: ./.github/workflows/actions/snyk-container-scan
-          continue-on-error: true
-          with:
-            image_name: ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:${{ github.ref == 'refs/heads/main' && 'latest' || format('pr-{0}', github.event.number) }}
-            snyk_token: ${{ secrets.SNYK_TOKEN }}
-            service_path: ${{ inputs.service_path }}
+      - name: Snyk Container Scan
+        uses: ./.github/workflows/actions/snyk-container-scan
+        continue-on-error: true
+        with:
+          image_name: ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:sha-${{ github.sha_short || 'latest' }}
+          snyk_token: ${{ secrets.SNYK_TOKEN }}
+          service_path: ${{ inputs.service_path }}
 
-        - name: Upload SARIF
-          uses: github/codeql-action/upload-sarif@v3
-          if: always()
-          with:
-            sarif_file: snyk.sarif
-            category: snyk-container-${{ inputs.service_name }}
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: snyk.sarif
+          category: snyk-container-${{ inputs.service_name }}

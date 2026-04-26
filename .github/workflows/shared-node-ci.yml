@@ -1,0 +1,216 @@
+name: Shared Node Service CI
+
+on:
+  workflow_call:
+    inputs:
+      service_name: { required: true, type: string }
+      service_path: { required: true, type: string }
+      min_coverage_overall: { required: false, type: number, default: 70 }
+      docker_image: { required: false, type: string, default: '' }
+    secrets:
+      SNYK_TOKEN: { required: true }
+
+permissions:
+  contents: read
+  security-events: write
+  packages: write
+  checks: write
+  pull-requests: write
+
+jobs:
+  lint-service:
+      name: Lint & Static Analysis
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+
+        - name: Setup Node
+          uses: actions/setup-node@v4
+          with:
+            node-version: 20
+            cache: npm
+            cache-dependency-path: ${{ inputs.service_path }}/package-lock.json
+
+        - name: Install dependencies
+          run: npm ci --legacy-peer-deps
+          working-directory: ${{ inputs.service_path }}
+
+        - name: Run ESLint & Generate SARIF
+          run: |
+            npm install @microsoft/eslint-formatter-sarif --no-save --legacy-peer-deps
+            npx eslint . \
+              --format @microsoft/eslint-formatter-sarif \
+              --output-file eslint-results.sarif || true
+          working-directory: ${{ inputs.service_path }}
+
+        - name: Upload Lint Results to GitHub
+          uses: github/codeql-action/upload-sarif@v4
+          if: always()
+          with:
+            sarif_file: ${{ inputs.service_path }}/eslint-results.sarif
+            category: eslint-${{ inputs.service_name }}
+
+  gitleaks-scan-service:
+    name: Gitleaks Scan Service Files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Run Gitleaks on Service Files
+        uses: ./.github/workflows/actions/gitleaks-scan
+        with:
+          source_path: ${{ inputs.service_path }}
+
+      - name: Upload SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: gitleaks-results.sarif
+          category: gitleaks-${{ inputs.service_path }}
+
+  snyk-dependency-scan:
+    name: Snyk SCA Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ${{ inputs.service_path }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+        working-directory: ${{ inputs.service_path }}
+
+      - name: Snyk Security Scan
+        uses: ./.github/workflows/actions/snyk-security-scan
+        with:
+          service_path: ${{ inputs.service_path }}
+          manifest_file: ${{ inputs.service_path }}/package.json
+          snyk_token: ${{ secrets.SNYK_TOKEN }}
+          
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: snyk.sarif
+
+  build-and-test:
+    name: Build & Unit Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ${{ inputs.service_path }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ${{ inputs.service_path }}
+
+      - name: Run unit tests
+        run: |
+          npm test -- \
+            --coverage \
+            --coverageReporters=json-summary \
+            --reporters=default \
+            --reporters=jest-junit \
+            --passWithNoTests
+        working-directory: ${{ inputs.service_path }}
+        env:
+          JEST_JUNIT_OUTPUT_DIR: "."
+          JEST_JUNIT_OUTPUT_NAME: "junit.xml"
+
+      - name: Upload Test Report to Checks
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: "${{ inputs.service_name }} - Unit Test Results"
+          path: "${{ inputs.service_path }}/junit.xml"
+          reporter: jest-junit
+
+      - name: Comment Coverage Report on PR
+        uses: MishaKav/jest-coverage-comment@main
+        if: always()
+        with:
+          coverage-summary-path: ${{ inputs.service_path }}/coverage/coverage-summary.json
+          title: "${{ inputs.service_name }} Coverage Report"
+
+      - name: Enforce coverage threshold
+        shell: bash
+        run: |
+          COVERAGE_FILE="${{ inputs.service_path }}/coverage/coverage-summary.json"
+          if [ ! -f "$COVERAGE_FILE" ]; then
+            echo "No coverage summary found."
+            exit 0
+          fi
+
+          COVERAGE=$(jq '.total.lines.pct' "$COVERAGE_FILE")
+          echo "Overall instruction coverage: ${COVERAGE}%"
+          
+          MIN=${{ inputs.min_coverage_overall }}
+          PASS=$(echo "$COVERAGE >= $MIN" | bc -l)
+          
+          if [ "$PASS" -eq 0 ]; then
+            echo "Coverage ${COVERAGE}% is below required ${MIN}%"
+            exit 1
+          else
+            echo "Coverage ${COVERAGE}% passed threshold ${MIN}%"
+          fi
+
+      - name: Build app
+        run: npm run build --if-present
+        working-directory: ${{ inputs.service_path }}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifact-${{ inputs.service_name }}
+          path: |
+            ${{ inputs.service_path }}/.next/
+            ${{ inputs.service_path }}/dist/
+            ${{ inputs.service_path }}/target/
+          if-no-files-found: ignore
+
+  docker-publish:
+    name: Docker Publish
+    needs: [build-and-test]
+    if: ${{ github.ref == 'refs/heads/main' && inputs.docker_image != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate short SHA
+        run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
+
+      - name: Build and Push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ inputs.service_path }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:latest
+            ghcr.io/${{ github.repository_owner }}/${{ inputs.service_name }}:${{ env.SHORT_SHA }}
+
+      - name: Snyk Container Scan
+        uses: snyk/actions/docker@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: ${{ inputs.docker_image }}
