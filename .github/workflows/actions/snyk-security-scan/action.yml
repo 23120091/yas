@@ -13,6 +13,9 @@ inputs:
   snyk_org:
     description: 'Snyk Organization ID'
     required: true
+  remote_repo_url:
+    description: 'Remote repository URL (for public repo detection)'
+    required: true
 
 runs:
   using: "composite"
@@ -33,7 +36,7 @@ runs:
           --org=${{ inputs.snyk_org }} \
           --file=${{ inputs.manifest_file }} \
           --severity-threshold=high \
-          --remote-repo-url=https://github.com/23120091/yas \
+          --remote-repo-url=${{ inputs.remote_repo_url }} \
           --sarif-file-output=${{ github.workspace }}/snyk.sarif || true
 
         if [ ! -f "${{ github.workspace }}/snyk.sarif" ]; then
