@@ -33,7 +33,7 @@ runs:
           --org=${{ inputs.snyk_org }} \
           --file=${{ inputs.manifest_file }} \
           --severity-threshold=high \
-          --remote-repo-url=https://github.com/${{ github.repository }} \
+          --remote-repo-url=https://github.com/23120091/yas \
           --sarif-file-output=${{ github.workspace }}/snyk.sarif || true
 
         if [ ! -f "${{ github.workspace }}/snyk.sarif" ]; then
