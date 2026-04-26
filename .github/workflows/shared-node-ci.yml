@@ -74,12 +74,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ${{ inputs.service_path }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+        working-directory: ${{ inputs.service_path }}
+
       - name: Snyk Security Scan
         uses: ./.github/workflows/actions/snyk-security-scan
         with:
           service_path: ${{ inputs.service_path }}
           manifest_file: ${{ inputs.service_path }}/package.json
           snyk_token: ${{ secrets.SNYK_TOKEN }}
+          
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v4
         if: always()

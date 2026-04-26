@@ -22,7 +22,9 @@ runs:
       env:
         SNYK_TOKEN: ${{ inputs.snyk_token }}
       run: |
-        find . -name "mvnw" -exec chmod +x {} \;
+        if [ -f "${{ inputs.service_path }}/mvnw" ]; then
+          chmod +x ${{ inputs.service_path }}/mvnw
+        fi
         
         snyk test \
           --file=${{ inputs.manifest_file }} \

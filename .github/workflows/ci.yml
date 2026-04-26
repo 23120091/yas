@@ -43,6 +43,8 @@ jobs:
           filters: |
             backoffice:
               - 'backoffice/**'
+            storefront:
+              - 'storefront/**'
             
 
       - name: Filter Service Changes
