@@ -1,0 +1,40 @@
+name: Node Static Analysis
+description: Run SonarCloud Analysis for Node.js projects
+inputs:
+  service_path:
+    description: Path to the service directory
+    required: true
+  service_name:
+    description: Name of the service
+    required: true
+  sonar_token:
+    description: SonarQube authentication token
+    required: true
+  sonar_organization:
+    description: SonarCloud Organization
+    required: false
+    default: "23120091"
+  sonar_project_key:
+    description: SonarCloud Project Key
+    required: false
+    default: "23120091_yas"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run SonarCloud Scanner
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        SONAR_TOKEN: ${{ inputs.sonar_token }}
+        GITHUB_TOKEN: ${{ github.token }}
+      with:
+        projectBaseDir: ${{ inputs.service_path }}
+        args: >
+          -Dsonar.organization=${{ inputs.sonar_organization }}
+          -Dsonar.projectKey=${{ inputs.sonar_project_key }}
+          -Dsonar.projectName=${{ inputs.service_name }}
+          -Dsonar.sources=.
+          -Dsonar.tests=__tests__
+          -Dsonar.test.inclusions=__tests__/**/*
+          -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+          -Dsonar.coverage.exclusions=**/*.test.js,**/*.test.ts,**/*.spec.js,**/*.spec.ts,cypress/**/*,jest.config.js,jest.setup.js,next.config.js,__mocks__/**/*

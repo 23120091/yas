@@ -9,6 +9,7 @@ on:
       docker_image: { required: false, type: string, default: '' }
     secrets:
       SNYK_TOKEN: { required: true }
+      SONAR_TOKEN: { required: true }
 
 permissions:
   contents: read
@@ -121,6 +122,7 @@ jobs:
           npm test -- \
             --coverage \
             --coverageReporters=json-summary \
+            --coverageReporters=lcov \
             --reporters=default \
             --reporters=jest-junit \
             --passWithNoTests
@@ -128,6 +130,13 @@ jobs:
         env:
           JEST_JUNIT_OUTPUT_DIR: "."
           JEST_JUNIT_OUTPUT_NAME: "junit.xml"
+
+      - name: SonarCloud Analysis
+        uses: ./.github/workflows/actions/node-static-analysis
+        with:
+          service_path: ${{ inputs.service_path }}
+          service_name: ${{ inputs.service_name }}
+          sonar_token: ${{ secrets.SONAR_TOKEN }}
 
       - name: Upload Test Report to Checks
         uses: dorny/test-reporter@v1
