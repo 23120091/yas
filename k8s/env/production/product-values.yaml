@@ -1,0 +1,113 @@
+# ============================================================================
+# PRODUCT SERVICE — PRODUCTION ENVIRONMENT OVERRIDES
+# ============================================================================
+# Production overrides for the product (catalog) microservice.
+# This is the MOST critical service — it serves the product catalog to
+# every storefront visitor. Key differences from staging:
+# - Higher minimum replicas (3 → 5)
+# - Higher resource limits (full production sizing)
+# - Wider HPA range for traffic spikes
+# - Production ingress host
+# - Production-specific feature flags via ConfigMap
+# ============================================================================
+
+backend:
+
+  # --------------------------------------------------------------------------
+  # IMAGE — Production MUST use an immutable semantic version tag.
+  # The CI production pipeline (ci-production.yaml) replaces this tag
+  # with the version selected in the manual workflow_dispatch trigger.
+  # NEVER deploy "latest" to production.
+  # --------------------------------------------------------------------------
+  image:
+    repository: ghcr.io/23120091/product
+    tag: latest
+    # NOTE: CI pipeline replaces "latest" with the selected version tag.
+    # This field is intentionally "latest" as a placeholder that will
+    # always be overwritten before deployment. If it reaches the cluster
+    # as "latest", it means the CI pipeline failed — which is a bug.
+
+  nameOverride: product
+  fullnameOverride: product
+
+  databaseName: product
+
+  # --------------------------------------------------------------------------
+  # REPLICA OVERRIDE — Product service is critical (every page view hits
+  # product catalog). Run 5 minimum replicas for load distribution.
+  # --------------------------------------------------------------------------
+  replicaCount: 5
+
+  # --------------------------------------------------------------------------
+  # RESOURCES — Production sizing for the product service.
+  # Based on expected load of ~1000 requests/second with average response
+  # time under 100ms. JVM heap is typically set to 70% of the memory limit
+  # via -XX:MaxRAMPercentage=70 in the Dockerfile.
+  #
+  # requests: What the node MUST reserve. Sum of all pod requests across
+  #           all services must fit on allocated nodes.
+  # limits:   Hard cap. CPU throttle kicks in at this level. Memory above
+  #           this limit → OOMKill → pod restart → brief outage.
+  # --------------------------------------------------------------------------
+  resources:
+    requests:
+      cpu: 500m          # half a core guaranteed per pod
+      memory: 1Gi        # 1 GiB reserved (JVM heap ~700Mi at 70%)
+    limits:
+      cpu: 2000m         # burst to 2 full cores during traffic spikes
+      memory: 2Gi        # max 2 GiB (JVM heap ~1.4Gi at 70%)
+
+  # --------------------------------------------------------------------------
+  # HPA OVERRIDE — Wider scaling range for production traffic patterns.
+  # Product service handles the most traffic (catalog browsing, search,
+  # product detail views). Scale up to 20 pods for flash sales or campaigns.
+  # --------------------------------------------------------------------------
+  autoscaling:
+    enabled: true
+    minReplicas: 5
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 60   # scale early before users feel it
+
+  # --------------------------------------------------------------------------
+  # INGRESS — Production domain for the API gateway.
+  # The storefront-bff routes /api/product/* to this service internally,
+  # so individual backend services typically don't need their own ingress.
+  # Set to false unless this service needs direct external access.
+  # --------------------------------------------------------------------------
+  ingress:
+    enabled: false      # product is internal-only, accessed via BFF gateway
+    host: api.yas.local.com
+
+  # --------------------------------------------------------------------------
+  # CONFIG MOUNTS — Production-specific ConfigMap with feature flags.
+  # Same mount structure as dev/staging ensures no template changes needed.
+  # The CONFIGMAP CONTENT differs (production DB pooling, cache settings,
+  # feature toggles disabled in production).
+  # --------------------------------------------------------------------------
+  extraVolumes:
+    - name: product-application-config
+      configMap:
+        name: product-application-configmap
+
+  extraVolumeMounts:
+    - name: product-application-config
+      mountPath: /opt/yas/product
+
+  extraApplicationConfigPaths:
+    - /opt/yas/product/product-application.yaml
+
+  # --------------------------------------------------------------------------
+  # POD DISRUPTION BUDGET — Define in extraObjects to ensure at least N pods
+  # are always running during voluntary disruptions (node drains, upgrades).
+  # Uncomment when using cluster-autoscaler or node maintenance windows.
+  # --------------------------------------------------------------------------
+  # extraObjects:
+  #   - apiVersion: policy/v1
+  #     kind: PodDisruptionBudget
+  #     metadata:
+  #       name: product-pdb
+  #     spec:
+  #       minAvailable: 3    # never go below 3 pods during voluntary drain
+  #       selector:
+  #         matchLabels:
+  #           app.kubernetes.io/name: product

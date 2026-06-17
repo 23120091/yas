@@ -1,0 +1,97 @@
+# ============================================================================
+# ARGOCD APP PROJECT — "yas"
+# ============================================================================
+# An AppProject is a logical grouping of Applications. It defines:
+#   1. Which source repos are allowed (prevents deploying from rogue repos)
+#   2. Which cluster + namespace combinations are valid destinations
+#   3. What cluster-scoped resources can be created (security boundary)
+#   4. Which sync windows are allowed (e.g., no deployments on Friday)
+#
+# Every ArgoCD Application in this project MUST reference this project
+# in its spec.project field. Applications without a valid project are
+# rejected by ArgoCD.
+# ============================================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: yas
+  namespace: argocd     # MUST be in the same namespace as ArgoCD
+  finalizers:
+    # When this AppProject is deleted, all Applications in it are also
+    # deleted. This prevents orphaned Applications.
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  # --------------------------------------------------------------------------
+  # SOURCE REPOS — Only allow deploying from these Git repositories.
+  # ArgoCD will REJECT any Application pointing to a repo not listed here.
+  # This is a security feature: prevents an attacker from adding an
+  # Application that deploys from a malicious repository.
+  # --------------------------------------------------------------------------
+  sourceRepos:
+    - https://github.com/23120091/yas   # main monorepo
+    # Add additional repos if you store charts or values in separate repos:
+    # - https://github.com/23120091/yas-configs
+    # - https://charts.example.com
+
+  # --------------------------------------------------------------------------
+  # DESTINATIONS — Which cluster + namespace pairs are allowed.
+  # "server: https://kubernetes.default.svc" means the local cluster
+  # (the same cluster where ArgoCD is running). For multi-cluster setups,
+  # add other servers here.
+  #
+  # namespace: The target namespace where Applications will deploy.
+  # Each environment has its own namespace for full isolation.
+  # --------------------------------------------------------------------------
+  destinations:
+    # Dev environment — auto-deployed from main branch
+    - namespace: dev
+      server: https://kubernetes.default.svc
+
+    # Staging environment — auto-deployed from git tags
+    - namespace: staging
+      server: https://kubernetes.default.svc
+
+    # Production environment — MANUALLY synced (requires human in ArgoCD UI)
+    - namespace: production
+      server: https://kubernetes.default.svc
+
+  # --------------------------------------------------------------------------
+  # CLUSTER RESOURCE WHITELIST — Only allow creating these cluster-scoped
+  # resources. Since YAS services are namespace-scoped (Deployments, Services,
+  # etc.), we don't need to allow any cluster-scoped resources.
+  # Leave empty for maximum security.
+  # --------------------------------------------------------------------------
+  # clusterResourceWhitelist:
+  #   - group: ""
+  #     kind: Namespace
+
+  # --------------------------------------------------------------------------
+  # NAMESPACE RESOURCE BLACKLIST — Prevent Applications from creating
+  # certain resources. For example, we might block NetworkPolicies from
+  # Applications (manage them separately via infra pipeline).
+  # Leave empty — YAS apps can create any namespace-scoped resource they need.
+  # --------------------------------------------------------------------------
+  # namespaceResourceBlacklist:
+  #   - group: ""
+  #     kind: ResourceQuota
+
+  # --------------------------------------------------------------------------
+  # ROLES — Define who can do what in this project (SSO integration).
+  # Example: Developers can sync dev apps, but only SREs can sync production.
+  # This is integrated with ArgoCD's RBAC (argocd-rbac-cm ConfigMap).
+  # --------------------------------------------------------------------------
+  # roles:
+  #   - name: developer
+  #     description: Can sync dev and staging apps
+  #     policies:
+  #       - p, proj:yas:developer, applications, sync, yas/*, allow
+  #     groups:
+  #       - yas-developers    # GitHub OIDC team
+  #
+  #   - name: sre
+  #     description: Can sync any app including production
+  #     policies:
+  #       - p, proj:yas:sre, applications, *, yas/*, allow
+  #     groups:
+  #       - yas-sre
