@@ -97,27 +97,27 @@ helm upgrade --install promtail grafana/promtail \
 --create-namespace --namespace observability \
 --values ./observability/promtail.values.yaml
 
-#Install prometheus + grafana
-grafana_hostname="grafana.$DOMAIN" yq -i '.hostname=env(grafana_hostname)' ./observability/prometheus.values.yaml
-postgresql_username="$POSTGRESQL_USERNAME" yq -i '.grafana."grafana.ini".database.user=env(postgresql_username)' ./observability/prometheus.values.yaml
-postgresql_password="$POSTGRESQL_PASSWORD" yq -i '.grafana."grafana.ini".database.password=env(postgresql_password)' ./observability/prometheus.values.yaml
-helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
- --create-namespace --namespace observability \
--f ./observability/prometheus.values.yaml \
+#Install prometheus + grafana - disabled
+#grafana_hostname="grafana.$DOMAIN" yq -i '.hostname=env(grafana_hostname)' ./observability/prometheus.values.yaml
+#postgresql_username="$POSTGRESQL_USERNAME" yq -i '.grafana."grafana.ini".database.user=env(postgresql_username)' ./observability/prometheus.values.yaml
+#postgresql_password="$POSTGRESQL_PASSWORD" yq -i '.grafana."grafana.ini".database.password=env(postgresql_password)' ./observability/prometheus.values.yaml
+#helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+# --create-namespace --namespace observability \
+#-f ./observability/prometheus.values.yaml \
 
-#Install grafana operator
-helm upgrade --install grafana-operator oci://ghcr.io/grafana-operator/helm-charts/grafana-operator \
---version v5.0.2 \
---create-namespace --namespace observability
+#Install grafana operator - disabled
+#helm upgrade --install grafana-operator oci://ghcr.io/grafana-operator/helm-charts/grafana-operator \
+#--version v5.0.2 \
+#--create-namespace --namespace observability
 
-#Add datasource and dashboard to grafana
-helm upgrade --install grafana ./observability/grafana \
---create-namespace --namespace observability \
---set hotname="grafana.$DOMAIN" \
---set grafana.username="$GRAFANA_USERNAME" \
---set grafana.password="$GRAFANA_PASSWORD" \
---set postgresql.username="$POSTGRESQL_USERNAME" \
---set postgresql.password="$POSTGRESQL_PASSWORD"
+#Add datasource and dashboard to grafana - disabled
+#helm upgrade --install grafana ./observability/grafana \
+#--create-namespace --namespace observability \
+#--set hotname="grafana.$DOMAIN" \
+#--set grafana.username="$GRAFANA_USERNAME" \
+#--set grafana.password="$GRAFANA_PASSWORD" \
+#--set postgresql.username="$POSTGRESQL_USERNAME" \
+#--set postgresql.password="$POSTGRESQL_PASSWORD"
 
 helm upgrade --install zookeeper ./zookeeper \
  --namespace zookeeper --create-namespace
