@@ -1,0 +1,82 @@
+# ============================================================================
+# ARGOCD BOOTSTRAP APPLICATION — "App of Apps" Pattern
+# ============================================================================
+# This is the ROOT ArgoCD Application. It creates ALL other Applications
+# by pointing to the applicationsets/ directory.
+#
+# HOW IT WORKS:
+# 1. You manually run: kubectl apply -f k8s/argocd/bootstrap-app.yaml
+# 2. ArgoCD creates THIS Application (named "yas-bootstrap")
+# 3. This Application watches k8s/argocd/applicationsets/*.yaml in the repo
+# 4. Those YAML files are ApplicationSet objects, which ArgoCD creates
+# 5. Each ApplicationSet then generates per-service Applications
+# 6. Those Applications deploy the actual microservices
+#
+# RESULT: After a single `kubectl apply`, the entire platform is managed
+# by Git — just push changes to the repo and ArgoCD applies them.
+#
+# HIERARCHY:
+#   yas-bootstrap (this file)
+#     └── ApplicationSet: yas-dev
+#     │     ├── Application: product-dev
+#     │     ├── Application: cart-dev
+#     │     └── ... (one per service)
+#     ├── ApplicationSet: yas-staging
+#     │     └── ... (same structure)
+#     └── ApplicationSet: yas-production
+#           └── ... (same structure, manual sync)
+# ============================================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: yas-bootstrap
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  # ^ Uses the built-in "default" project because this Application manages
+  #   the yas AppProject itself. After the first sync, subsequent changes
+  #   to yas-project.yaml are applied by this Application.
+
+  source:
+    repoURL: https://github.com/23120091/yas
+    targetRevision: main
+    path: k8s/argocd/applicationsets
+    # ^ Points to the directory containing ALL ApplicationSet YAMLs.
+    #   This is a "directory" type source (not Helm) — ArgoCD will apply
+    #   every .yaml file in this directory as a raw Kubernetes manifest.
+    #   This works because ApplicationSet is a K8s CRD.
+
+    directory:
+      recurse: false
+      # ^ Only look at files directly in applicationsets/, not subdirectories.
+      #   If you organize by environment (e.g., applicationsets/dev/, ...),
+      #   set recurse: true and use per-directory structure instead.
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+    # ^ The ApplicationSet objects themselves live in the argocd namespace
+    #   (this is where the ArgoCD controller watches for them).
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      # ^ The argocd namespace should already exist, but this is safe.
+
+  # --------------------------------------------------------------------------
+  # HOW TO BOOTSTRAP:
+  #
+  #   # On a fresh cluster with ArgoCD already installed:
+  #   kubectl apply -f k8s/argocd/projects/yas-project.yaml
+  #   kubectl apply -f k8s/argocd/bootstrap-app.yaml
+  #
+  #   # Everything else (ApplicationSets → Applications → Deployments)
+  #   # is created automatically by ArgoCD. No further manual steps.
+  # --------------------------------------------------------------------------

@@ -1,0 +1,85 @@
+# ============================================================================
+# PRODUCT SERVICE — STAGING ENVIRONMENT OVERRIDES
+# ============================================================================
+# Overrides dev/product-values.yaml defaults for staging.
+# Key differences from dev:
+# - Image tag is a SEMANTIC VERSION (vX.Y.Z) not "latest"
+# - More replicas (2 + HPA up to 10)
+# - Higher resource allocation (mirrors production shape at smaller scale)
+# - Ingress host set for staging domain
+# ============================================================================
+
+backend:
+
+  # --------------------------------------------------------------------------
+  # IMAGE — Uses semantic version tag (e.g., "v1.2.3").
+  # The CI staging pipeline (ci-staging.yaml) replaces this tag when a git
+  # tag is pushed. Immutable tags mean we can exactly reproduce what ran.
+  # --------------------------------------------------------------------------
+  image:
+    repository: ghcr.io/23120091/product
+    tag: latest
+    # NOTE: CI pipeline replaces "latest" with the git tag (e.g., "v1.2.3")
+    # during the staging deployment workflow.
+    # See: .github/workflows/ci-staging.yaml
+
+  nameOverride: product
+  fullnameOverride: product
+
+  databaseName: product
+
+  # --------------------------------------------------------------------------
+  # RESOURCES — Staging gets higher resource limits than dev because:
+  # 1. Load testing is performed here (need realistic capacity)
+  # 2. Performance regressions should be caught BEFORE production
+  # 3. Size approximates production but at 50-70% for cost savings
+  #
+  # These values should mirror production's shape (same CPU:Memory ratio)
+  # but at a smaller absolute scale.
+  # --------------------------------------------------------------------------
+  resources:
+    requests:
+      cpu: 200m       # 2x dev — enough for concurrent request processing
+      memory: 512Mi   # 2x dev — JVM heap + off-heap + OS overhead
+    limits:
+      cpu: 1000m      # 1 full core burst limit (2x dev)
+      memory: 1Gi     # 2x dev — JVM usually uses 70% of limit as max heap
+
+  # --------------------------------------------------------------------------
+  # INGRESS — Expose the product service on a staging domain.
+  # The ingress host is set via CI pipeline or ArgoCD override.
+  # Format: api.staging.yas.local.com
+  # --------------------------------------------------------------------------
+  ingress:
+    enabled: true
+    host: api.staging.yas.local.com
+    path: /
+
+  # --------------------------------------------------------------------------
+  # HPA OVERRIDE — Staging overrides common HPA settings per-service.
+  # Product service is tuned to be more sensitive because it's the most
+  # heavily trafficked service (catalog browsing, search).
+  # --------------------------------------------------------------------------
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+  # --------------------------------------------------------------------------
+  # CONFIG MOUNTS — Same as dev: mount product-specific ConfigMap.
+  # The ConfigMap content may differ between dev and staging (different
+  # feature flags, external URLs, etc.) but the MOUNT STRUCTURE is identical.
+  # This ensures the same deployment template works across all environments.
+  # --------------------------------------------------------------------------
+  extraVolumes:
+    - name: product-application-config
+      configMap:
+        name: product-application-configmap
+
+  extraVolumeMounts:
+    - name: product-application-config
+      mountPath: /opt/yas/product
+
+  extraApplicationConfigPaths:
+    - /opt/yas/product/product-application.yaml

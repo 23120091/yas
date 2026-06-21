@@ -1,0 +1,152 @@
+# ============================================================================
+# COMMON VALUES — DEV ENVIRONMENT
+# ============================================================================
+# This file is loaded FIRST by ArgoCD (via helm.valueFiles) for ALL services.
+# It contains environment-wide defaults that every service inherits.
+# Service-specific overrides go in <service>-values.yaml and are loaded SECOND,
+# so they take precedence over anything defined here.
+#
+# Loading order in ArgoCD ApplicationSet:
+#   1. ../../env/dev/common-values.yaml   ← THIS FILE (applied first)
+#   2. ../../env/dev/<service>-values.yaml ← PER-SERVICE (applied second, wins)
+#
+# Helm merges both files: the SECOND file's keys override matching keys from
+# the FIRST file. Arrays are REPLACED entirely (not merged), so define
+# complete arrays like extraVolumes in the per-service file, not here.
+# ============================================================================
+
+# All values are nested under "backend:" because each service chart
+# (e.g., k8s/charts/product/) declares "backend" as a Helm dependency.
+# The parent chart's templates consume `.Values.backend.*`.
+# See: k8s/charts/product/Chart.yaml line 27 — dependency on backend chart
+backend:
+
+  # --------------------------------------------------------------------------
+  # IMAGE — Default pull policy for dev (no tag override here, per-service
+  # files set the specific tag like "dev-<sha>" for each service)
+  # --------------------------------------------------------------------------
+  image:
+    pullPolicy: IfNotPresent
+    # IfNotPresent: pull only if image not cached on node. Good for dev
+    # where we iterate quickly and images change often on the same tag.
+    # 
+    # Alternatives:
+    #   Always    — re-pull every time (wasteful, slows startup)
+    #   Never     — only use local images (for air-gapped clusters)
+
+  # --------------------------------------------------------------------------
+  # REPLICAS — Dev runs one replica per service to save resources.
+  # Override in per-service files if a specific service needs more.
+  # --------------------------------------------------------------------------
+  replicaCount: 1
+
+  # --------------------------------------------------------------------------
+  # DATABASE — All services share the same PostgreSQL cluster.
+  # jdbc:postgresql://<service>.<namespace>:5432
+  #   Service name: postgresql (the Zalando Postgres Operator creates this)
+  #   Namespace: postgres (where the PG operator and cluster live)
+  # The actual database name per service is set in each <service>-values.yaml
+  # via backend.databaseName, which is appended to this URL in the deployment
+  # template as: SPRING_DATASOURCE_URL = databaseConnectionUrl/databaseName
+  # See: k8s/charts/backend/templates/deployment.yaml line 58
+  # --------------------------------------------------------------------------
+  databaseConnectionUrl: jdbc:postgresql://postgresql.postgres:5432
+
+  # --------------------------------------------------------------------------
+  # NODE SELECTOR — Pin ALL dev pods to nodes labeled "env=dev".
+  # This ensures dev workloads NEVER accidentally land on staging/prod nodes,
+  # isolating resource usage and preventing environment cross-contamination.
+  #
+  # Prerequisite on the K3s cluster:
+  #   kubectl label nodes <node-name> env=dev
+  # --------------------------------------------------------------------------
+  nodeSelector:
+    env: dev
+
+  # --------------------------------------------------------------------------
+  # HPA (Horizontal Pod Autoscaler) — Disabled in dev.
+  # No need to auto-scale when running a single replica for testing.
+  # Enable in staging/prod environments that receive real load.
+  # --------------------------------------------------------------------------
+  autoscaling:
+    enabled: false
+
+  # --------------------------------------------------------------------------
+  # INGRESS — Disabled globally in dev.
+  # We use port-forward or a single dev ingress controller for all services.
+  # Individual services with external-facing needs can enable it per-service.
+  # --------------------------------------------------------------------------
+  ingress:
+    enabled: false
+
+  # --------------------------------------------------------------------------
+  # SERVICE MONITOR — Disabled in dev (Prometheus is not deployed on dev).
+  # The ServiceMonitor CR would be created but never scraped — wasting no
+  # resources but causing unnecessary CR clutter in the cluster.
+  # --------------------------------------------------------------------------
+  serviceMonitor:
+    enabled: false
+
+  # --------------------------------------------------------------------------
+  # DEPLOYMENT ANNOTATIONS — Annotate for stakater Reloader.
+  # Reloader watches ConfigMaps/Secrets and automatically restarts pods when
+  # they change. The "search: true" annotation tells it to watch ALL configs.
+  # This is critical in dev where we frequently tweak config.
+  # --------------------------------------------------------------------------
+  deployment:
+    annotations:
+      reloader.stakater.com/search: "true"
+
+  # --------------------------------------------------------------------------
+  # PROBES — Health check configuration.
+  # These are standard Spring Boot Actuator endpoints.
+  #
+  # livenessProbe:  Kubernetes restarts the pod if this fails.
+  #   periodSeconds=10, failureThreshold=12 → pod must be unhealthy for
+  #   120 seconds (10s * 12) before restart. Generous threshold to avoid
+  #   flapping during startup spikes.
+  #
+  # readinessProbe: Kubernetes stops sending traffic if this fails.
+  #   Same generous threshold — pod has 120s to become ready.
+  # --------------------------------------------------------------------------
+  livenessProbe:
+    periodSeconds: 10
+    failureThreshold: 12
+    successThreshold: 1
+    httpGet:
+      path: /actuator/health/liveness
+      port: metric   # port 8090 — the management/metrics port
+
+  readinessProbe:
+    periodSeconds: 10
+    failureThreshold: 12
+    successThreshold: 1
+    httpGet:
+      path: /actuator/health/readiness
+      port: metric
+
+  # --------------------------------------------------------------------------
+  # LOGGING — Path to the shared logback.xml ConfigMap mount.
+  # The yas-configuration ConfigMap (deployed separately) contains a single
+  # logback.xml used by ALL services. Mounted at /opt/yas/config/.
+  # --------------------------------------------------------------------------
+  logbackXmlPath: /opt/yas/config/logback.xml
+
+  # --------------------------------------------------------------------------
+  # SECURITY CONTEXT — Run containers as non-root for security.
+  # Uncomment these in production. Dev often needs root for debugging/tools.
+  # --------------------------------------------------------------------------
+  # securityContext:
+  #   runAsNonRoot: true
+  #   runAsUser: 1000
+  #   readOnlyRootFilesystem: true
+
+  # --------------------------------------------------------------------------
+  # GRACEFUL SHUTDOWN — 45 seconds for the pod to finish in-flight requests
+  # before SIGKILL. Spring Boot apps need time to drain connections.
+  # --------------------------------------------------------------------------
+  terminationGracePeriodSeconds: 45
+  lifecycle:
+    preStop:
+      exec:
+        command: ["sh", "-c", "sleep 10"]  # give load balancer time to stop sending traffic

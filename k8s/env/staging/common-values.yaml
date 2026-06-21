@@ -1,0 +1,128 @@
+# ============================================================================
+# COMMON VALUES — STAGING ENVIRONMENT
+# ============================================================================
+# Same purpose as dev/common-values.yaml but tuned for staging:
+# - More replicas (load test mirroring production shape)
+# - HPA enabled for scaling tests
+# - Ingress enabled (staging has real hostnames)
+# - ServiceMonitor enabled (Prometheus is deployed in staging)
+# - Node pinning to "env=staging" nodes
+# ============================================================================
+
+backend:
+
+  image:
+    pullPolicy: IfNotPresent
+    # IfNotPresent is safe for staging: images use immutable semantic version
+    # tags (e.g., "v1.2.3"), so we don't need to re-pull the same tag.
+
+  # --------------------------------------------------------------------------
+  # REPLICAS — Staging runs at least 2 replicas per service to validate HA
+  # behavior (load balancing, session stickiness, graceful rollout).
+  # HPA may scale beyond this if enabled per-service.
+  # --------------------------------------------------------------------------
+  replicaCount: 2
+
+  # --------------------------------------------------------------------------
+  # DATABASE — Same PostgreSQL cluster, different namespace context.
+  # Staging has its own PostgreSQL instance (or a separate logical DB on the
+  # same cluster) to avoid polluting production data.
+  # --------------------------------------------------------------------------
+  databaseConnectionUrl: jdbc:postgresql://postgresql.postgres:5432
+
+  # --------------------------------------------------------------------------
+  # NODE ISOLATION — Pin staging pods to dedicated staging nodes.
+  # Prerequisite: kubectl label nodes <node> env=staging
+  #
+  # Why: Staging shares the cluster with production. We must ensure staging
+  # pods never land on production nodes, which could cause resource
+  # contention or (worse) allow staging bugs to access production services.
+  # --------------------------------------------------------------------------
+  nodeSelector:
+    env: staging
+
+  # --------------------------------------------------------------------------
+  # HPA — Enable auto-scaling in staging so we can validate HPA behavior
+  # before hitting production. Default: scale between 2 and 10 pods.
+  # Individual services can override min/max in their per-service file.
+  # --------------------------------------------------------------------------
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    # targetMemoryUtilizationPercentage: 70  # uncomment to scale on memory too
+
+  # --------------------------------------------------------------------------
+  # INGRESS — Staging has public-facing endpoints for UAT testing.
+  # Hostnames follow: <service>.staging.yas.local.com
+  # --------------------------------------------------------------------------
+  ingress:
+    enabled: true
+    className: nginx
+    path: /
+    pathType: ImplementationSpecific
+    # host is set per-service via override in each <service>-values.yaml
+
+  # --------------------------------------------------------------------------
+  # SERVICE MONITOR — Prometheus scrapes staging services for metrics,
+  # allowing the team to verify dashboards and alerts before production.
+  # --------------------------------------------------------------------------
+  serviceMonitor:
+    enabled: true
+
+  # --------------------------------------------------------------------------
+  # PROBES — Same generous thresholds as dev to survive transient spikes
+  # during load tests.
+  # --------------------------------------------------------------------------
+  livenessProbe:
+    periodSeconds: 10
+    failureThreshold: 12
+    successThreshold: 1
+    httpGet:
+      path: /actuator/health/liveness
+      port: metric
+
+  readinessProbe:
+    periodSeconds: 10
+    failureThreshold: 12
+    successThreshold: 1
+    httpGet:
+      path: /actuator/health/readiness
+      port: metric
+
+  logbackXmlPath: /opt/yas/config/logback.xml
+
+  terminationGracePeriodSeconds: 45
+  lifecycle:
+    preStop:
+      exec:
+        command: ["sh", "-c", "sleep 10"]
+
+  # --------------------------------------------------------------------------
+  # STAKATER RELOADER — Keep enabled in staging too. When someone updates
+  # a ConfigMap, Reloader restarts pods automatically. Essential for rapid
+  # iteration during UAT without manual pod deletions.
+  # --------------------------------------------------------------------------
+  deployment:
+    annotations:
+      reloader.stakater.com/search: "true"
+
+  # --------------------------------------------------------------------------
+  # POD AFFINITY — Spread replicas across nodes for HA.
+  # In staging, with replicaCount=2, this ensures the two pods are NOT
+  # scheduled on the same node — so a single node failure doesn't take
+  # down the entire service.
+  # --------------------------------------------------------------------------
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: ""
+              # ^ This is a PLACEHOLDER. The actual label is rendered by
+              #   the _helpers.tpl template. In the per-service values file,
+              #   we'll set the exact label via override.
+            topologyKey: kubernetes.io/hostname

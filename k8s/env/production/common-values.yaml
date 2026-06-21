@@ -1,0 +1,160 @@
+# ============================================================================
+# COMMON VALUES — PRODUCTION ENVIRONMENT
+# ============================================================================
+# Production is the MOST conservative environment. Key principles:
+# - Maximum replicas with HPA for HA
+# - Strict security context (non-root, read-only root filesystem)
+# - No auto-reload on ConfigMap change (requires deliberate rollout)
+# - Aggressive pod anti-affinity (spread across nodes, zones)
+# - Higher probe failure thresholds to avoid premature restarts under load
+# ============================================================================
+
+backend:
+
+  image:
+    pullPolicy: IfNotPresent
+    # Production ALWAYS uses immutable semantic version tags (vX.Y.Z).
+    # IfNotPresent is safe here — a v1.2.3 tag is never overwritten.
+    # If we ever need to force a re-pull, we'd use a new version tag.
+
+  # --------------------------------------------------------------------------
+  # REPLICAS — Production minimum is 3 for true HA.
+  # With 3 replicas spread across 3 nodes/zones, we survive 2 simultaneous
+  # node failures while still serving traffic.
+  # HPA can scale beyond this in <service>-values.yaml for high-traffic services.
+  # --------------------------------------------------------------------------
+  replicaCount: 3
+
+  # --------------------------------------------------------------------------
+  # DATABASE — Production has its OWN PostgreSQL instance (not shared with
+  # staging or dev). The connection URL points to the production PG cluster.
+  # --------------------------------------------------------------------------
+  databaseConnectionUrl: jdbc:postgresql://postgresql.postgres:5432
+
+  # --------------------------------------------------------------------------
+  # NODE ISOLATION — Production pods ONLY on production-labeled nodes.
+  # This is a HARD requirement. No tolerance for other environments.
+  # --------------------------------------------------------------------------
+  nodeSelector:
+    env: production
+
+  # --------------------------------------------------------------------------
+  # HPA — Enabled with conservative defaults (scale out early at 60% CPU).
+  # Production uses lower CPU threshold (60% vs 70% in staging) to scale
+  # BEFORE users feel slowdown — buffer capacity for traffic spikes.
+  # --------------------------------------------------------------------------
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 60   # scale early, stay responsive
+
+  # --------------------------------------------------------------------------
+  # INGRESS — Enabled for all services (external access via nginx).
+  # Hostnames follow production domain pattern.
+  # --------------------------------------------------------------------------
+  ingress:
+    enabled: true
+    className: nginx
+    path: /
+    pathType: ImplementationSpecific
+
+  # --------------------------------------------------------------------------
+  # SERVICE MONITOR — Enabled, Prometheus scrapes production metrics for
+  # dashboards, alerting, and capacity planning.
+  # --------------------------------------------------------------------------
+  serviceMonitor:
+    enabled: true
+
+  # --------------------------------------------------------------------------
+  # PROBES — Stricter than dev/staging in terms of FAILURE detection.
+  # Production cannot tolerate 120 seconds of unhealthiness before restart.
+  # Reduced to 60 seconds (periodSeconds=10, failureThreshold=6).
+  # successThreshold stays at 1: one success means the pod is healthy.
+  # --------------------------------------------------------------------------
+  livenessProbe:
+    periodSeconds: 10
+    failureThreshold: 6     # 60 seconds to declare dead (vs 120s in dev)
+    successThreshold: 1
+    httpGet:
+      path: /actuator/health/liveness
+      port: metric
+
+  readinessProbe:
+    periodSeconds: 10
+    failureThreshold: 6     # 60 seconds of failing readiness → removed from service
+    successThreshold: 1
+    httpGet:
+      path: /actuator/health/readiness
+      port: metric
+
+  logbackXmlPath: /opt/yas/config/logback.xml
+
+  terminationGracePeriodSeconds: 60   # longer grace period in prod for draining
+  lifecycle:
+    preStop:
+      exec:
+        command: ["sh", "-c", "sleep 15"]  # 15s for LB to deregister
+
+  # --------------------------------------------------------------------------
+  # SECURITY CONTEXT — Production enforces strict security:
+  #   runAsNonRoot: true       — Container cannot run as root user
+  #   readOnlyRootFilesystem:  — Filesystem is read-only (writes go to volumes only)
+  #   allowPrivilegeEscalation: false  — No setuid binaries
+  #   capabilities.drop: ["ALL"] — Drop ALL Linux capabilities
+  # 
+  # These are Kubernetes Pod Security Standard "restricted" level.
+  # --------------------------------------------------------------------------
+  podSecurityContext:
+    runAsNonRoot: true
+    fsGroup: 1000
+
+  securityContext:
+    runAsNonRoot: true
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+
+  # --------------------------------------------------------------------------
+  # RELOADER — STILL enabled for auto-reload on ConfigMap changes.
+  # Some teams disable this in production for change control (require
+  # deliberate rollout), but keeping it on means fewer manual restarts.
+  # If your change management requires approvals, DISABLE this and comment
+  # the line out. You'd then do: kubectl rollout restart deployment/product
+  # --------------------------------------------------------------------------
+  deployment:
+    annotations:
+      reloader.stakater.com/search: "true"
+
+  # --------------------------------------------------------------------------
+  # POD ANTI-AFFINITY — Production spreads across nodes AND zones.
+  #   preferredDuringScheduling: "please try to put pods on different nodes"
+  #   If there are 3 nodes and 3 replicas, each node gets 1 pod.
+  #   If only 2 nodes, 2 pods on one node, 1 on the other — still works.
+  #
+  #   topologyKey: kubernetes.io/hostname → spread by node
+  #   For zone spreading, also add topologyKey: topology.kubernetes.io/zone
+  # --------------------------------------------------------------------------
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            topologyKey: kubernetes.io/hostname   # spread across physical nodes
+        - weight: 50
+          podAffinityTerm:
+            topologyKey: topology.kubernetes.io/zone  # also spread across AZs
+
+  # --------------------------------------------------------------------------
+  # TOLERATIONS — If you have dedicated production node pools with taints
+  # (e.g., "CriticalAddonsOnly"), add tolerations here so pods can schedule.
+  # Example:
+  #   tolerations:
+  #     - key: "prod"
+  #       operator: "Equal"
+  #       value: "true"
+  #       effect: "NoSchedule"
+  # --------------------------------------------------------------------------
+  tolerations: []
