@@ -4,6 +4,7 @@ storefrontRedirectUrl: http://storefront.yas.local.com
 postgresql:
   username: yasadminuser
   password: admin
+  host: postgresql.postgres
 
 bootstrapAdmin:
   username: admin

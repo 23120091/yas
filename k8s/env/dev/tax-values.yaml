@@ -1,0 +1,18 @@
+backend:
+
+  image:
+    repository: ghcr.io/23120091/tax
+    tag: latest
+
+  nameOverride: tax
+  fullnameOverride: tax
+
+  databaseName: tax
+
+  resources:
+    requests:
+      cpu: 140m
+      memory: 624Mi
+    limits:
+      cpu: 200m
+      memory: 724Mi

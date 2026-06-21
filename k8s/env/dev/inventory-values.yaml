@@ -1,0 +1,18 @@
+backend:
+
+  image:
+    repository: ghcr.io/23120091/inventory
+    tag: latest
+
+  nameOverride: inventory
+  fullnameOverride: inventory
+
+  databaseName: inventory
+
+  resources:
+    requests:
+      cpu: 150m
+      memory: 530Mi
+    limits:
+      cpu: 200m
+      memory: 630Mi
