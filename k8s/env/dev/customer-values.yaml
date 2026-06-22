@@ -1,0 +1,14 @@
+backend:
+  image:
+    repository: ghcr.io/23120091/customer
+    tag: latest
+  nameOverride: customer
+  fullnameOverride: customer
+  databaseName: customer
+  resources:
+    requests:
+      cpu: 100m
+      memory: 450Mi
+    limits:
+      cpu: 400m
+      memory: 750Mi
