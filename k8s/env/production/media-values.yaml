@@ -1,0 +1,35 @@
+backend:
+  image:
+    repository: ghcr.io/23120091/media
+    tag: latest
+
+  nameOverride: media
+  fullnameOverride: media
+  databaseName: media
+  ingress:
+    enabled: true
+    host: api.yas.local
+    path: /media/
+  extraVolumes:
+    - name: media-application
+      configMap:
+        name: media-application-configmap
+  extraVolumeMounts:
+    - name: media-application
+      mountPath: /opt/yas/media
+  extraApplicationConfigPaths:
+    - /opt/yas/media/media-application.yaml
+
+  resources:
+    requests:
+      cpu: 500m      
+      memory: 1Gi    
+    limits:
+      cpu: 2000m      
+      memory: 2Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 5
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 60
