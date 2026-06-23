@@ -1,0 +1,82 @@
+# ============================================================================
+# ARGOCD APPLICATIONSET — PRODUCTION ENVIRONMENT
+# ============================================================================
+# Generates ONE ArgoCD Application per YAS microservice for PRODUCTION namespace.
+#
+# UPDATE STRATEGY (production):
+#   workflow_dispatch triggered manually → CI edits production values files
+#   → commits to git with [skip-ci] → ArgoCD detects git change
+#   → Application becomes "OutOfSync" (because syncPolicy: {} — NO auto-sync)
+#   → APPROVER opens ArgoCD Web UI → clicks "Sync" → deploy to production
+#
+# The manual sync gate ensures:
+#   - Human approval before production changes
+#   - Deploy during maintenance windows
+#   - Rollback by reverting the git commit + manual sync
+# ============================================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: yas-production
+  namespace: argocd
+  labels:
+    env: production
+    team: yas
+spec:
+  generators:
+    - list:
+        elements:
+          # --- BACKEND SERVICES ---
+          - {service: "product",        directory: "k8s/charts/product"}
+          - {service: "cart",           directory: "k8s/charts/cart"}
+          - {service: "order",          directory: "k8s/charts/order"}
+          - {service: "payment",        directory: "k8s/charts/payment"}
+          - {service: "payment-paypal", directory: "k8s/charts/payment-paypal"}
+          - {service: "customer",       directory: "k8s/charts/customer"}
+          - {service: "inventory",      directory: "k8s/charts/inventory"}
+          - {service: "location",       directory: "k8s/charts/location"}
+          - {service: "media",          directory: "k8s/charts/media"}
+          - {service: "tax",            directory: "k8s/charts/tax"}
+          - {service: "promotion",      directory: "k8s/charts/promotion"}
+          - {service: "rating",         directory: "k8s/charts/rating"}
+          - {service: "search",         directory: "k8s/charts/search"}
+          - {service: "recommendation", directory: "k8s/charts/recommendation"}
+          - {service: "sampledata",     directory: "k8s/charts/sampledata"}
+          - {service: "webhook",        directory: "k8s/charts/webhook"}
+          - {service: "storefront-bff", directory: "k8s/charts/storefront-bff"}
+          - {service: "backoffice-bff", directory: "k8s/charts/backoffice-bff"}
+
+          # --- UI SERVICES ---
+          - {service: "storefront-ui",  directory: "k8s/charts/storefront-ui"}
+          - {service: "backoffice-ui",  directory: "k8s/charts/backoffice-ui"}
+
+  template:
+    metadata:
+      name: "{{service}}-production"
+      labels:
+        env: production
+        service: "{{service}}"
+        team: yas
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+
+    spec:
+      project: yas
+      source:
+        repoURL: https://github.com/23120091/yas
+        targetRevision: main
+        path: "{{directory}}"
+        helm:
+          valueFiles:
+            - "../../env/production/common-values.yaml"
+            - "../../env/production/{{service}}-values.yaml"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: production
+
+      # --- MANUAL SYNC ONLY ---
+      # syncPolicy: {} means ArgoCD will NEVER auto-deploy.
+      # The Application shows "OutOfSync" in the Web UI.
+      # A human must explicitly click "Sync" to deploy to production.
+      syncPolicy: {}

@@ -1,0 +1,25 @@
+backend:
+  image:
+    repository: ghcr.io/23120091/cart
+    tag: latest
+  nameOverride: cart 
+  fullnameOverride: cart
+  databaseName: cart
+  resources:
+    requests:
+      cpu: 100m
+      memory: 384Mi
+    limits:
+      cpu: 600m
+      memory: 1Gi
+  extraVolumes:
+    - name: cart-application-config
+      configMap:
+        name: cart-application-configmap
+
+  extraVolumeMounts:
+    - name: cart-application-config
+      mountPath: /opt/yas/cart
+
+  extraApplicationConfigPaths:
+    - /opt/yas/cart/cart-application.yaml  

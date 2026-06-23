@@ -1,0 +1,47 @@
+# ============================================================================
+# CLUSTER CONFIGURATION — PRODUCTION ENVIRONMENT
+# ============================================================================
+# This file provides infrastructure configuration for the PRODUCTION environment.
+# All resources are deployed into env-specific namespaces (e.g., postgres-production).
+#
+# Production is the MOST conservative:
+#   - 3 replicas minimum for true HA
+#   - Largest volume sizes
+#   - Clean domain (no env prefix) — prod owns the primary URLs
+# ============================================================================
+
+domain: yas.local.com
+
+# Production uses the clean domain (no subdomain prefix).
+# e.g. identity.yas.local.com, not identity.production.yas.local.com
+envSubdomain: ""
+
+postgresql:
+  replicas: 3
+  username: yasadminuser
+  password: admin
+  volumeSize: 50Gi
+
+kafka:
+  replicas: 3
+
+zookeeper:
+  replicas: 3
+
+elasticsearch:
+  replicas: 3
+  username: yas
+  password: LarUmB3A49NTg9YmgW4=
+
+keycloak:
+  bootstrapAdmin:
+    username: admin
+    password: admin
+  backofficeRedirectUrl: http://backoffice.yas.local.com
+  storefrontRedirectUrl: http://storefront.yas.local.com
+
+redis:
+  password: redis
+
+# Grafana and Prometheus are NOT deployed (project does not use them).
+# Observability stack: Loki + Tempo + Promtail + OpenTelemetry Collector only.

@@ -1,0 +1,35 @@
+backend:
+  image:
+    repository: ghcr.io/23120091/customer
+    tag: latest
+  nameOverride: customer
+  fullnameOverride: customer
+  databaseName: customer
+  ingress:
+    enabled: true
+    host: api.yas.local
+    path: /
+  extraEnvFroms:
+    - secretRef:
+        name: yas-keycloak-credentials-secret
+  extraVolumes:
+    - name: customer-application
+      configMap:
+        name: customer-application-configmap
+  extraVolumeMounts:
+    - name: customer-application
+      mountPath: /opt/yas/customer
+  extraApplicationConfigPaths:
+    - /opt/yas/customer/customer-application.yaml
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 3000m
+      memory: 3Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 5
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 60

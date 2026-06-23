@@ -1,0 +1,18 @@
+ui:
+  image:
+    repository: ghcr.io/23120091/storefront
+    tag: latest
+  nameOverride: storefront-ui
+  fullnameOverride: storefront-ui
+  extraEnvs:
+    - name: API_BASE_PATH
+      value: http://storefront.staging.yas.local.com/api
+  ingress:
+    enabled: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 450m
+      memory: 768Mi

@@ -28,7 +28,7 @@ backend:
   # Staging has its own PostgreSQL instance (or a separate logical DB on the
   # same cluster) to avoid polluting production data.
   # --------------------------------------------------------------------------
-  databaseConnectionUrl: jdbc:postgresql://postgresql.postgres:5432
+  databaseConnectionUrl: jdbc:postgresql://postgresql.postgres-staging:5432
 
   # --------------------------------------------------------------------------
   # NODE ISOLATION — Pin staging pods to dedicated staging nodes.

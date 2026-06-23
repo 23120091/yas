@@ -1,0 +1,27 @@
+backend:
+  image:
+    repository: ghcr.io/23120091/media
+    tag: latest
+
+  nameOverride: media
+  fullnameOverride: media
+  databaseName: media
+  ingress:
+    enabled: false
+  extraVolumes:
+    - name: media-application
+      configMap:
+        name: media-application-configmap
+  extraVolumeMounts:
+    - name: media-application
+      mountPath: /opt/yas/media
+  extraApplicationConfigPaths:
+    - /opt/yas/media/media-application.yaml
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 750m
+      memory: 768Mi

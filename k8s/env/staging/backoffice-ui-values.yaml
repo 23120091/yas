@@ -1,0 +1,15 @@
+ui:
+  image:
+    repository: ghcr.io/23120091/backoffice
+    tag: latest
+  nameOverride: backoffice-ui
+  fullnameOverride: backoffice-ui
+  ingress:
+    enabled: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 450m
+      memory: 768Mi

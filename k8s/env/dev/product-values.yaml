@@ -1,147 +1,27 @@
-# ============================================================================
-# PRODUCT SERVICE — DEV ENVIRONMENT OVERRIDES
-# ============================================================================
-# This file is loaded SECOND by ArgoCD (after common-values.yaml).
-# It OVERRIDES matching keys from common-values.yaml and adds service-specific
-# config that doesn't belong in a shared file (extraVolumes, databaseName, etc).
-#
-# This file is consumed by: k8s/charts/product/ (which depends on backend chart)
-# See: k8s/charts/product/Chart.yaml (dependencies → backend)
-# ============================================================================
-
-# All values nested under "backend:" because this chart declares the
-# "backend" Helm chart as its dependency. Every key here is passed into
-# the backend chart's templates where they are rendered.
-#
-# Example: backend.image.repository → rendered as container image in
-#          k8s/charts/backend/templates/deployment.yaml line 46
 backend:
-
-  # --------------------------------------------------------------------------
-  # IMAGE — Which Docker image to deploy.
-  #   repository: Full path to the OCI image on GitHub Container Registry.
-  #               Format is ghcr.io/<org>/<service-name>
-  #   tag:        Image version. For dev we use "latest" to always pull the
-  #               most recent build. The CI pipeline will change this to
-  #               "dev-<commit-sha>" for traceability.
-  #   pullPolicy: Override from common (IfNotPresent → Always for dev)
-  #               so every pod restart pulls the newest image.
-  # --------------------------------------------------------------------------
   image:
     repository: ghcr.io/23120091/product
     tag: latest
-    # NOTE: CI pipeline (ci-dev.yaml) will automatically replace "latest"
-    # with "dev-<github.sha>" on every push to main. We keep "latest" as
-    # the default so local devs can still do `helm install` manually.
-
-  # --------------------------------------------------------------------------
-  # NAMING — Override the Helm-generated name to be clean and predictable.
-  #   nameOverride:     The base name of the release. Helm normally prefixes
-  #                     with release name (e.g., "product-dev-product").
-  #                     Setting this makes all resources named "product-*".
-  #   fullnameOverride: The FULL name used for ALL resources. Overrides
-  #                     everything. K8s resources will be named exactly
-  #                     "product" not "product-dev-product".
-  # --------------------------------------------------------------------------
+   
   nameOverride: product
   fullnameOverride: product
-
-  # --------------------------------------------------------------------------
-  # DATABASE — Each microservice gets its own PostgreSQL database.
-  # Combined with databaseConnectionUrl from common-values.yaml:
-  #   jdbc:postgresql://postgresql.postgres:5432/product
-  # The database must exist (created by the Zalando Postgres Operator CR
-  # in k8s/deploy/postgres/postgresql/templates/postgresql.yaml line 42).
-  # --------------------------------------------------------------------------
   databaseName: product
-
-  # --------------------------------------------------------------------------
-  # RESOURCES — CPU and Memory allocation for dev.
-  # Dev gets minimal resources since there's no real traffic.
-  #
-  #   requests: What Kubernetes GUARANTEES the pod. The scheduler uses this
-  #             to decide which node has enough capacity.
-  #   limits:   Hard cap. If exceeded, CPU is throttled, memory → OOMKill.
-  #
-  # Units:
-  #   cpu:    100m = 0.1 CPU core. "1" = 1 full core.
-  #   memory: 256Mi = 256 Mebibytes (~268 MB). "1Gi" = 1 Gibibyte.
-  # --------------------------------------------------------------------------
-  resources:
-    requests:
-      cpu: 100m       # guaranteed 0.1 core
-      memory: 256Mi   # guaranteed 256 MiB
-    limits:
-      cpu: 500m       # burst up to 0.5 core
-      memory: 512Mi   # burst up to 512 MiB — if exceeded, pod gets OOMKilled
-
-  # --------------------------------------------------------------------------
-  # EXTRA APPLICATION CONFIG — Spring Boot picks up extra YAML files on
-  # classpath. We mount a service-specific ConfigMap containing
-  # product-specific overrides (e.g., feature flags, external endpoint URLs).
-  #
-  # How this works:
-  #   1. extraVolumes:        Mount a ConfigMap named "product-application-configmap"
-  #                           into the pod at /opt/yas/product/
-  #   2. extraVolumeMounts:   The ConfigMap key becomes a file at the mount path
-  #   3. extraApplicationConfigPaths: Tell Spring Boot to load this extra config
-  #                           file ON TOP of the base application.yaml from the
-  #                           yas-configuration ConfigMap.
-  #
-  # The SPRING_CONFIG_ADDITIONAL_LOCATION env var is built in the deployment
-  # template (line 60-64) by joining the base path + these extra paths.
-  #
-  # IMPORTANT: The ConfigMap "product-application-configmap" must be created
-  # BEFORE deploying this service. It is typically managed by the
-  # yas-configuration chart (k8s/charts/yas-configuration/).
-  # --------------------------------------------------------------------------
+  ingress:
+    enabled: false
   extraVolumes:
     - name: product-application-config
       configMap:
         name: product-application-configmap
-
   extraVolumeMounts:
     - name: product-application-config
       mountPath: /opt/yas/product
-
   extraApplicationConfigPaths:
-    - /opt/yas/product/product-application.yaml
+    - /opt/yas/product/product-application.yaml  
 
-  # --------------------------------------------------------------------------
-  # ENVIRONMENT VARIABLES — Extra env vars specific to the product service.
-  # These are often used for feature flags, logging levels, or endpoints
-  # that differ from the defaults in application.yaml.
-  #
-  # Format:
-  #   extraEnvs:
-  #     - name: VARIABLE_NAME
-  #       value: "some value"
-  #   extraEnvFroms:
-  #     - secretRef:
-  #         name: some-extra-secret
-  # --------------------------------------------------------------------------
-  # extraEnvs:
-  #   - name: PRODUCT_FEATURE_NEW_SEARCH
-  #     value: "true"
-
-  # --------------------------------------------------------------------------
-  # EXTRA OBJECTS — Render arbitrary Kubernetes manifests alongside this
-  # deployment. Useful for service-specific resources like a dedicated
-  # NetworkPolicy, a Service-specific ConfigMap, or a CronJob.
-  # --------------------------------------------------------------------------
-  # extraObjects:
-  #   - apiVersion: batch/v1
-  #     kind: CronJob
-  #     metadata:
-  #       name: product-cleanup
-  #     spec:
-  #       schedule: "0 2 * * *"
-  #       jobTemplate:
-  #         spec:
-  #           template:
-  #             spec:
-  #               containers:
-  #                 - name: cleanup
-  #                   image: busybox
-  #                   command: ["echo", "cleanup"]
-  #               restartPolicy: Never
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 750m
+      memory: 768Mi

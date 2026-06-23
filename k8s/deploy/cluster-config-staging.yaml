@@ -1,0 +1,46 @@
+# ============================================================================
+# CLUSTER CONFIGURATION — STAGING ENVIRONMENT
+# ============================================================================
+# This file provides infrastructure configuration for the STAGING environment.
+# All resources are deployed into env-specific namespaces (e.g., postgres-staging).
+#
+# Staging mirrors production shape at reduced scale:
+#   - 2 replicas for HA validation
+#   - Larger volume sizes for realistic data
+#   - Same security config as production
+# ============================================================================
+
+domain: yas.local.com
+
+# Subdomain prefix for this environment (e.g. identity.staging.yas.local.com)
+envSubdomain: staging
+
+postgresql:
+  replicas: 2
+  username: yasadminuser
+  password: admin
+  volumeSize: 20Gi
+
+kafka:
+  replicas: 3
+
+zookeeper:
+  replicas: 3
+
+elasticsearch:
+  replicas: 2
+  username: yas
+  password: LarUmB3A49NTg9YmgW4=
+
+keycloak:
+  bootstrapAdmin:
+    username: admin
+    password: admin
+  backofficeRedirectUrl: http://backoffice.staging.yas.local.com
+  storefrontRedirectUrl: http://storefront.staging.yas.local.com
+
+redis:
+  password: redis
+
+# Grafana and Prometheus are NOT deployed (project does not use them).
+# Observability stack: Loki + Tempo + Promtail + OpenTelemetry Collector only.

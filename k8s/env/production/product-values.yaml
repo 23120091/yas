@@ -51,11 +51,11 @@ backend:
   # --------------------------------------------------------------------------
   resources:
     requests:
-      cpu: 500m          # half a core guaranteed per pod
-      memory: 1Gi        # 1 GiB reserved (JVM heap ~700Mi at 70%)
+      cpu: 650m          # 1.3x guaranteed per pod
+      memory: 1536Mi     # 1.3x reserved (JVM heap ~1Gi at 70%)
     limits:
-      cpu: 2000m         # burst to 2 full cores during traffic spikes
-      memory: 2Gi        # max 2 GiB (JVM heap ~1.4Gi at 70%)
+      cpu: 3000m         # burst to 3 full cores during traffic spikes
+      memory: 3Gi        # max 3 GiB (JVM heap ~2.1Gi at 70%)
 
   # --------------------------------------------------------------------------
   # HPA OVERRIDE — Wider scaling range for production traffic patterns.

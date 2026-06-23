@@ -1,0 +1,54 @@
+# ============================================================================
+# CLUSTER CONFIGURATION — DEV ENVIRONMENT
+# ============================================================================
+# This file provides infrastructure configuration for the DEV environment.
+# All resources are deployed into env-specific namespaces (e.g., postgres-dev).
+#
+# Resources per env (proper isolation):
+#   - PostgreSQL cluster in namespace postgres-dev
+#   - Kafka cluster in namespace kafka-dev
+#   - Elasticsearch cluster in namespace elasticsearch-dev
+#   - Keycloak instance in namespace keycloak-dev
+#   - Redis instance in namespace redis-dev
+#   - Observability stack in namespace observability-dev
+#
+# NOTE: Operators (postgres-operator, strimzi, eck, cert-manager,
+# opentelemetry-operator, keycloak CRDs) are cluster-scoped and installed
+# once. This script handles that via idempotent helm upgrade --install.
+# ============================================================================
+
+domain: yas.local.com
+
+# Subdomain prefix for this environment (e.g. identity.dev.yas.local.com)
+# Production keeps the clean domain (no prefix).
+envSubdomain: dev
+
+postgresql:
+  replicas: 1
+  username: yasadminuser
+  password: admin
+  volumeSize: 5Gi
+
+kafka:
+  replicas: 1
+
+zookeeper:
+  replicas: 1
+
+elasticsearch:
+  replicas: 1
+  username: yas
+  password: LarUmB3A49NTg9YmgW4=
+
+keycloak:
+  bootstrapAdmin:
+    username: admin
+    password: admin
+  backofficeRedirectUrl: http://backoffice.dev.yas.local.com
+  storefrontRedirectUrl: http://storefront.dev.yas.local.com
+
+redis:
+  password: redis
+
+# Grafana and Prometheus are NOT deployed (project does not use them).
+# Observability stack: Loki + Tempo + Promtail + OpenTelemetry Collector only.

@@ -1,0 +1,38 @@
+backend:
+  image:
+    repository: ghcr.io/23120091/search
+    tag: latest
+
+  nameOverride: search
+  fullnameOverride: search
+  databaseName: search
+  ingress:
+    enabled: true
+    host: api.yas.local
+    path: /search/
+  extraEnvFroms:
+    - secretRef:
+        name: yas-elasticsearch-credentials-secret
+  extraVolumes:
+    - name: search-application
+      configMap:
+        name: search-application-configmap
+  extraVolumeMounts:
+    - name: search-application
+      mountPath: /opt/yas/search
+  extraApplicationConfigPaths:
+    - /opt/yas/search/search-application.yaml
+
+  resources:
+    requests:
+      cpu: 500m      
+      memory: 1Gi    
+    limits:
+      cpu: 3000m      
+      memory: 3Gi
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 5
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 60

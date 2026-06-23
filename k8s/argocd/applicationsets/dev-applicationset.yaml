@@ -1,17 +1,19 @@
 # ============================================================================
-# ARGOCD APPLICATIONSET — DEV ENVIRONMENT (sample — product service only)
+# ARGOCD APPLICATIONSET — DEV ENVIRONMENT
 # ============================================================================
-# An ApplicationSet generates MULTIPLE ArgoCD Applications from a single
-# template using a "generator". This avoids writing one Application YAML
-# file per service (which would be 20+ files requiring copy-paste for
-# every change).
+# Generates ONE ArgoCD Application per YAS microservice for the DEV namespace.
 #
-# Generator types: List, Git, Cluster, Pull Request, etc.
-# We use the "LIST" generator because our services are a fixed, known set.
-# Add more elements to the list as you add new services.
+# UPDATE STRATEGY (dev only):
+#   Push to main → CI builds & pushes image tagged "dev-<sha>" → ArgoCD Image
+#   Updater polls GHCR every 2min, detects new tag → overrides Helm parameter
+#   backend.image.tag → ArgoCD auto-syncs → new pod rolls out.
+#   CI NEVER touches git for dev — zero commit loop risk.
 #
-# Sync policy: AUTOMATED — Every change in the repo is immediately applied
-# to the dev namespace. This gives developers instant feedback.
+# Each Application declares Image Updater annotations telling it:
+#   - Which registry to poll
+#   - Which Helm parameter to override (image repo + tag path)
+#   - Tag filter: only "dev-*" tags
+#   - Write-back: "argocd" (internal state only, no git commit)
 # ============================================================================
 
 apiVersion: argoproj.io/v1alpha1
@@ -23,150 +25,89 @@ metadata:
     env: dev
     team: yas
 spec:
-  # --------------------------------------------------------------------------
-  # LIST GENERATOR — Each element becomes one ArgoCD Application.
-  # The fields in each element are available as template variables:
-  #   {{service}} → "product"
-  #   {{directory}} → "k8s/charts/product"
-  #
-  # To add a new service, append it to this list. The template below
-  # will automatically generate the Application for it.
-  #
-  # TODO: Add all 20 services:
-  #   - {service: "cart", directory: "k8s/charts/cart"}
-  #   - {service: "order", directory: "k8s/charts/order"}
-  #   ... etc for each microservice
-  # --------------------------------------------------------------------------
   generators:
     - list:
         elements:
-          # --- BACKEND SERVICES ---
-          # Each element generates ONE ArgoCD Application named "<service>-dev"
-          # For now, just the product service as a sample.
-          # Add remaining services as the project grows.
-          - service: product
-            # directory: Path within the repo to the Helm chart for this service.
-            # The chart at k8s/charts/product/ declares a dependency on the
-            # "backend" chart (see its Chart.yaml). ArgoCD resolves this
-            # dependency at sync time.
-            directory: k8s/charts/product
+          # --- BACKEND SERVICES (helmPrefix: backend) ---
+          - {service: "product",        directory: "k8s/charts/product",        helmPrefix: "backend"}
+          - {service: "cart",           directory: "k8s/charts/cart",           helmPrefix: "backend"}
+          - {service: "order",          directory: "k8s/charts/order",          helmPrefix: "backend"}
+          - {service: "payment",        directory: "k8s/charts/payment",        helmPrefix: "backend"}
+          - {service: "payment-paypal", directory: "k8s/charts/payment-paypal", helmPrefix: "backend"}
+          - {service: "customer",       directory: "k8s/charts/customer",       helmPrefix: "backend"}
+          - {service: "inventory",      directory: "k8s/charts/inventory",      helmPrefix: "backend"}
+          - {service: "location",       directory: "k8s/charts/location",       helmPrefix: "backend"}
+          - {service: "media",          directory: "k8s/charts/media",          helmPrefix: "backend"}
+          - {service: "tax",            directory: "k8s/charts/tax",            helmPrefix: "backend"}
+          - {service: "promotion",      directory: "k8s/charts/promotion",      helmPrefix: "backend"}
+          - {service: "rating",         directory: "k8s/charts/rating",         helmPrefix: "backend"}
+          - {service: "search",         directory: "k8s/charts/search",         helmPrefix: "backend"}
+          - {service: "recommendation", directory: "k8s/charts/recommendation", helmPrefix: "backend"}
+          - {service: "sampledata",     directory: "k8s/charts/sampledata",     helmPrefix: "backend"}
+          - {service: "webhook",        directory: "k8s/charts/webhook",        helmPrefix: "backend"}
+          - {service: "storefront-bff", directory: "k8s/charts/storefront-bff", helmPrefix: "backend"}
+          - {service: "backoffice-bff", directory: "k8s/charts/backoffice-bff", helmPrefix: "backend"}
 
-          # --- MORE SERVICES (uncomment and add as needed) ---
-          # - service: cart
-          #   directory: k8s/charts/cart
-          # - service: order
-          #   directory: k8s/charts/order
-          # - service: customer
-          #   directory: k8s/charts/customer
-          # ... (20 services total — see PLAN.md for full list)
+          # --- UI SERVICES (helmPrefix: ui, image repo differs from service name) ---
+          - {service: "storefront-ui",  directory: "k8s/charts/storefront-ui",  helmPrefix: "ui", imageName: "storefront"}
+          - {service: "backoffice-ui",  directory: "k8s/charts/backoffice-ui",  helmPrefix: "ui", imageName: "backoffice"}
 
-  # --------------------------------------------------------------------------
-  # TEMPLATE — This is the blueprint for every generated Application.
-  # Variables like {{service}} are replaced with values from the list above.
-  # --------------------------------------------------------------------------
   template:
-    # metadata.name → The name of the ArgoCD Application object itself.
-    # Must be unique within the argocd namespace.
-    # Example output: "product-dev"
     metadata:
       name: "{{service}}-dev"
-      # Labels help with filtering and grouping in the ArgoCD UI.
       labels:
         env: dev
         service: "{{service}}"
         team: yas
-      # Finalizers ensure cleanup when this Application is deleted.
-      # "resources-finalizer" → delete the Application AND all its deployed K8s resources
       finalizers:
         - resources-finalizer.argocd.argoproj.io
+      annotations:
+        # --- ARGOCD IMAGE UPDATER ANNOTATIONS ---
+        #
+        # image-list:  Declare which images this Application uses.
+        #              Format: <alias>=<full-registry-path>
+        #              Alias matches the service name; used in the annotation keys below.
+        argocd-image-updater.argoproj.io/image-list: >-
+          {{service}}=ghcr.io/23120091/{{if index . "imageName"}}{{imageName}}{{else}}{{service}}{{end}}
+
+        # update-strategy: newest-build → pick the most recently pushed tag by build timestamp.
+        # Best for dev: no semver parsing needed, latest dev-abc123 gets picked immediately.
+        argocd-image-updater.argoproj.io/{{service}}.update-strategy: newest-build
+
+        # allow-tags: Only accept tags matching "dev-*".
+        # Prevents accidentally picking "latest", "v1.2.3", or tags from other envs.
+        argocd-image-updater.argoproj.io/{{service}}.allow-tags: regexp:^dev-.*
+
+        # helm.image-name: Path to the image repository field in the Helm values.
+        #   Backend services use: backend.image.repository
+        #   UI services use:      ui.image.repository
+        argocd-image-updater.argoproj.io/{{service}}.helm.image-name: "{{helmPrefix}}.image.repository"
+
+        # helm.image-tag: Path to the image tag field in the Helm values.
+        argocd-image-updater.argoproj.io/{{service}}.helm.image-tag: "{{helmPrefix}}.image.tag"
+
+        # write-back-method: argocd → only write to ArgoCD internal parameter state.
+        # Does NOT commit to git → fast, no CI loop risk.
+        # If Application is refreshed, value reverts to git (tag: latest), but
+        # Image Updater detects and updates again on the next poll cycle (2min).
+        argocd-image-updater.argoproj.io/write-back-method: argocd
+
+        # force-update: Uncomment to force re-deploy on the same tag (e.g., restart all pods).
+        # argocd-image-updater.argoproj.io/force-update: "true"
 
     spec:
-      # -----------------------------------------------------------------------
-      # PROJECT — Must reference the AppProject we created.
-      # The AppProject defines source repos, destinations, and RBAC.
-      # See: k8s/argocd/projects/yas-project.yaml
-      # -----------------------------------------------------------------------
       project: yas
-
-      # -----------------------------------------------------------------------
-      # SOURCE — Where to find the Helm chart and its values.
-      # - repoURL:  The Git repository containing the chart
-      # - targetRevision: Git branch/tag/commit to track (main for dev)
-      # - path:     Path within the repo to the Helm chart directory
-      # - helm.valueFiles: List of values files to use, RELATIVE to the
-      #   chart path (k8s/charts/product/). The files are MERGED in order —
-      #   later files override earlier ones.
-      #
-      # Resolution:
-      #   Chart:     k8s/charts/product/
-      #   Values #1: k8s/charts/product/../../env/dev/common-values.yaml
-      #              → resolves to k8s/env/dev/common-values.yaml
-      #   Values #2: k8s/charts/product/../../env/dev/product-values.yaml
-      #              → resolves to k8s/env/dev/product-values.yaml
-      #
-      # IMPORTANT: ArgoCD runs `helm dependency build` before `helm template`
-      # to fetch the "backend" dependency chart locally from file://../backend
-      # -----------------------------------------------------------------------
       source:
         repoURL: https://github.com/23120091/yas
         targetRevision: main
-        # ^ Tracks the main branch. On every push to main, ArgoCD detects
-        #   the commit change (within 3 minutes by default) and triggers sync.
-        #   To watch a specific tag or release branch, change this:
-        #     targetRevision: "v1.2.3"       (specific tag)
-        #     targetRevision: "release/*"    (branch pattern)
         path: "{{directory}}"
-        # ^ The Helm chart directory from the list element
-
         helm:
-          # Values files are applied in order (left to right).
-          # Later files OVERRIDE keys from earlier files.
-          #   common-values.yaml  → environment-wide defaults (nodeSelector, probes, etc.)
-          #   <service>-values.yaml → service-specific overrides (image, resources, etc.)
           valueFiles:
             - "../../env/dev/common-values.yaml"
             - "../../env/dev/{{service}}-values.yaml"
-
-          # You can also set individual values inline (highest precedence):
-          # values: |
-          #   backend:
-          #     resources:
-          #       limits:
-          #         cpu: 100m
-
-          # skipCrds: false  → Install CRDs if the chart includes them
-          # ignoreMissingValueFiles: false → FAIL if a values file is missing (default, safe)
-
-      # -----------------------------------------------------------------------
-      # DESTINATION — Which cluster and namespace to deploy to.
-      # The namespace must be listed in the AppProject's destinations.
-      # -----------------------------------------------------------------------
       destination:
-        server: https://kubernetes.default.svc   # the local cluster
+        server: https://kubernetes.default.svc
         namespace: dev
-
-      # -----------------------------------------------------------------------
-      # SYNC POLICY — AUTOMATED for dev.
-      #
-      # prune: true  → If a resource exists in the cluster but NOT in the
-      #                 chart anymore, DELETE it. This prevents orphaned
-      #                 resources from accumulating.
-      #
-      # selfHeal: true → If someone manually edits a resource in the cluster
-      #                    (e.g., kubectl edit deployment), ArgoCD will revert
-      #                    it back to the Git state within 3 minutes.
-      #                    This enforces Git as the single source of truth.
-      #
-      # allowEmpty: true → Allow applications with no resources (useful
-      #                      during initial setup).
-      #
-      # syncOptions:
-      #   CreateNamespace=true → Auto-create the namespace if missing.
-      #   PruneLast=true        → During sync, delete old resources AFTER
-      #                           creating new ones (avoids downtime).
-      #   PrunePropagationPolicy=foreground → Pods deleted before their parent
-      #                                        Deployment (cleaner).
-      # -----------------------------------------------------------------------
       syncPolicy:
         automated:
           prune: true
@@ -176,30 +117,3 @@ spec:
           - CreateNamespace=true
           - PruneLast=true
           - PrunePropagationPolicy=foreground
-        # retry:
-        #   limit: 5               # retry up to 5 times on sync failure
-        #   backoff:
-        #     duration: 5s         # wait 5 seconds between retries
-        #     factor: 2            # exponential backoff (5s, 10s, 20s, ...)
-        #     maxDuration: 3m      # never wait more than 3 minutes between retries
-
-      # -----------------------------------------------------------------------
-      # IGNORE DIFFERENCES — Sometimes the cluster state naturally diverges
-      # from Git (e.g., HPA sets replicas dynamically, or external mutation
-      # webhooks add sidecars). Tell ArgoCD to ignore these fields.
-      # -----------------------------------------------------------------------
-      # ignoreDifferences:
-      #   - group: apps
-      #     kind: Deployment
-      #     jsonPointers:
-      #       - /spec/replicas       # HPA changes this at runtime
-      #   - group: ""
-      #     kind: Service
-      #     jsonPointers:
-      #       - /spec/clusterIP      # assigned by K8s, not in Git
-
-      # -----------------------------------------------------------------------
-      # REVISION HISTORY — How many old ReplicaSets to keep for rollbacks.
-      # Default is 10. Increase if you do frequent rollbacks.
-      # -----------------------------------------------------------------------
-      # revisionHistoryLimit: 10

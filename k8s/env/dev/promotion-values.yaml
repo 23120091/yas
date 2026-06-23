@@ -1,0 +1,18 @@
+backend:
+
+  image:
+    repository: ghcr.io/23120091/promotion
+    tag: latest
+
+  nameOverride: promotion
+  fullnameOverride: promotion
+
+  databaseName: promotion
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 850Mi
+    limits:
+      cpu: 300m
+      memory: 1.2Gi

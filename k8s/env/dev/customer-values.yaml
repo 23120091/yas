@@ -1,0 +1,25 @@
+backend:
+  image:
+    repository: ghcr.io/23120091/customer
+    tag: latest
+  nameOverride: customer
+  fullnameOverride: customer
+  databaseName: customer
+  resources:
+    requests:
+      cpu: 100m
+      memory: 450Mi
+    limits:
+      cpu: 600m
+      memory: 1280Mi
+  extraVolumes:
+    - name: customer-application-config
+      configMap:
+        name: customer-application-configmap
+
+  extraVolumeMounts:
+    - name: customer-application-config
+      mountPath: /opt/yas/customer
+
+  extraApplicationConfigPaths:
+    - /opt/yas/customer/customer-application.yaml

@@ -1,0 +1,84 @@
+# ============================================================================
+# ARGOCD APPLICATIONSET — STAGING ENVIRONMENT
+# ============================================================================
+# Generates ONE ArgoCD Application per YAS microservice for the STAGING namespace.
+#
+# UPDATE STRATEGY (staging):
+#   Git tag pushed (e.g., v1.2.3) → CI builds & pushes image tagged "v1.2.3"
+#   → CI runs: yq -i ".backend.image.tag = \"v1.2.3\"" k8s/env/staging/<svc>-values.yaml
+#   → CI commits to git with [skip-ci] → ArgoCD detects git change → auto-sync
+#
+# NO Image Updater annotations — tag is managed by CI in git.
+# Auto-sync is ON: every CI commit to staging values files triggers deploy.
+# ============================================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: yas-staging
+  namespace: argocd
+  labels:
+    env: staging
+    team: yas
+spec:
+  generators:
+    - list:
+        elements:
+          # --- BACKEND SERVICES ---
+          - {service: "product",        directory: "k8s/charts/product"}
+          - {service: "cart",           directory: "k8s/charts/cart"}
+          - {service: "order",          directory: "k8s/charts/order"}
+          - {service: "payment",        directory: "k8s/charts/payment"}
+          - {service: "payment-paypal", directory: "k8s/charts/payment-paypal"}
+          - {service: "customer",       directory: "k8s/charts/customer"}
+          - {service: "inventory",      directory: "k8s/charts/inventory"}
+          - {service: "location",       directory: "k8s/charts/location"}
+          - {service: "media",          directory: "k8s/charts/media"}
+          - {service: "tax",            directory: "k8s/charts/tax"}
+          - {service: "promotion",      directory: "k8s/charts/promotion"}
+          - {service: "rating",         directory: "k8s/charts/rating"}
+          - {service: "search",         directory: "k8s/charts/search"}
+          - {service: "recommendation", directory: "k8s/charts/recommendation"}
+          - {service: "sampledata",     directory: "k8s/charts/sampledata"}
+          - {service: "webhook",        directory: "k8s/charts/webhook"}
+          - {service: "storefront-bff", directory: "k8s/charts/storefront-bff"}
+          - {service: "backoffice-bff", directory: "k8s/charts/backoffice-bff"}
+
+          # --- UI SERVICES ---
+          - {service: "storefront-ui",  directory: "k8s/charts/storefront-ui"}
+          - {service: "backoffice-ui",  directory: "k8s/charts/backoffice-ui"}
+
+  template:
+    metadata:
+      name: "{{service}}-staging"
+      labels:
+        env: staging
+        service: "{{service}}"
+        team: yas
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+
+    spec:
+      project: yas
+      source:
+        repoURL: https://github.com/23120091/yas
+        targetRevision: main
+        # ^ CI already committed image tag into staging values files on main.
+        #   ArgoCD detects the git change and triggers auto-sync.
+        path: "{{directory}}"
+        helm:
+          valueFiles:
+            - "../../env/staging/common-values.yaml"
+            - "../../env/staging/{{service}}-values.yaml"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: staging
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: true
+        syncOptions:
+          - CreateNamespace=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
