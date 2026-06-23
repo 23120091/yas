@@ -48,7 +48,7 @@ else
     HOST_PREFIX="${ENV_SUBDOMAIN}."
 fi
 
-YAS_NS="yas-${ENV}"
+YAS_NS="${ENV}"
 KAFKA_NS="kafka-${ENV}"
 REDIS_NS="redis-${ENV}"
 PG_NS="postgres-${ENV}"

@@ -10,8 +10,8 @@ backend:
       cpu: 100m
       memory: 400Mi
     limits:
-      cpu: 400m
-      memory: 650Mi
+      cpu: 600m
+      memory: 1Gi
   extraVolumes:
     - name: order-application-config
       configMap:

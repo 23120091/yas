@@ -1,0 +1,32 @@
+backend:
+  image:
+    repository: ghcr.io/23120091/payment-paypal
+    tag: latest
+  nameOverride: payment-paypal
+  fullnameOverride: payment-paypal
+  databaseName: payment-paypal
+  ingress:
+    enabled: true
+    host: api.staging.yas.local
+    path: /
+  extraVolumes:
+    - name: payment-paypal-application-config
+      configMap:
+        name: payment-paypal-application-configmap
+  extraVolumeMounts:
+    - name: payment-paypal-application-config
+      mountPath: /opt/yas/payment-paypal
+  extraApplicationConfigPaths:
+    - /opt/yas/payment-paypal/payment-paypal-application.yaml
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1500m
+      memory: 1536Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70

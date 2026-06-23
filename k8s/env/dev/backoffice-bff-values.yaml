@@ -51,5 +51,5 @@ backend:
       cpu: 100m
       memory: 256Mi
     limits:
-      cpu: 500m
-      memory: 512Mi
+      cpu: 750m
+      memory: 768Mi

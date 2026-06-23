@@ -11,8 +11,8 @@ backend:
 
   resources:
     requests:
-      cpu: 120m
-      memory: 555Mi
+      cpu: 160m
+      memory: 725Mi
     limits:
-      cpu: 200m
-      memory: 655Mi
+      cpu: 300m
+      memory: 1Gi

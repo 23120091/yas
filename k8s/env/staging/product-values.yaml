@@ -39,11 +39,11 @@ backend:
   # --------------------------------------------------------------------------
   resources:
     requests:
-      cpu: 200m       # 2x dev — enough for concurrent request processing
-      memory: 512Mi   # 2x dev — JVM heap + off-heap + OS overhead
+      cpu: 256m       # 1.3x dev — enough for concurrent request processing
+      memory: 700Mi   # 1.3x dev — JVM heap + off-heap + OS overhead
     limits:
-      cpu: 1000m      # 1 full core burst limit (2x dev)
-      memory: 1Gi     # 2x dev — JVM usually uses 70% of limit as max heap
+      cpu: 1500m      # 1.5 full cores burst limit (1.5x dev)
+      memory: 1536Mi  # 1.5x dev — JVM usually uses 70% of limit as max heap
 
   # --------------------------------------------------------------------------
   # INGRESS — Expose the product service on a staging domain.

@@ -1,0 +1,23 @@
+backend:
+  image:
+    repository: ghcr.io/23120091/webhook
+    tag: latest
+  nameOverride: webhook
+  fullnameOverride: webhook
+  databaseName: webhook
+  ingress:
+    enabled: true
+    host: api.staging.yas.local
+    path: /
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1500m
+      memory: 1536Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70

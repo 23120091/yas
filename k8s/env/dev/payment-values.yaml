@@ -11,11 +11,11 @@ backend:
 
   resources:
     requests:
-      cpu: 200m
-      memory: 512Mi
+      cpu: 256m
+      memory: 700Mi
     limits:
-      cpu: 500m
-      memory: 712Mi
+      cpu: 750m
+      memory: 1.1Gi
 
   extraVolumes:
     - name: payment-application-config

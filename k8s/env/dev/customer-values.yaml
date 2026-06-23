@@ -10,8 +10,8 @@ backend:
       cpu: 100m
       memory: 450Mi
     limits:
-      cpu: 400m
-      memory: 750Mi
+      cpu: 600m
+      memory: 1280Mi
   extraVolumes:
     - name: customer-application-config
       configMap:

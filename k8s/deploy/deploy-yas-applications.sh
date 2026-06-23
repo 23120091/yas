@@ -44,7 +44,7 @@ else
     HOST_PREFIX="${ENV_SUBDOMAIN}."
 fi
 
-YAS_NS="yas-${ENV}"
+YAS_NS="${ENV}"
 
 echo "YAS namespace: ${YAS_NS}"
 echo "Domain:        ${HOST_PREFIX}${DOMAIN}"

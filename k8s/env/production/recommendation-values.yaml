@@ -1,0 +1,35 @@
+backend:
+  image:
+    repository: ghcr.io/23120091/recommendation
+    tag: latest
+  nameOverride: recommendation
+  fullnameOverride: recommendation
+  databaseName: recommendation
+  ingress:
+    enabled: true
+    host: api.yas.local
+    path: /
+  extraEnvFroms:
+    - secretRef:
+        name: yas-openai-api-key-secret
+  extraVolumes:
+    - name: recommendation-application
+      configMap:
+        name: recommendation-application-configmap
+  extraVolumeMounts:
+    - name: recommendation-application
+      mountPath: /opt/yas/recommendation
+  extraApplicationConfigPaths:
+    - /opt/yas/recommendation/recommendation-application.yaml
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 3000m
+      memory: 3Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 5
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 60
