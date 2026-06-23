@@ -120,6 +120,10 @@ helm upgrade --install postgres-operator postgres-operator-charts/postgres-opera
 helm upgrade --install kafka-operator strimzi/strimzi-kafka-operator \
   --create-namespace --namespace kafka
 
+# Wait for Strimzi CRDs to register before creating Kafka clusters
+echo "Waiting for Strimzi CRDs to be registered..."
+kubectl wait --for=condition=established crd/kafkas.kafka.strimzi.io --timeout=120s 2>/dev/null || sleep 30
+
 # --------------------------------------------------------------------------
 # ECK Elasticsearch Operator
 # --------------------------------------------------------------------------
@@ -136,7 +140,8 @@ helm upgrade --install cert-manager jetstack/cert-manager \
   --set installCRDs=true \
   --set prometheus.enabled=false \
   --set webhook.timeoutSeconds=4 \
-  --set admissionWebhooks.certManager.create=true
+  --set admissionWebhooks.certManager.create=true \
+  --set startupapicheck.enabled=false
 
 # --------------------------------------------------------------------------
 # OpenTelemetry Operator
@@ -209,7 +214,8 @@ helm upgrade --install "zookeeper-${ENV}" ./zookeeper \
 # --------------------------------------------------------------------------
 helm upgrade --install "loki-${ENV}" grafana/loki \
   --create-namespace --namespace "${OBS_NS}" \
-  -f ./observability/loki.values.yaml
+  -f ./observability/loki.values.yaml \
+  --set loki.useTestSchema=true
 
 # --------------------------------------------------------------------------
 # Tempo (trace storage)
@@ -228,6 +234,10 @@ helm upgrade --install "promtail-${ENV}" grafana/promtail \
 # --------------------------------------------------------------------------
 # OpenTelemetry Collector
 # --------------------------------------------------------------------------
+# Wait for the opentelemetry operator webhook to be ready
+echo "Waiting for OpenTelemetry operator webhook..."
+kubectl wait --for=condition=available deployment/opentelemetry-operator-controller-manager -n observability --timeout=120s 2>/dev/null || sleep 30
+
 helm upgrade --install "opentelemetry-collector-${ENV}" ./observability/opentelemetry \
   --create-namespace --namespace "${OBS_NS}"
 
