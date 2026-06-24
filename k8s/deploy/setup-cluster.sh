@@ -186,9 +186,9 @@ helm upgrade --install "pgadmin-${ENV}" ./postgres/pgadmin \
 helm upgrade --install "kafka-cluster-${ENV}" ./kafka/kafka-cluster \
   --create-namespace --namespace "${KAFKA_NS}" \
   --set kafka.replicas="$KAFKA_REPLICAS" \
-  --set zookeeper.replicas="$ZK_REPLICAS" \
   --set postgresql.username="$PG_USERNAME" \
-  --set postgresql.password="$PG_PASSWORD"
+  --set postgresql.password="$PG_PASSWORD" \
+  --set postgresql.namespace="$PG_NS"
 
 # --------------------------------------------------------------------------
 # AKHQ (Kafka UI)
