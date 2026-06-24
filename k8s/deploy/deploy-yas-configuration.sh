@@ -92,7 +92,7 @@ helm upgrade --install "yas-configuration-${ENV}" ../charts/yas-configuration \
   --set "storefrontBffExtraConfig.spring.data.redis.host=redis-master.${REDIS_NS}" \
   --set "storefrontBffExtraConfig.spring.security.oauth2.client.provider.keycloak.issuer-uri=http://${IDENTITY_HOST}/realms/Yas" \
   --set "customerApplicationConfig.keycloak.auth-server-url=http://${IDENTITY_HOST}" \
-  --set "searchApplicationConfig.elasticsearch.url=elasticsearch-es-http.${ES_NS}" \
+  --set "searchApplicationConfig.elasticsearch.url=http://elasticsearch-es-http.${ES_NS}:9200" \
   --set "credentials.elasticsearch.username=elastic" \
   --set "credentials.elasticsearch.password=${ES_PASSWORD}" \
   --set "paymentPaypalApplicationConfig.yas.public.url=http://storefront.${HOST_PREFIX}${DOMAIN}/complete-payment" \

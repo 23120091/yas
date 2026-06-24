@@ -96,9 +96,9 @@ spec:
         argocd-image-updater.argoproj.io/image-list: >-
           {{service}}=ghcr.io/23120091/{{if index . "imageName"}}{{imageName}}{{else}}{{service}}{{end}}
 
-        # update-strategy: newest-build → pick the most recently pushed tag by build timestamp.
-        # Best for dev: no semver parsing needed, latest dev-abc123 gets picked immediately.
-        argocd-image-updater.argoproj.io/{{service}}.update-strategy: newest-build
+        # update-strategy: digest → detects changes to mutable :latest tag by comparing
+        # the actual image SHA256 digest. Works correctly with rolling tags.
+        argocd-image-updater.argoproj.io/{{service}}.update-strategy: digest
 
         # allow-tags: Accept "latest" for dev environment.
         argocd-image-updater.argoproj.io/{{service}}.allow-tags: regexp:^latest$
