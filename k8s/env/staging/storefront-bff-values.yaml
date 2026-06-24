@@ -1,7 +1,7 @@
 backend: 
   image: 
-    repository: ghcr.io/23120091/storefront-bff
-    tag: lasted
+    repository: ghcr.io/23120091s/storefront-bff
+    tag: lastest
 
   nameOverride: storefront-bff
   fullnameOverride: storefront-bff
@@ -52,8 +52,8 @@ backend:
       cpu: 200m      
       memory: 512Mi   
     limits:
-      cpu: 1500m      
-      memory: 1536Mi
+      cpu: 1000m      
+      memory: 1Gi
 
   autoscaling:
     enabled: true
