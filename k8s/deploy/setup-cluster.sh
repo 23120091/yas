@@ -156,6 +156,16 @@ helm upgrade --install opentelemetry-operator open-telemetry/opentelemetry-opera
 # --------------------------------------------------------------------------
 # PostgreSQL Cluster
 # --------------------------------------------------------------------------
+# Pre-create the user password secret so the Zalando operator uses
+# our password instead of generating a random one. The secret must
+# exist BEFORE the postgresql CRD for the operator to pick it up.
+kubectl create namespace "${PG_NS}" --dry-run=client -o yaml | kubectl apply -f -
+kubectl create secret generic "${PG_USERNAME}.postgresql.credentials.postgresql.acid.zalan.do" \
+  --namespace "${PG_NS}" \
+  --from-literal=password="${PG_PASSWORD}" \
+  --from-literal=username="${PG_USERNAME}" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
 helm upgrade --install "postgres-${ENV}" ./postgres/postgresql \
   --create-namespace --namespace "${PG_NS}" \
   --set replicas="$PG_REPLICAS" \
