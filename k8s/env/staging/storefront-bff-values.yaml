@@ -15,8 +15,6 @@ backend:
     host: storefront.staging.yas.local.com
     path: /
 
-  replicaCount: 2
-
   extraEnvs:
   - name: SPRING_PROFILES_ACTIVE
     value: prod
@@ -56,8 +54,4 @@ backend:
       memory: 1536Mi
 
   autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
-    
+    enabled: false
