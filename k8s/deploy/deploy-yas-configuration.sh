@@ -81,7 +81,7 @@ helm upgrade --install "yas-configuration-${ENV}" ../charts/yas-configuration \
   --set "backofficeBffExtraConfig.spring.data.redis.host=redis-master.${REDIS_NS}" \
   --set "storefrontBffExtraConfig.spring.data.redis.host=redis-master.${REDIS_NS}" \
   --set "customerApplicationConfig.keycloak.auth-server-url=http://${IDENTITY_HOST}" \
-  --set "searchApplicationConfig.elasticsearch.url=elasticsearch-es-http.${ES_NS}" \
+  --set "searchApplicationConfig.elasticsearch.url=http://elasticsearch-es-http.${ES_NS}:9200" \
   --set "paymentPaypalApplicationConfig.yas.public.url=http://storefront.${HOST_PREFIX}${DOMAIN}/complete-payment" \
   --set "sampledataApplicationConfig.spring.datasource.product.url=jdbc:postgresql://postgresql.${PG_NS}:5432/product" \
   --set "sampledataApplicationConfig.spring.datasource.media.url=jdbc:postgresql://postgresql.${PG_NS}:5432/media"
