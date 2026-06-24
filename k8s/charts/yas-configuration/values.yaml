@@ -3,8 +3,8 @@ credentials:
     username: yasadminuser
     password: admin
   elasticsearch:
-    username: yas
-    password: LarUmB3A49NTg9YmgW4=
+    username: elastic
+    password: changeme
   keycloak:
     backofficeBffClientSecret: TVacLC0cQ8tiiEKiTVerTb2YvwQ1TRJF
     storefrontBffClientSecret: ZrU9I0q2uXBglBnmvyJdkl1lf0ncr8tn
