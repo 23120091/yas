@@ -7,8 +7,7 @@ backend:
   databaseName: webhook
   resources:
     requests:
-      cpu: 100m
+      cpu: 50m
       memory: 256Mi
     limits:
-      cpu: 750m
       memory: 768Mi

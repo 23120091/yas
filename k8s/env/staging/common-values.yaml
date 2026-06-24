@@ -21,7 +21,7 @@ backend:
   # behavior (load balancing, session stickiness, graceful rollout).
   # HPA may scale beyond this if enabled per-service.
   # --------------------------------------------------------------------------
-  replicaCount: 2
+  replicaCount: 1
 
   # --------------------------------------------------------------------------
   # DATABASE — Same PostgreSQL cluster, different namespace context.
@@ -47,10 +47,7 @@ backend:
   # Individual services can override min/max in their per-service file.
   # --------------------------------------------------------------------------
   autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
+    enabled: false
     # targetMemoryUtilizationPercentage: 70  # uncomment to scale on memory too
 
   # --------------------------------------------------------------------------

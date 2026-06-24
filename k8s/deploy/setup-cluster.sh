@@ -115,10 +115,15 @@ helm upgrade --install postgres-operator postgres-operator-charts/postgres-opera
   --create-namespace --namespace postgres
 
 # --------------------------------------------------------------------------
-# Strimzi Kafka Operator
+# Strimzi Kafka Operator (cluster-wide watch for env-specific namespaces)
 # --------------------------------------------------------------------------
 helm upgrade --install kafka-operator strimzi/strimzi-kafka-operator \
-  --create-namespace --namespace kafka
+  --create-namespace --namespace kafka \
+  --set watchAnyNamespace=true
+
+# Wait for Strimzi CRDs to register before creating Kafka clusters
+echo "Waiting for Strimzi CRDs to be registered..."
+kubectl wait --for=condition=established crd/kafkas.kafka.strimzi.io --timeout=120s 2>/dev/null || sleep 30
 
 # --------------------------------------------------------------------------
 # ECK Elasticsearch Operator
@@ -136,7 +141,8 @@ helm upgrade --install cert-manager jetstack/cert-manager \
   --set installCRDs=true \
   --set prometheus.enabled=false \
   --set webhook.timeoutSeconds=4 \
-  --set admissionWebhooks.certManager.create=true
+  --set admissionWebhooks.certManager.create=true \
+  --set startupapicheck.enabled=false
 
 # --------------------------------------------------------------------------
 # OpenTelemetry Operator
@@ -151,6 +157,16 @@ helm upgrade --install opentelemetry-operator open-telemetry/opentelemetry-opera
 # --------------------------------------------------------------------------
 # PostgreSQL Cluster
 # --------------------------------------------------------------------------
+# Pre-create the user password secret so the Zalando operator uses
+# our password instead of generating a random one. The secret must
+# exist BEFORE the postgresql CRD for the operator to pick it up.
+kubectl create namespace "${PG_NS}" --dry-run=client -o yaml | kubectl apply -f -
+kubectl create secret generic "${PG_USERNAME}.postgresql.credentials.postgresql.acid.zalan.do" \
+  --namespace "${PG_NS}" \
+  --from-literal=password="${PG_PASSWORD}" \
+  --from-literal=username="${PG_USERNAME}" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
 helm upgrade --install "postgres-${ENV}" ./postgres/postgresql \
   --create-namespace --namespace "${PG_NS}" \
   --set replicas="$PG_REPLICAS" \
@@ -171,9 +187,9 @@ helm upgrade --install "pgadmin-${ENV}" ./postgres/pgadmin \
 helm upgrade --install "kafka-cluster-${ENV}" ./kafka/kafka-cluster \
   --create-namespace --namespace "${KAFKA_NS}" \
   --set kafka.replicas="$KAFKA_REPLICAS" \
-  --set zookeeper.replicas="$ZK_REPLICAS" \
   --set postgresql.username="$PG_USERNAME" \
-  --set postgresql.password="$PG_PASSWORD"
+  --set postgresql.password="$PG_PASSWORD" \
+  --set postgresql.namespace="$PG_NS"
 
 # --------------------------------------------------------------------------
 # AKHQ (Kafka UI)
@@ -209,7 +225,8 @@ helm upgrade --install "zookeeper-${ENV}" ./zookeeper \
 # --------------------------------------------------------------------------
 helm upgrade --install "loki-${ENV}" grafana/loki \
   --create-namespace --namespace "${OBS_NS}" \
-  -f ./observability/loki.values.yaml
+  -f ./observability/loki.values.yaml \
+  --set loki.useTestSchema=true
 
 # --------------------------------------------------------------------------
 # Tempo (trace storage)
@@ -228,6 +245,10 @@ helm upgrade --install "promtail-${ENV}" grafana/promtail \
 # --------------------------------------------------------------------------
 # OpenTelemetry Collector
 # --------------------------------------------------------------------------
+# Wait for the opentelemetry operator webhook to be ready
+echo "Waiting for OpenTelemetry operator webhook..."
+kubectl wait --for=condition=available deployment/opentelemetry-operator-controller-manager -n observability --timeout=120s 2>/dev/null || sleep 30
+
 helm upgrade --install "opentelemetry-collector-${ENV}" ./observability/opentelemetry \
   --create-namespace --namespace "${OBS_NS}"
 

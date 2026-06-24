@@ -91,3 +91,17 @@ echo " Namespace: ${KEYCLOAK_NS}"
 echo " URL:       http://${KEYCLOAK_HOSTNAME}"
 echo " Admin:     ${BOOTSTRAP_ADMIN_USERNAME} / ${BOOTSTRAP_ADMIN_PASSWORD}"
 echo "============================================"
+
+# --- CoreDNS rewrite: resolve external Keycloak hostname to cluster-internal IPs ---
+# Pods need to reach identity.{env}.yas.local.com for OIDC discovery
+# Rewrite it to the nginx ingress controller, which routes via Keycloak's Ingress
+echo "Patching CoreDNS to resolve ${KEYCLOAK_HOSTNAME}..."
+kubectl get configmap -n kube-system coredns -o yaml > /tmp/coredns-${ENV}.yaml
+if ! grep -q "rewrite stop name ${KEYCLOAK_HOSTNAME}" /tmp/coredns-${ENV}.yaml; then
+  sed -i "/^\s*kubernetes cluster.local/i\        rewrite stop name ${KEYCLOAK_HOSTNAME} ingress-nginx-controller.ingress-nginx.svc.cluster.local" /tmp/coredns-${ENV}.yaml
+  kubectl apply -f /tmp/coredns-${ENV}.yaml
+  kubectl rollout restart deployment -n kube-system coredns
+  echo "CoreDNS patched. DNS will be active in ~30s."
+else
+  echo "CoreDNS already patched."
+fi

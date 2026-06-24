@@ -33,12 +33,6 @@ backend:
   databaseName: product
 
   # --------------------------------------------------------------------------
-  # REPLICA OVERRIDE — Product service is critical (every page view hits
-  # product catalog). Run 5 minimum replicas for load distribution.
-  # --------------------------------------------------------------------------
-  replicaCount: 5
-
-  # --------------------------------------------------------------------------
   # RESOURCES — Production sizing for the product service.
   # Based on expected load of ~1000 requests/second with average response
   # time under 100ms. JVM heap is typically set to 70% of the memory limit
@@ -58,15 +52,10 @@ backend:
       memory: 3Gi        # max 3 GiB (JVM heap ~2.1Gi at 70%)
 
   # --------------------------------------------------------------------------
-  # HPA OVERRIDE — Wider scaling range for production traffic patterns.
-  # Product service handles the most traffic (catalog browsing, search,
-  # product detail views). Scale up to 20 pods for flash sales or campaigns.
+  # HPA — Disabled per-service; common-values manages scaling policy.
   # --------------------------------------------------------------------------
   autoscaling:
-    enabled: true
-    minReplicas: 5
-    maxReplicas: 20
-    targetCPUUtilizationPercentage: 60   # scale early before users feel it
+    enabled: false
 
   # --------------------------------------------------------------------------
   # INGRESS — Production domain for the API gateway.

@@ -1,7 +1,7 @@
 backend: 
   image: 
     repository: ghcr.io/23120091/storefront-bff
-    tag: lasted
+    tag: latest
 
   nameOverride: storefront-bff
   fullnameOverride: storefront-bff
@@ -14,8 +14,6 @@ backend:
     enabled: true
     host: storefront.yas.local.com
     path: /
-
-  replicaCount: 5
 
   extraEnvs:
   - name: SPRING_PROFILES_ACTIVE
@@ -56,7 +54,4 @@ backend:
       memory: 3Gi
   
   autoscaling:
-    enabled: true
-    minReplicas: 5
-    maxReplicas: 20
-    targetCPUUtilizationPercentage: 60
+    enabled: false

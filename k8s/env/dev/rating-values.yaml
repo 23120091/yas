@@ -7,8 +7,7 @@ backend:
   databaseName: rating
   resources:
     requests:
-      cpu: 100m
+      cpu: 50m
       memory: 400Mi
     limits:
-      cpu: 600m
       memory: 1Gi
