@@ -115,10 +115,11 @@ helm upgrade --install postgres-operator postgres-operator-charts/postgres-opera
   --create-namespace --namespace postgres
 
 # --------------------------------------------------------------------------
-# Strimzi Kafka Operator
+# Strimzi Kafka Operator (cluster-wide watch for env-specific namespaces)
 # --------------------------------------------------------------------------
 helm upgrade --install kafka-operator strimzi/strimzi-kafka-operator \
-  --create-namespace --namespace kafka
+  --create-namespace --namespace kafka \
+  --set watchAnyNamespace=true
 
 # Wait for Strimzi CRDs to register before creating Kafka clusters
 echo "Waiting for Strimzi CRDs to be registered..."
