@@ -40,6 +40,9 @@ backend:
   # --------------------------------------------------------------------------
   replicaCount: 1
 
+  strategy:
+    type: Recreate
+
   # --------------------------------------------------------------------------
   # DATABASE — All services share the same PostgreSQL cluster.
   # jdbc:postgresql://<service>.<namespace>:5432
