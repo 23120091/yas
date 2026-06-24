@@ -7,10 +7,9 @@ backend:
   databaseName: customer
   resources:
     requests:
-      cpu: 100m
+      cpu: 50m
       memory: 450Mi
     limits:
-      cpu: 600m
       memory: 1280Mi
   extraVolumes:
     - name: customer-application-config

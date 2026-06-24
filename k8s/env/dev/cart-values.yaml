@@ -7,10 +7,9 @@ backend:
   databaseName: cart
   resources:
     requests:
-      cpu: 100m
+      cpu: 50m
       memory: 384Mi
     limits:
-      cpu: 600m
       memory: 1Gi
   extraVolumes:
     - name: cart-application-config

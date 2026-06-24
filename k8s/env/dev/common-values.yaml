@@ -111,7 +111,7 @@ backend:
   # --------------------------------------------------------------------------
   livenessProbe:
     periodSeconds: 10
-    failureThreshold: 12
+    failureThreshold: 36
     successThreshold: 1
     httpGet:
       path: /actuator/health/liveness
@@ -119,7 +119,7 @@ backend:
 
   readinessProbe:
     periodSeconds: 10
-    failureThreshold: 12
+    failureThreshold: 36
     successThreshold: 1
     httpGet:
       path: /actuator/health/readiness
@@ -131,6 +131,13 @@ backend:
   # logback.xml used by ALL services. Mounted at /opt/yas/config/.
   # --------------------------------------------------------------------------
   logbackXmlPath: /opt/yas/config/logback.xml
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 768Mi
 
   # --------------------------------------------------------------------------
   # SECURITY CONTEXT — Run containers as non-root for security.
