@@ -1,6 +1,6 @@
 backend: 
   image: 
-    repository: ghcr.io/23120091s/storefront-bff
+    repository: ghcr.io/23120091/storefront-bff
     tag: lastest
 
   nameOverride: storefront-bff
