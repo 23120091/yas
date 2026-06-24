@@ -1,7 +1,7 @@
 backend: 
   image: 
     repository: ghcr.io/23120091/backoffice-bff
-    tag: lasted
+    tag: latest
 
   nameOverride: backoffice-bff
   fullnameOverride: backoffice-bff
