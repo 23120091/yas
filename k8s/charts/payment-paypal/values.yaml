@@ -1,4 +1,10 @@
 backend:
+  livenessProbe:
+    httpGet:
+      path: /payment-paypal/actuator/health/liveness
+  readinessProbe:
+    httpGet:
+      path: /payment-paypal/actuator/health/readiness
   image:
     repository: ghcr.io/23120091/payment-paypal
     tag: latest
