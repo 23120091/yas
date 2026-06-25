@@ -26,8 +26,7 @@ backend:
   # files set the specific tag like "dev-<sha>" for each service)
   # --------------------------------------------------------------------------
   image:
-    pullPolicy: IfNotPresent
-    # IfNotPresent: pull only if image not cached on node. Good for dev
+    pullPolicy: Always
     # where we iterate quickly and images change often on the same tag.
     # 
     # Alternatives:
@@ -39,6 +38,9 @@ backend:
   # Override in per-service files if a specific service needs more.
   # --------------------------------------------------------------------------
   replicaCount: 1
+
+  strategy:
+    type: Recreate
 
   # --------------------------------------------------------------------------
   # DATABASE — All services share the same PostgreSQL cluster.
@@ -111,7 +113,7 @@ backend:
   # --------------------------------------------------------------------------
   livenessProbe:
     periodSeconds: 10
-    failureThreshold: 12
+    failureThreshold: 36
     successThreshold: 1
     httpGet:
       path: /actuator/health/liveness
@@ -119,7 +121,7 @@ backend:
 
   readinessProbe:
     periodSeconds: 10
-    failureThreshold: 12
+    failureThreshold: 36
     successThreshold: 1
     httpGet:
       path: /actuator/health/readiness
@@ -131,6 +133,13 @@ backend:
   # logback.xml used by ALL services. Mounted at /opt/yas/config/.
   # --------------------------------------------------------------------------
   logbackXmlPath: /opt/yas/config/logback.xml
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 768Mi
 
   # --------------------------------------------------------------------------
   # SECURITY CONTEXT — Run containers as non-root for security.

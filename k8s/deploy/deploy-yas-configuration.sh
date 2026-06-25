@@ -61,6 +61,15 @@ echo "Kafka namespace: ${KAFKA_NS}"
 echo "Redis namespace: ${REDIS_NS}"
 echo "Identity host:   ${IDENTITY_HOST}"
 
+# Read ECK-generated elastic password (operator auto-creates this secret)
+ES_PASSWORD=$(kubectl get secret elasticsearch-es-elastic-user -n "${ES_NS}" -o jsonpath="{.data.elastic}" 2>/dev/null | base64 -d || echo "")
+if [ -n "$ES_PASSWORD" ]; then
+  echo "Elasticsearch password: read from ECK secret"
+else
+  echo "WARNING: Could not read ECK password, using default 'changeme'"
+  ES_PASSWORD="changeme"
+fi
+
 # --------------------------------------------------------------------------
 # Install Stakater Reloader (auto-restart pods on ConfigMap/Secret change)
 # --------------------------------------------------------------------------
@@ -79,9 +88,13 @@ helm upgrade --install "yas-configuration-${ENV}" ../charts/yas-configuration \
   --set "applicationConfig.springdoc.oauthflow.authorization-url=http://${IDENTITY_HOST}/realms/Yas/protocol/openid-connect/auth" \
   --set "applicationConfig.springdoc.oauthflow.token-url=http://${IDENTITY_HOST}/realms/Yas/protocol/openid-connect/token" \
   --set "backofficeBffExtraConfig.spring.data.redis.host=redis-master.${REDIS_NS}" \
+  --set "backofficeBffExtraConfig.spring.security.oauth2.client.provider.keycloak.issuer-uri=http://${IDENTITY_HOST}/realms/Yas" \
   --set "storefrontBffExtraConfig.spring.data.redis.host=redis-master.${REDIS_NS}" \
+  --set "storefrontBffExtraConfig.spring.security.oauth2.client.provider.keycloak.issuer-uri=http://${IDENTITY_HOST}/realms/Yas" \
   --set "customerApplicationConfig.keycloak.auth-server-url=http://${IDENTITY_HOST}" \
-  --set "searchApplicationConfig.elasticsearch.url=elasticsearch-es-http.${ES_NS}" \
+  --set "searchApplicationConfig.elasticsearch.url=http://elasticsearch-es-http.${ES_NS}:9200" \
+  --set "credentials.elasticsearch.username=elastic" \
+  --set "credentials.elasticsearch.password=${ES_PASSWORD}" \
   --set "paymentPaypalApplicationConfig.yas.public.url=http://storefront.${HOST_PREFIX}${DOMAIN}/complete-payment" \
   --set "sampledataApplicationConfig.spring.datasource.product.url=jdbc:postgresql://postgresql.${PG_NS}:5432/product" \
   --set "sampledataApplicationConfig.spring.datasource.media.url=jdbc:postgresql://postgresql.${PG_NS}:5432/media"

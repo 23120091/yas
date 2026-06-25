@@ -115,10 +115,11 @@ helm upgrade --install postgres-operator postgres-operator-charts/postgres-opera
   --create-namespace --namespace postgres
 
 # --------------------------------------------------------------------------
-# Strimzi Kafka Operator
+# Strimzi Kafka Operator (cluster-wide watch for env-specific namespaces)
 # --------------------------------------------------------------------------
 helm upgrade --install kafka-operator strimzi/strimzi-kafka-operator \
-  --create-namespace --namespace kafka
+  --create-namespace --namespace kafka \
+  --set watchAnyNamespace=true
 
 # Wait for Strimzi CRDs to register before creating Kafka clusters
 echo "Waiting for Strimzi CRDs to be registered..."
@@ -156,6 +157,16 @@ helm upgrade --install opentelemetry-operator open-telemetry/opentelemetry-opera
 # --------------------------------------------------------------------------
 # PostgreSQL Cluster
 # --------------------------------------------------------------------------
+# Pre-create the user password secret so the Zalando operator uses
+# our password instead of generating a random one. The secret must
+# exist BEFORE the postgresql CRD for the operator to pick it up.
+kubectl create namespace "${PG_NS}" --dry-run=client -o yaml | kubectl apply -f -
+kubectl create secret generic "${PG_USERNAME}.postgresql.credentials.postgresql.acid.zalan.do" \
+  --namespace "${PG_NS}" \
+  --from-literal=password="${PG_PASSWORD}" \
+  --from-literal=username="${PG_USERNAME}" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
 helm upgrade --install "postgres-${ENV}" ./postgres/postgresql \
   --create-namespace --namespace "${PG_NS}" \
   --set replicas="$PG_REPLICAS" \
@@ -176,9 +187,9 @@ helm upgrade --install "pgadmin-${ENV}" ./postgres/pgadmin \
 helm upgrade --install "kafka-cluster-${ENV}" ./kafka/kafka-cluster \
   --create-namespace --namespace "${KAFKA_NS}" \
   --set kafka.replicas="$KAFKA_REPLICAS" \
-  --set zookeeper.replicas="$ZK_REPLICAS" \
   --set postgresql.username="$PG_USERNAME" \
-  --set postgresql.password="$PG_PASSWORD"
+  --set postgresql.password="$PG_PASSWORD" \
+  --set postgresql.namespace="$PG_NS"
 
 # --------------------------------------------------------------------------
 # AKHQ (Kafka UI)
