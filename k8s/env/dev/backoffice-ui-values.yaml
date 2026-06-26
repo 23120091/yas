@@ -1,4 +1,6 @@
 ui:
+  nodeSelector:
+    env: dev
   image:
     repository: ghcr.io/23120091/backoffice
     tag: latest

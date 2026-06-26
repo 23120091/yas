@@ -1,4 +1,6 @@
 ui:
+  nodeSelector:
+    env: staging
   image:
     repository: ghcr.io/23120091/storefront
     tag: latest

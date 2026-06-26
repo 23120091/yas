@@ -259,9 +259,14 @@ customerApplicationConfig:
       secret: ${KEYCLOAK_CUSTOMER_MANAGEMENT_CLIENT_SECRET}
 
 # Search application config custom
+# NOTE: Elasticsearch URL format:
+#   - Must use hostname:port format (NO http:// scheme) for Spring Data Elasticsearch ClientConfiguration.connectedTo()
+#   - Uses environment-specific namespace (elasticsearch-dev, elasticsearch-staging, elasticsearch-production)
+#   - Deploy script (deploy-yas-configuration.sh) automatically sets correct namespace per environment
+# Version: K8s uses 8.18.0; docker-compose uses 9.2.3 (consider aligning versions)
 searchApplicationConfig:
   elasticsearch:
-    url: http://elasticsearch-es-http.elasticsearch:9200
+    url: elasticsearch-es-http.elasticsearch-dev:9200
     username: ${ELASTICSEARCH_USERNAME}
     password: ${ELASTICSEARCH_PASSWORD}
 
