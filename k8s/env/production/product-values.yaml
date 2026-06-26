@@ -55,10 +55,7 @@ backend:
   # HPA — Disabled per-service; common-values manages scaling policy.
   # --------------------------------------------------------------------------
   autoscaling:
-    enabled: true
-    minReplicas: 3
-    maxReplicas: 20
-    targetCPUUtilizationPercentage: 60
+    enabled: false
 
   # --------------------------------------------------------------------------
   # INGRESS — Production domain for the API gateway.

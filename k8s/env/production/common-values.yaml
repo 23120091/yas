@@ -103,13 +103,13 @@ backend:
   # These are Kubernetes Pod Security Standard "restricted" level.
   # --------------------------------------------------------------------------
   podSecurityContext:
-    runAsNonRoot: false
+    runAsNonRoot: true
     fsGroup: 1000
 
   securityContext:
-    runAsNonRoot: false
-    readOnlyRootFilesystem: false
-    allowPrivilegeEscalation: true
+    runAsNonRoot: true
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
     capabilities:
       drop:
         - ALL
