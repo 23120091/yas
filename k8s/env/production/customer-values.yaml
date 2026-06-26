@@ -30,6 +30,6 @@ backend:
       memory: 3Gi
   autoscaling:
     enabled: true
-    minReplicas: 5
+    minReplicas: 3
     maxReplicas: 20
     targetCPUUtilizationPercentage: 60
