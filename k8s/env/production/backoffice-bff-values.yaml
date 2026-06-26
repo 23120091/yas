@@ -56,6 +56,6 @@ backend:
 
   autoscaling:
     enabled: true
-    minReplicas: 3
+    minReplicas: 1
     maxReplicas: 20
     targetCPUUtilizationPercentage: 60
