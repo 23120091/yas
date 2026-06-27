@@ -14,7 +14,7 @@ configuration:
 hostname: &hostname akhq.yas.local.com
 ingress:
   enabled: true
-  ingressClassName: nginx
+  ingressClassName: traefik
   annotations: {}
   paths:
     - /

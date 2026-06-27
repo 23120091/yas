@@ -2,7 +2,7 @@ hostname: &hostname pgoperator.yas.local.com
 ingress:
   enabled: true
   annotations:
-    ingressClassName: "nginx"
+    ingressClassName: "traefik"
   hosts:
     - host: *hostname
       paths:

@@ -4,6 +4,7 @@ replicas: 1
 postgresqlVersion: "15"
 volumeSize: "10Gi"
 maxConnections: "500"
+env: dev
 resources:
   requests:
     cpu: 100m
