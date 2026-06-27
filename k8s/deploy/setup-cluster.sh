@@ -172,7 +172,8 @@ helm upgrade --install "postgres-${ENV}" ./postgres/postgresql \
   --set replicas="$PG_REPLICAS" \
   --set username="$PG_USERNAME" \
   --set password="$PG_PASSWORD" \
-  --set volumeSize="$PG_VOLUME_SIZE"
+  --set volumeSize="$PG_VOLUME_SIZE" \
+  --set env="$ENV"
 
 # --------------------------------------------------------------------------
 # pgAdmin

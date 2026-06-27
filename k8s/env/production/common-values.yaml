@@ -47,7 +47,7 @@ backend:
     enabled: false
 
   # --------------------------------------------------------------------------
-  # INGRESS — Enabled for all services (external access via nginx).
+  # INGRESS — Enabled for all services (external access via traefik).
   # Hostnames follow production domain pattern.
   # --------------------------------------------------------------------------
   ingress:

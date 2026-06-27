@@ -56,7 +56,7 @@ fi
 KEYCLOAK_NS="keycloak-${ENV}"
 PG_NS="postgres-${ENV}"
 KEYCLOAK_HOSTNAME="identity.${HOST_PREFIX}${DOMAIN}"
-PG_HOST="postgresql.${PG_NS}"
+PG_HOST="postgresql.${PG_NS}.svc.cluster.local"
 
 echo "Keycloak namespace: ${KEYCLOAK_NS}"
 echo "Keycloak hostname:  ${KEYCLOAK_HOSTNAME}"
