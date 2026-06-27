@@ -14,7 +14,8 @@ domain: yas.local.com
 
 # Production uses the clean domain (no subdomain prefix).
 # e.g. identity.yas.local.com, not identity.production.yas.local.com
-envSubdomain: ""
+# envSubdomain must NOT be set for production
+envSubdomain:
 
 postgresql:
   replicas: 3

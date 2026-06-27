@@ -52,7 +52,7 @@ backend:
   # --------------------------------------------------------------------------
   ingress:
     enabled: true
-    className: nginx
+    className: traefik
     path: /
     pathType: ImplementationSpecific
 

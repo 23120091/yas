@@ -56,7 +56,7 @@ backend:
   # --------------------------------------------------------------------------
   ingress:
     enabled: true
-    className: nginx
+    className: traefik
     path: /
     pathType: ImplementationSpecific
     # host is set per-service via override in each <service>-values.yaml
