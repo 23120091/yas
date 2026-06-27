@@ -55,10 +55,8 @@ backend:
   # HPA — Disabled per-service; common-values manages scaling policy.
   # --------------------------------------------------------------------------
   autoscaling:
-    enabled: true
-    minReplicas: 1
-    maxReplicas: 20
-    targetCPUUtilizationPercentage: 60
+    enabled: false 
+
 
   # --------------------------------------------------------------------------
   # INGRESS — Production domain for the API gateway.
@@ -67,8 +65,10 @@ backend:
   # Set to false unless this service needs direct external access.
   # --------------------------------------------------------------------------
   ingress:
-    enabled: false      # product is internal-only, accessed via BFF gateway
-    host: api.yas.local.com
+    enabled: true      # product is internal-only, accessed via BFF gateway
+    host: api.yas.local
+    path: / 
+
 
   # --------------------------------------------------------------------------
   # CONFIG MOUNTS — Production-specific ConfigMap with feature flags.
