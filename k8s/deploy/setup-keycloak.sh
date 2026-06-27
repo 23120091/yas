@@ -70,6 +70,7 @@ kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resourc
 helm upgrade --install "keycloak-${ENV}" ./keycloak/keycloak \
   --namespace "${KEYCLOAK_NS}" \
   --set hostname="${KEYCLOAK_HOSTNAME}" \
+  --set backchannelDynamic=false \
   --set postgresql.username="$PG_USERNAME" \
   --set postgresql.password="$PG_PASSWORD" \
   --set postgresql.host="$PG_HOST" \
