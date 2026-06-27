@@ -29,7 +29,7 @@ backend:
   # DATABASE — Production has its OWN PostgreSQL instance (not shared with
   # staging or dev). The connection URL points to the production PG cluster.
   # --------------------------------------------------------------------------
-  databaseConnectionUrl: jdbc:postgresql://postgresql.postgres-pproduction.svc.cluster.local:5432
+  databaseConnectionUrl: jdbc:postgresql://postgresql.postgres-production.svc.cluster.local:5432
 
   # --------------------------------------------------------------------------
   # NODE ISOLATION — Production pods ONLY on production-labeled nodes.
