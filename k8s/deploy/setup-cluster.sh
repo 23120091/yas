@@ -65,23 +65,17 @@ helm repo add jetstack https://charts.jetstack.io
 helm repo update
 
 # --------------------------------------------------------------------------
-# Read configuration from env-specific config file
+# Read configuration individually (not read -rd '' which breaks on empty values)
 # --------------------------------------------------------------------------
-read -rd '' DOMAIN ENV_SUBDOMAIN \
-PG_REPLICAS PG_USERNAME PG_PASSWORD PG_VOLUME_SIZE \
-KAFKA_REPLICAS ZK_REPLICAS \
-ES_REPLICAS \
-< <(yq -r '
-  .domain,
-  .envSubdomain,
-  .postgresql.replicas,
-  .postgresql.username,
-  .postgresql.password,
-  .postgresql.volumeSize,
-  .kafka.replicas,
-  .zookeeper.replicas,
-  .elasticsearch.replicas
-' "$CONFIG_FILE")
+DOMAIN=$(yq -r '.domain' "$CONFIG_FILE")
+ENV_SUBDOMAIN=$(yq -r '.envSubdomain // ""' "$CONFIG_FILE")
+PG_REPLICAS=$(yq -r '.postgresql.replicas' "$CONFIG_FILE")
+PG_USERNAME=$(yq -r '.postgresql.username' "$CONFIG_FILE")
+PG_PASSWORD=$(yq -r '.postgresql.password' "$CONFIG_FILE")
+PG_VOLUME_SIZE=$(yq -r '.postgresql.volumeSize' "$CONFIG_FILE")
+KAFKA_REPLICAS=$(yq -r '.kafka.replicas' "$CONFIG_FILE")
+ZK_REPLICAS=$(yq -r '.zookeeper.replicas' "$CONFIG_FILE")
+ES_REPLICAS=$(yq -r '.elasticsearch.replicas' "$CONFIG_FILE")
 
 # --------------------------------------------------------------------------
 # Build env-specific namespaces and hostnames
