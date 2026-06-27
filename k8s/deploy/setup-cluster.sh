@@ -134,9 +134,13 @@ helm upgrade --install cert-manager jetstack/cert-manager \
   --version v1.12.0 \
   --set installCRDs=true \
   --set prometheus.enabled=false \
-  --set webhook.timeoutSeconds=4 \
+  --set webhook.timeoutSeconds=30 \
   --set admissionWebhooks.certManager.create=true \
   --set startupapicheck.enabled=false
+
+# Wait for cert-manager webhook pod to be ready before anything touches Ingresses
+echo "Waiting for cert-manager webhook to be ready..."
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=cert-manager -n cert-manager --timeout=120s 2>/dev/null || sleep 30
 
 # --------------------------------------------------------------------------
 # OpenTelemetry Operator
@@ -151,15 +155,10 @@ helm upgrade --install opentelemetry-operator open-telemetry/opentelemetry-opera
 # --------------------------------------------------------------------------
 # PostgreSQL Cluster
 # --------------------------------------------------------------------------
-# Pre-create the user password secret so the Zalando operator uses
-# our password instead of generating a random one. The secret must
-# exist BEFORE the postgresql CRD for the operator to pick it up.
-kubectl create namespace "${PG_NS}" --dry-run=client -o yaml | kubectl apply -f -
-kubectl create secret generic "${PG_USERNAME}.postgresql.credentials.postgresql.acid.zalan.do" \
-  --namespace "${PG_NS}" \
-  --from-literal=password="${PG_PASSWORD}" \
-  --from-literal=username="${PG_USERNAME}" \
-  --dry-run=client -o yaml | kubectl apply -f -
+# Helm chart (credentials.secret.yaml) creates the secret automatically.
+# Delete any leftover manual secret to avoid Helm ownership conflict.
+kubectl delete secret "${PG_USERNAME}.postgresql.credentials.postgresql.acid.zalan.do" \
+  --namespace "${PG_NS}" --ignore-not-found 2>/dev/null
 
 helm upgrade --install "postgres-${ENV}" ./postgres/postgresql \
   --create-namespace --namespace "${PG_NS}" \
@@ -242,10 +241,12 @@ helm upgrade --install "promtail-${ENV}" grafana/promtail \
 # --------------------------------------------------------------------------
 # Wait for the opentelemetry operator webhook to be ready
 echo "Waiting for OpenTelemetry operator webhook..."
-kubectl wait --for=condition=available deployment/opentelemetry-operator-controller-manager -n observability --timeout=120s 2>/dev/null || sleep 30
+kubectl wait --for=condition=available deployment/opentelemetry-operator-controller-manager -n observability --timeout=180s 2>/dev/null || sleep 30
 
 helm upgrade --install "opentelemetry-collector-${ENV}" ./observability/opentelemetry \
-  --create-namespace --namespace "${OBS_NS}"
+  --create-namespace --namespace "${OBS_NS}" \
+  --set lokiEndpoint="http://loki-${ENV}-gateway.${OBS_NS}.svc.cluster.local/loki/api/v1/push" \
+  --set tempoEndpoint="http://tempo-${ENV}.${OBS_NS}.svc.cluster.local:4318"
 
 # ============================================================================
 # GRAFANA & PROMETHEUS — NOT DEPLOYED

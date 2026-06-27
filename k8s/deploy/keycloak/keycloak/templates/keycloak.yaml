@@ -22,7 +22,7 @@ spec:
     httpPort: 80
   hostname:
     hostname: {{ .Values.hostname }}
-    backchannelDynamic: true
+    backchannelDynamic: {{ .Values.backchannelDynamic }}
     strict: false
   proxy:
     headers: xforwarded
