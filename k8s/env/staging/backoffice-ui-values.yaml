@@ -11,7 +11,7 @@ ui:
   resources:
     requests:
       cpu: 50m
-      memory: 256Mi
+      memory: 128Mi
     limits:
       cpu: 450m
       memory: 768Mi
