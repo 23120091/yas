@@ -1,5 +1,9 @@
 hostname: identity.yas.local.com
 backchannelDynamic: false
+extraHostnames:
+  - identity-dev.tthong.dev
+  - identity-staging.tthong.dev
+  - identity.tthong.dev
 backofficeRedirectUrls:
   - http://backoffice.yas.local.com
   - http://backoffice-dev.tthong.dev

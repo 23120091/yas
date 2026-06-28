@@ -37,19 +37,20 @@ PG_USERNAME=$(yq -r '.postgresql.username' "$CONFIG_FILE")
 PG_PASSWORD=$(yq -r '.postgresql.password' "$CONFIG_FILE")
 BOOTSTRAP_ADMIN_USERNAME=$(yq -r '.keycloak.bootstrapAdmin.username' "$CONFIG_FILE")
 BOOTSTRAP_ADMIN_PASSWORD=$(yq -r '.keycloak.bootstrapAdmin.password' "$CONFIG_FILE")
-KEYCLOAK_BACKOFFICE_REDIRECT_URL=$(yq -r '.keycloak.backofficeRedirectUrl' "$CONFIG_FILE")
-KEYCLOAK_STOREFRONT_REDIRECT_URL=$(yq -r '.keycloak.storefrontRedirectUrl' "$CONFIG_FILE")
+KEYCLOAK_BACKOFFICE_REDIRECT_URL_0=$(yq -r '.keycloak.backofficeRedirectUrls[0]' "$CONFIG_FILE")
+KEYCLOAK_BACKOFFICE_REDIRECT_URL_1=$(yq -r '.keycloak.backofficeRedirectUrls[1] // ""' "$CONFIG_FILE")
+KEYCLOAK_STOREFRONT_REDIRECT_URL_0=$(yq -r '.keycloak.storefrontRedirectUrls[0]' "$CONFIG_FILE")
+KEYCLOAK_STOREFRONT_REDIRECT_URL_1=$(yq -r '.keycloak.storefrontRedirectUrls[1] // ""' "$CONFIG_FILE")
 
 # Build env-specific hostname and namespace
 if [ -z "$ENV_SUBDOMAIN" ] || [ "$ENV_SUBDOMAIN" = "null" ]; then
-    HOST_PREFIX=""
+    KEYCLOAK_HOSTNAME="identity.${DOMAIN}"
 else
-    HOST_PREFIX="${ENV_SUBDOMAIN}."
+    KEYCLOAK_HOSTNAME="identity-${ENV_SUBDOMAIN}.${DOMAIN}"
 fi
 
 KEYCLOAK_NS="keycloak-${ENV}"
 PG_NS="postgres-${ENV}"
-KEYCLOAK_HOSTNAME="identity.${HOST_PREFIX}${DOMAIN}"
 PG_HOST="postgresql.${PG_NS}.svc.cluster.local"
 
 echo "Keycloak namespace: ${KEYCLOAK_NS}"
@@ -76,8 +77,10 @@ helm upgrade --install "keycloak-${ENV}" ./keycloak/keycloak \
   --set postgresql.host="$PG_HOST" \
   --set bootstrapAdmin.username="$BOOTSTRAP_ADMIN_USERNAME" \
   --set bootstrapAdmin.password="$BOOTSTRAP_ADMIN_PASSWORD" \
-  --set backofficeRedirectUrl="$KEYCLOAK_BACKOFFICE_REDIRECT_URL" \
-  --set storefrontRedirectUrl="$KEYCLOAK_STOREFRONT_REDIRECT_URL"
+  --set "backofficeRedirectUrls[0]=$KEYCLOAK_BACKOFFICE_REDIRECT_URL_0" \
+  --set "backofficeRedirectUrls[1]=$KEYCLOAK_BACKOFFICE_REDIRECT_URL_1" \
+  --set "storefrontRedirectUrls[0]=$KEYCLOAK_STOREFRONT_REDIRECT_URL_0" \
+  --set "storefrontRedirectUrls[1]=$KEYCLOAK_STOREFRONT_REDIRECT_URL_1"
 
 echo ""
 echo "============================================"

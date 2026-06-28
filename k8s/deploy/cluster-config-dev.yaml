@@ -17,9 +17,9 @@
 # once. This script handles that via idempotent helm upgrade --install.
 # ============================================================================
 
-domain: yas.local.com
+domain: tthong.dev
 
-# Subdomain prefix for this environment (e.g. identity.dev.yas.local.com)
+# Subdomain prefix for this environment (e.g. identity-dev.tthong.dev)
 # Production keeps the clean domain (no prefix).
 envSubdomain: dev
 
@@ -44,8 +44,12 @@ keycloak:
   bootstrapAdmin:
     username: admin
     password: admin
-  backofficeRedirectUrl: http://backoffice.dev.yas.local.com
-  storefrontRedirectUrl: http://storefront.dev.yas.local.com
+  backofficeRedirectUrls:
+    - http://backoffice-dev.tthong.dev
+    - http://backoffice.dev.yas.local.com
+  storefrontRedirectUrls:
+    - http://storefront-dev.tthong.dev
+    - http://storefront.dev.yas.local.com
 
 redis:
   password: redis
