@@ -1,7 +1,7 @@
 backend:
   image:
     repository: ghcr.io/23120091/rating
-    tag: latest
+    tag: 0.4.0
   nameOverride: rating
   fullnameOverride: rating
   databaseName: rating
