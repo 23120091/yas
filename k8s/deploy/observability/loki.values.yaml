@@ -20,6 +20,25 @@ storage:
 minio:
   enabled: false
 
+# Cap memcached — Loki defaults allocate 11+ Gi per env
+memcached:
+  chunkCache:
+    allocatedMemory: 512
+    resources:
+      requests:
+        cpu: 50m
+        memory: 512Mi
+      limits:
+        memory: 768Mi
+  resultsCache:
+    allocatedMemory: 256
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 384Mi
+
 monitoring:
   selfMonitoring:
     enabled: false
