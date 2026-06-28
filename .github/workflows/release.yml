@@ -19,6 +19,7 @@ jobs:
       service: ${{ steps.parse.outputs.service }}
       version: ${{ steps.parse.outputs.version }}
       runtime: ${{ steps.parse.outputs.runtime }}
+      src_dir: ${{ steps.parse.outputs.src_dir }}
     steps:
       - uses: actions/checkout@v4
 
@@ -43,6 +44,7 @@ jobs:
               echo "service=" >> $GITHUB_OUTPUT
               echo "version=" >> $GITHUB_OUTPUT
               echo "runtime=" >> $GITHUB_OUTPUT
+              echo "src_dir=" >> $GITHUB_OUTPUT
               exit 0
               ;;
             *) SRC_DIR=$SERVICE ;;
@@ -53,6 +55,7 @@ jobs:
             echo "service=" >> $GITHUB_OUTPUT
             echo "version=" >> $GITHUB_OUTPUT
             echo "runtime=" >> $GITHUB_OUTPUT
+            echo "src_dir=" >> $GITHUB_OUTPUT
             exit 0
           fi
 

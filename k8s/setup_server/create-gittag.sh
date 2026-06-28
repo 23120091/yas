@@ -13,7 +13,7 @@ git tag -l '*.*.*' | sed 's/^\(.*\)-\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\)/\1 \2 \3 
     echo "Created: $new_tag"
     git push origin "$new_tag"
     echo "Pushed. Waiting 4s..."
-    sleep 4
+    sleep 60
   fi
 done
 
