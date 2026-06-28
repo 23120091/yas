@@ -12,7 +12,7 @@
 backend:
 
   image:
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
     # Production ALWAYS uses immutable semantic version tags (vX.Y.Z).
     # IfNotPresent is safe here — a v1.2.3 tag is never overwritten.
     # If we ever need to force a re-pull, we'd use a new version tag.
@@ -24,6 +24,9 @@ backend:
   # HPA can scale beyond this in <service>-values.yaml for high-traffic services.
   # --------------------------------------------------------------------------
   replicaCount: 1
+
+  strategy:
+    type: Recreate
 
   # --------------------------------------------------------------------------
   # DATABASE — Production has its OWN PostgreSQL instance (not shared with

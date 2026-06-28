@@ -3,7 +3,10 @@
 apt-get update -y
 apt-get install -y curl sudo
 
-# 2. KHAI BÁO THÔNG TIN KẾT NỐI
+# 2. Prerequisite: allow k3s VXLAN (UDP 8472) between all nodes in VPC firewall.
+# gcloud compute firewall-rules create k3s-vxlan --allow udp:8472 --source-ranges 10.148.0.0/16
+
+# 3. KHAI BÁO THÔNG TIN KẾT NỐI
 MASTER_INTERNAL_IP="10.148.0.10"
 K3S_TOKEN="<K3S_TOKEN>"  # Thay bằng token thực tế từ master node
 

@@ -263,7 +263,7 @@ customerApplicationConfig:
 #   - Must use hostname:port format (NO http:// scheme) for Spring Data Elasticsearch ClientConfiguration.connectedTo()
 #   - Uses environment-specific namespace (elasticsearch-dev, elasticsearch-staging, elasticsearch-production)
 #   - Deploy script (deploy-yas-configuration.sh) automatically sets correct namespace per environment
-# Version: K8s uses 8.18.0; docker-compose uses 9.2.3 (consider aligning versions)
+# Version: Both K8s and docker-compose use 9.2.3 (client and server aligned)
 searchApplicationConfig:
   elasticsearch:
     url: elasticsearch-es-http.elasticsearch-dev:9200
