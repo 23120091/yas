@@ -23,10 +23,11 @@ echo "----------------------------------------------------------------"
 
 echo "BƯỚC 2: PHÂN QUYỀN CHO USER (argocd-rbac-cm)..."
 
-kubectl patch configmap argocd-rbac-cm -n $NAMESPACE --type=merge -p \
+kubectl patch configmap argocd-rbac-cm -n argocd --type=merge -p \
 '{"data": {
-  "policy.csv": "g, thong, role:admin\ng, thuan, role:admin\ng, dang, role:admin\ng, phuoc, role:admin"
+  "policy.csv": "p, role:admin, *, *, *, allow\ng, thong, role:admin\ng, thuan, role:admin\ng, dang, role:admin\ng, phuoc, role:admin"
 }}'
+
 echo "Đã cấp quyền admin thành công."
 
 echo "----------------------------------------------------------------"

@@ -38,6 +38,13 @@ spec:
               name: yas-themes-configmap
         containers:
           - name: keycloak
+            resources:
+              requests:
+                cpu: 200m
+                memory: 512Mi
+              limits:
+                cpu: 1000m
+                memory: 1Gi
             volumeMounts:
               - name: yas-themes
                 mountPath: /opt/keycloak/providers
