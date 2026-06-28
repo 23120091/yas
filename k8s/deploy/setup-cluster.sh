@@ -156,7 +156,9 @@ helm upgrade --install opentelemetry-operator open-telemetry/opentelemetry-opera
 # PostgreSQL Cluster
 # --------------------------------------------------------------------------
 # Cleanup stale PVC/PV and Patroni DCS endpoints from previous deploys
-kubectl delete pvc -n "${PG_NS}" --all --ignore-not-found 2>/dev/null || true
+# Remove finalizers first to prevent delete from hanging on stuck PVs
+kubectl patch pvc -n "${PG_NS}" --all --type merge -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
+kubectl delete pvc -n "${PG_NS}" --all --ignore-not-found --timeout=60s 2>/dev/null || true
 kubectl delete endpoints -n "${PG_NS}" postgresql-config postgresql postgresql-repl --ignore-not-found 2>/dev/null || true
 kubectl delete secret "${PG_USERNAME}.postgresql.credentials.postgresql.acid.zalan.do" \
   --namespace "${PG_NS}" --ignore-not-found 2>/dev/null || true
@@ -201,6 +203,10 @@ helm upgrade --install "akhq-${ENV}" akhq/akhq \
 # --------------------------------------------------------------------------
 # Elasticsearch Cluster
 # --------------------------------------------------------------------------
+# Cleanup stale ES PVCs to prevent version-upgrade errors (e.g. 8.18 → 9.x)
+kubectl patch pvc -n "${ES_NS}" --all --type merge -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
+kubectl delete pvc -n "${ES_NS}" --all --ignore-not-found --timeout=60s 2>/dev/null || true
+
 helm upgrade --install "elasticsearch-cluster-${ENV}" ./elasticsearch/elasticsearch-cluster \
   --create-namespace --namespace "${ES_NS}" \
   --set elasticsearch.replicas="$ES_REPLICAS" \
