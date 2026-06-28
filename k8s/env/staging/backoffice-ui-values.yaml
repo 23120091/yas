@@ -2,7 +2,7 @@ ui:
   nodeSelector:
     env: staging
   image:
-    repository: ghcr.io/23120091/backoffice
+    repository: ghcr.io/23120091/backoffice-ui
     tag: 0.4.0
   nameOverride: backoffice-ui
   fullnameOverride: backoffice-ui

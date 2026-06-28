@@ -203,7 +203,9 @@ helm upgrade --install "akhq-${ENV}" akhq/akhq \
 # --------------------------------------------------------------------------
 # Elasticsearch Cluster
 # --------------------------------------------------------------------------
-# Cleanup stale ES PVCs to prevent version-upgrade errors (e.g. 8.18 → 9.x)
+# Delete the ES custom resource first to cascade-delete pods and PVCs,
+# then patch/delete any remaining PVCs to avoid version-upgrade errors.
+kubectl delete elasticsearch elasticsearch -n "${ES_NS}" --ignore-not-found --timeout=120s 2>/dev/null || true
 kubectl patch pvc -n "${ES_NS}" --all --type merge -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
 kubectl delete pvc -n "${ES_NS}" --all --ignore-not-found --timeout=60s 2>/dev/null || true
 

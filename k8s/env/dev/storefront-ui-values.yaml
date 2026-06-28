@@ -2,7 +2,7 @@ ui:
   nodeSelector:
     env: dev
   image:
-    repository: ghcr.io/23120091/storefront
+    repository: ghcr.io/23120091/storefront-ui
     tag: latest
   nameOverride: storefront-ui
   fullnameOverride: storefront-ui
