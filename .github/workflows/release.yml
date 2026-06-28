@@ -2,7 +2,8 @@ name: Release — Build & Push on Tag
 
 on:
   push:
-    tags: ["*-*.*.*"]
+    tags:
+      - '*-*.*.*'
   workflow_dispatch:
 
 permissions:
@@ -33,7 +34,29 @@ jobs:
             exit 1
           fi
 
-          if [ -f "./${SERVICE}/package.json" ]; then
+          # Map tag names to actual folder names
+          case "$SERVICE" in
+            storefront-ui) SRC_DIR=storefront ;;
+            backoffice-ui) SRC_DIR=backoffice ;;
+            swagger-ui|yas-configuration|backend|saga|ui)
+              echo "SKIP: '$SERVICE' is not a buildable service — no source directory"
+              echo "service=" >> $GITHUB_OUTPUT
+              echo "version=" >> $GITHUB_OUTPUT
+              echo "runtime=" >> $GITHUB_OUTPUT
+              exit 0
+              ;;
+            *) SRC_DIR=$SERVICE ;;
+          esac
+
+          if [ ! -d "./${SRC_DIR}" ]; then
+            echo "SKIP: no directory './${SRC_DIR}' for service '$SERVICE'"
+            echo "service=" >> $GITHUB_OUTPUT
+            echo "version=" >> $GITHUB_OUTPUT
+            echo "runtime=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if [ -f "./${SRC_DIR}/package.json" ]; then
             RUNTIME=node
           else
             RUNTIME=java
@@ -43,14 +66,16 @@ jobs:
           echo "Service: $SERVICE"
           echo "Version: $VERSION"
           echo "Runtime: $RUNTIME"
+          echo "SrcDir:  $SRC_DIR"
           echo "service=$SERVICE" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "runtime=$RUNTIME" >> $GITHUB_OUTPUT
+          echo "src_dir=$SRC_DIR" >> $GITHUB_OUTPUT
 
   java-build:
     name: Java — ${{ needs.parse-tag.outputs.service }}
     needs: parse-tag
-    if: ${{ needs.parse-tag.outputs.runtime == 'java' }}
+    if: ${{ needs.parse-tag.outputs.runtime == 'java' && needs.parse-tag.outputs.service != '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,7 +88,7 @@ jobs:
           cache: 'maven'
 
       - name: Build
-        run: mvn clean verify -pl ${{ needs.parse-tag.outputs.service }} -am -T 1C -B -ntp
+        run: mvn clean verify -pl ${{ needs.parse-tag.outputs.src_dir }} -am -T 1C -B -ntp
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -75,7 +100,7 @@ jobs:
       - name: Build and Push Docker
         uses: docker/build-push-action@v6
         with:
-          context: ./${{ needs.parse-tag.outputs.service }}
+          context: ./${{ needs.parse-tag.outputs.src_dir }}
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/${{ needs.parse-tag.outputs.service }}:${{ needs.parse-tag.outputs.version }}
@@ -84,7 +109,7 @@ jobs:
   node-build:
     name: Node — ${{ needs.parse-tag.outputs.service }}
     needs: parse-tag
-    if: ${{ needs.parse-tag.outputs.runtime == 'node' }}
+    if: ${{ needs.parse-tag.outputs.runtime == 'node' && needs.parse-tag.outputs.service != '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -94,17 +119,17 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: ${{ needs.parse-tag.outputs.service }}/package-lock.json
+          cache-dependency-path: ${{ needs.parse-tag.outputs.src_dir }}/package-lock.json
 
       - name: Install & Test
         run: |
           npm ci --legacy-peer-deps
           npm test -- --coverage --passWithNoTests
-        working-directory: ${{ needs.parse-tag.outputs.service }}
+        working-directory: ${{ needs.parse-tag.outputs.src_dir }}
 
       - name: Build
         run: npm run build --if-present
-        working-directory: ${{ needs.parse-tag.outputs.service }}
+        working-directory: ${{ needs.parse-tag.outputs.src_dir }}
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -116,7 +141,7 @@ jobs:
       - name: Build and Push Docker
         uses: docker/build-push-action@v6
         with:
-          context: ./${{ needs.parse-tag.outputs.service }}
+          context: ./${{ needs.parse-tag.outputs.src_dir }}
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/${{ needs.parse-tag.outputs.service }}:${{ needs.parse-tag.outputs.version }}
