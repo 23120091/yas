@@ -2,7 +2,7 @@ ui:
   nodeSelector:
     env: staging
   image:
-    repository: ghcr.io/23120091/storefront
+    repository: ghcr.io/23120091/storefront-ui
     tag: 0.4.0
   nameOverride: storefront-ui
   fullnameOverride: storefront-ui

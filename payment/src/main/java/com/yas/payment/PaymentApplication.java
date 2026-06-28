@@ -5,9 +5,15 @@ import com.yas.payment.config.ServiceUrlConfig;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 
-@SpringBootApplication(scanBasePackages = {"com.yas.payment", "com.yas.commonlibrary"})
+@SpringBootApplication
+@ComponentScan(
+    basePackages = {"com.yas.payment", "com.yas.commonlibrary"},
+    excludeFilters = @ComponentScan.Filter(
+        type = FilterType.REGEX,
+        pattern = "com\\.yas\\.payment\\.paypal\\.config\\..*"))
 @EnableConfigurationProperties({ServiceUrlConfig.class, CorsConfig.class})
 public class PaymentApplication {
 
