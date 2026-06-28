@@ -13,7 +13,7 @@ backend:
 
   ingress:
     enabled: true
-    host: backoffice.staging.tthong.dev
+    host: backoffice-staging.tthong.dev
     path: /
 
   extraEnvs:
