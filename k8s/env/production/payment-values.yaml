@@ -20,7 +20,7 @@ backend:
     - /opt/yas/payment/payment-application.yaml
   resources:
     requests:
-      cpu: 500m
+      cpu: 50m
       memory: 1Gi
     limits:
       cpu: 3000m

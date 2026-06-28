@@ -23,7 +23,7 @@ backend:
     - /opt/yas/customer/customer-application.yaml
   resources:
     requests:
-      cpu: 200m
+      cpu: 50m
       memory: 512Mi
     limits:
       cpu: 1500m
