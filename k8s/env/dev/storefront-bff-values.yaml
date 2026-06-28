@@ -12,7 +12,7 @@ backend:
 
   ingress:
     enabled: true
-    host: storefront.dev.yas.local.com
+    host: storefront.dev.tthong.dev
     path: /
 
   extraEnvs:
