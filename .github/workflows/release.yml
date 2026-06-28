@@ -1,0 +1,123 @@
+name: Release — Build & Push on Tag
+
+on:
+  push:
+    tags: ["*-*.*.*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+
+jobs:
+  parse-tag:
+    name: Parse Service & Version
+    runs-on: ubuntu-latest
+    outputs:
+      service: ${{ steps.parse.outputs.service }}
+      version: ${{ steps.parse.outputs.version }}
+      runtime: ${{ steps.parse.outputs.runtime }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse tag
+        id: parse
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          if [[ "$TAG" =~ ^(.+)-([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            SERVICE="${BASH_REMATCH[1]}"
+            VERSION="${BASH_REMATCH[2]}"
+          else
+            echo "ERROR: tag '$TAG' does not match <service>-X.Y.Z"
+            exit 1
+          fi
+
+          if [ -f "./${SERVICE}/package.json" ]; then
+            RUNTIME=node
+          else
+            RUNTIME=java
+          fi
+
+          echo "Tag:     $TAG"
+          echo "Service: $SERVICE"
+          echo "Version: $VERSION"
+          echo "Runtime: $RUNTIME"
+          echo "service=$SERVICE" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "runtime=$RUNTIME" >> $GITHUB_OUTPUT
+
+  java-build:
+    name: Java — ${{ needs.parse-tag.outputs.service }}
+    needs: parse-tag
+    if: ${{ needs.parse-tag.outputs.runtime == 'java' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build
+        run: mvn clean verify -pl ${{ needs.parse-tag.outputs.service }} -am -T 1C -B -ntp
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Docker
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ needs.parse-tag.outputs.service }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ needs.parse-tag.outputs.service }}:${{ needs.parse-tag.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/${{ needs.parse-tag.outputs.service }}:latest
+
+  node-build:
+    name: Node — ${{ needs.parse-tag.outputs.service }}
+    needs: parse-tag
+    if: ${{ needs.parse-tag.outputs.runtime == 'node' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ${{ needs.parse-tag.outputs.service }}/package-lock.json
+
+      - name: Install & Test
+        run: |
+          npm ci --legacy-peer-deps
+          npm test -- --coverage --passWithNoTests
+        working-directory: ${{ needs.parse-tag.outputs.service }}
+
+      - name: Build
+        run: npm run build --if-present
+        working-directory: ${{ needs.parse-tag.outputs.service }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Docker
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ needs.parse-tag.outputs.service }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ needs.parse-tag.outputs.service }}:${{ needs.parse-tag.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/${{ needs.parse-tag.outputs.service }}:latest
