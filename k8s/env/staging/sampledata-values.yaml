@@ -27,3 +27,8 @@ backend:
     limits:
       cpu: 300m
       memory: 384Mi
+
+  livenessProbe:
+    initialDelaySeconds: 180
+  readinessProbe:
+    initialDelaySeconds: 180
