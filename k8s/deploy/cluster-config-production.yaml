@@ -10,10 +10,10 @@
 #   - Clean domain (no env prefix) — prod owns the primary URLs
 # ============================================================================
 
-domain: yas.local.com
+domain: tthong.dev
 
 # Production uses the clean domain (no subdomain prefix).
-# e.g. identity.yas.local.com, not identity.production.yas.local.com
+# e.g. identity.tthong.dev, not identity.production.tthong.dev
 # envSubdomain must NOT be set for production
 envSubdomain:
 
@@ -38,8 +38,12 @@ keycloak:
   bootstrapAdmin:
     username: admin
     password: admin
-  backofficeRedirectUrl: http://backoffice.yas.local.com
-  storefrontRedirectUrl: http://storefront.yas.local.com
+  backofficeRedirectUrls:
+    - http://backoffice.tthong.dev
+    - http://backoffice.yas.local.com
+  storefrontRedirectUrls:
+    - http://storefront.tthong.dev
+    - http://storefront.yas.local.com
 
 redis:
   password: redis

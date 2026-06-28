@@ -10,9 +10,9 @@
 #   - Same security config as production
 # ============================================================================
 
-domain: yas.local.com
+domain: tthong.dev
 
-# Subdomain prefix for this environment (e.g. identity.staging.yas.local.com)
+# Subdomain prefix for this environment (e.g. identity-staging.tthong.dev)
 envSubdomain: staging
 
 postgresql:
@@ -36,8 +36,12 @@ keycloak:
   bootstrapAdmin:
     username: admin
     password: admin
-  backofficeRedirectUrl: http://backoffice.staging.yas.local.com
-  storefrontRedirectUrl: http://storefront.staging.yas.local.com
+  backofficeRedirectUrls:
+    - http://backoffice-staging.tthong.dev
+    - http://backoffice.staging.yas.local.com
+  storefrontRedirectUrls:
+    - http://storefront-staging.tthong.dev
+    - http://storefront.staging.yas.local.com
 
 redis:
   password: redis

@@ -196,13 +196,17 @@ gatewayRoutesConfig:
             filters:
               - RewritePath=/api/(?<segment>.*), /$\{segment}
               - TokenRelay=
-          - id: ui
-            uri: ${UI_HOST}
-            predicates:
-              - Path=/**
+
 
 backofficeBffExtraConfig:
   spring:
+    cloud:
+      gateway:
+        routes:
+          - id: ui
+            uri: http://backoffice-ui:3000
+            predicates:
+              - Path=/**
     data:
       redis:
         host: redis-master.redis
@@ -223,6 +227,13 @@ backofficeBffExtraConfig:
 
 storefrontBffExtraConfig:
   spring:
+    cloud:
+      gateway:
+        routes:
+          - id: ui
+            uri: http://storefront-ui:3000
+            predicates:
+              - Path=/**
     data:
       redis:
         host: redis-master.redis

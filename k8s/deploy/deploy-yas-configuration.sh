@@ -44,8 +44,14 @@ read -rd '' DOMAIN ENV_SUBDOMAIN < <(yq -r '.domain, .envSubdomain' "$CONFIG_FIL
 
 if [ -z "$ENV_SUBDOMAIN" ] || [ "$ENV_SUBDOMAIN" = "null" ]; then
     HOST_PREFIX=""
+    IDENTITY_HOST="identity.${DOMAIN}"
+    STOREFRONT_HOST="storefront.${DOMAIN}"
+    BACKOFFICE_HOST="backoffice.${DOMAIN}"
 else
-    HOST_PREFIX="${ENV_SUBDOMAIN}."
+    HOST_PREFIX="${ENV_SUBDOMAIN}-"
+    IDENTITY_HOST="identity-${ENV_SUBDOMAIN}.${DOMAIN}"
+    STOREFRONT_HOST="storefront-${ENV_SUBDOMAIN}.${DOMAIN}"
+    BACKOFFICE_HOST="backoffice-${ENV_SUBDOMAIN}.${DOMAIN}"
 fi
 
 YAS_NS="${ENV}"
@@ -53,8 +59,6 @@ KAFKA_NS="kafka-${ENV}"
 REDIS_NS="redis-${ENV}"
 PG_NS="postgres-${ENV}"
 ES_NS="elasticsearch-${ENV}"
-
-IDENTITY_HOST="identity.${HOST_PREFIX}${DOMAIN}"
 
 echo "YAS namespace:   ${YAS_NS}"
 echo "Kafka namespace: ${KAFKA_NS}"
@@ -95,7 +99,7 @@ helm upgrade --install "yas-configuration-${ENV}" ../charts/yas-configuration \
   --set "searchApplicationConfig.elasticsearch.url=elasticsearch-es-http.${ES_NS}:9200" \
   --set "credentials.elasticsearch.username=elastic" \
   --set "credentials.elasticsearch.password=${ES_PASSWORD}" \
-  --set "paymentPaypalApplicationConfig.yas.public.url=http://storefront.${HOST_PREFIX}${DOMAIN}/complete-payment" \
+  --set "paymentPaypalApplicationConfig.yas.public.url=http://${STOREFRONT_HOST}/complete-payment" \
   --set "sampledataApplicationConfig.spring.datasource.product.url=jdbc:postgresql://postgresql.${PG_NS}:5432/product" \
   --set "sampledataApplicationConfig.spring.datasource.media.url=jdbc:postgresql://postgresql.${PG_NS}:5432/media"
 
