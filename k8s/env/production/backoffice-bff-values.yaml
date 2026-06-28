@@ -47,12 +47,12 @@ backend:
     - /opt/yas/extra-config/backoffice-bff-extra-config.yaml
 
   resources:
-  requests:
-    cpu: 50m      
-    memory: 1Gi    
-  limits:
-    cpu: 50m      
-    memory: 3Gi
+    requests:
+      cpu: 50m
+      memory: 1Gi
+    limits:
+      cpu: 50m
+      memory: 3Gi
 
   autoscaling:
     enabled: false 
