@@ -1,7 +1,15 @@
 hostname: identity.yas.local.com
 backchannelDynamic: false
-backofficeRedirectUrl: http://backoffice.yas.local.com
-storefrontRedirectUrl: http://storefront.yas.local.com
+backofficeRedirectUrls:
+  - http://backoffice.yas.local.com
+  - http://backoffice-dev.tthong.dev
+  - http://backoffice-staging.tthong.dev
+  - http://backoffice.tthong.dev
+storefrontRedirectUrls:
+  - http://storefront.yas.local.com
+  - http://storefront-dev.tthong.dev
+  - http://storefront-staging.tthong.dev
+  - http://storefront.tthong.dev
 postgresql:
   username: yasadminuser
   password: admin
