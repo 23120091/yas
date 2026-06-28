@@ -12,7 +12,7 @@
 backend:
 
   image:
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
     # IfNotPresent is safe for staging: images use immutable semantic version
     # tags (e.g., "v1.2.3"), so we don't need to re-pull the same tag.
 
@@ -22,6 +22,9 @@ backend:
   # HPA may scale beyond this if enabled per-service.
   # --------------------------------------------------------------------------
   replicaCount: 1
+
+  strategy:
+    type: Recreate
 
   # --------------------------------------------------------------------------
   # DATABASE — Same PostgreSQL cluster, different namespace context.

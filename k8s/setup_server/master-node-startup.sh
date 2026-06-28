@@ -3,6 +3,11 @@
 apt-get update -y
 apt-get install -y curl sudo
 
+# Prerequisite: Allow k3s VXLAN (UDP 8472) and pod CIDR (10.42.0.0/16) between all nodes.
+# On GCP, run this once: https://console.cloud.google.com/networking/firewalls
+# Or via gcloud:
+#   gcloud compute firewall-rules create k3s-vxlan --allow udp:8472 --source-ranges 10.148.0.0/16
+
 curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="644" sh -
 
 sleep 20

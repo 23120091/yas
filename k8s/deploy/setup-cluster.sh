@@ -155,18 +155,23 @@ helm upgrade --install opentelemetry-operator open-telemetry/opentelemetry-opera
 # --------------------------------------------------------------------------
 # PostgreSQL Cluster
 # --------------------------------------------------------------------------
-# Helm chart (credentials.secret.yaml) creates the secret automatically.
-# Delete any leftover manual secret to avoid Helm ownership conflict.
+# Cleanup stale PVC/PV and Patroni DCS endpoints from previous deploys
+kubectl delete pvc -n "${PG_NS}" --all --ignore-not-found 2>/dev/null || true
+kubectl delete endpoints -n "${PG_NS}" postgresql-config postgresql postgresql-repl --ignore-not-found 2>/dev/null || true
 kubectl delete secret "${PG_USERNAME}.postgresql.credentials.postgresql.acid.zalan.do" \
-  --namespace "${PG_NS}" --ignore-not-found 2>/dev/null
+  --namespace "${PG_NS}" --ignore-not-found 2>/dev/null || true
 
 helm upgrade --install "postgres-${ENV}" ./postgres/postgresql \
   --create-namespace --namespace "${PG_NS}" \
   --set replicas="$PG_REPLICAS" \
   --set username="$PG_USERNAME" \
   --set password="$PG_PASSWORD" \
-  --set volumeSize="$PG_VOLUME_SIZE" \
-  --set env="$ENV"
+  --set volumeSize="$PG_VOLUME_SIZE"
+
+# Wait for Zalando operator to create databases and users
+echo "Waiting for Postgres leader and databases..."
+kubectl wait --for=condition=ready pod -l application=spilo -n "${PG_NS}" --timeout=300s
+sleep 30
 
 # --------------------------------------------------------------------------
 # pgAdmin
