@@ -22,6 +22,6 @@ backend:
   resources:
     requests:
       cpu: 50m
-      memory: 256Mi
+      memory: 850Mi
     limits:
       memory: 768Mi
