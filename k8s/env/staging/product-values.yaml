@@ -60,11 +60,6 @@ backend:
   # Product service is tuned to be more sensitive because it's the most
   # heavily trafficked service (catalog browsing, search).
   # --------------------------------------------------------------------------
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
 
   # --------------------------------------------------------------------------
   # CONFIG MOUNTS — Same as dev: mount product-specific ConfigMap.

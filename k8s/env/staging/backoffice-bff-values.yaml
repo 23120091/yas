@@ -48,14 +48,8 @@ backend:
 
   resources:
   requests:
-    cpu: 200m      
-    memory: 512Mi   
-  limits:
-    cpu: 1500m      
-    memory: 1536Mi
-
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
+    cpu: 200m
+    memory: 512Mi
+    limits:
+      cpu: 1500m
+      memory: 1536Mi
