@@ -12,7 +12,7 @@
 backend:
 
   image:
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
     # Production ALWAYS uses immutable semantic version tags (vX.Y.Z).
     # IfNotPresent is safe here — a v1.2.3 tag is never overwritten.
     # If we ever need to force a re-pull, we'd use a new version tag.

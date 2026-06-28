@@ -12,7 +12,7 @@
 backend:
 
   image:
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
     # IfNotPresent is safe for staging: images use immutable semantic version
     # tags (e.g., "v1.2.3"), so we don't need to re-pull the same tag.
 
