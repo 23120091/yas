@@ -22,4 +22,3 @@ backend:
 
   extraApplicationConfigPaths:
     - /opt/yas/order/order-application.yaml
-      memory: 650Mi

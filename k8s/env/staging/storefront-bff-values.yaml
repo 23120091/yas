@@ -12,12 +12,12 @@ backend:
 
   ingress:
     enabled: true
-    host: storefront.staging.tthong.dev
+    host: storefront-staging.tthong.dev
     path: /
 
   extraEnvs:
   - name: SPRING_PROFILES_ACTIVE
-    value: prod
+    value: k8s
   - name: UI_HOST
     value: http://storefront-ui:3000
 
