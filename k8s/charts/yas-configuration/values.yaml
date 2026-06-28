@@ -196,6 +196,16 @@ gatewayRoutesConfig:
             filters:
               - RewritePath=/api/(?<segment>.*), /$\{segment}
               - TokenRelay=
+          - id: storefront-ui
+            uri: http://storefront-ui:3000
+            predicates:
+              - Host=storefront*.tthong.dev
+              - Path=/**
+          - id: backoffice-ui
+            uri: http://backoffice-ui:3000
+            predicates:
+              - Host=backoffice*.tthong.dev
+              - Path=/**
 
 
 backofficeBffExtraConfig:
