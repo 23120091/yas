@@ -13,7 +13,7 @@ backend:
 
   ingress:
     enabled: true
-    host: backoffice.yas.local.com
+    host: backoffice.tthong.dev
     path: /
 
   extraEnvs:
