@@ -23,7 +23,7 @@ backend:
     - /opt/yas/recommendation/recommendation-application.yaml
   resources:
     requests:
-      cpu: 200m
+      cpu: 50m
       memory: 512Mi
     limits:
       cpu: 1500m
