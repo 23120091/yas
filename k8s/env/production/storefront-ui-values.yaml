@@ -3,7 +3,7 @@ ui:
     env: production
   image:
     repository: ghcr.io/23120091/storefront
-    tag: latest
+    tag: 0.4.0
   nameOverride: storefront-ui
   fullnameOverride: storefront-ui
   extraEnvs:

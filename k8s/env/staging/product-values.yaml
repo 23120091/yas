@@ -18,7 +18,7 @@ backend:
   # --------------------------------------------------------------------------
   image:
     repository: ghcr.io/23120091/product
-    tag: latest
+    tag: 0.4.0
     # NOTE: CI pipeline replaces "latest" with the git tag (e.g., "v1.2.3")
     # during the staging deployment workflow.
     # See: .github/workflows/ci-staging.yaml

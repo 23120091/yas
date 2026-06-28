@@ -1,7 +1,7 @@
 backend:
   image:
     repository: ghcr.io/23120091/cart
-    tag: latest
+    tag: 0.5.0
   nameOverride: cart
   fullnameOverride: cart
   databaseName: cart

@@ -21,7 +21,7 @@ backend:
   # --------------------------------------------------------------------------
   image:
     repository: ghcr.io/23120091/product
-    tag: latest
+    tag: 0.4.0
     # NOTE: CI pipeline replaces "latest" with the selected version tag.
     # This field is intentionally "latest" as a placeholder that will
     # always be overwritten before deployment. If it reaches the cluster
