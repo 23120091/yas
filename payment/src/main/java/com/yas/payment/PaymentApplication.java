@@ -13,9 +13,14 @@ import org.springframework.context.annotation.FilterType;
 @EnableAutoConfiguration
 @ComponentScan(
     basePackages = {"com.yas.payment", "com.yas.commonlibrary"},
-    excludeFilters = @ComponentScan.Filter(
-        type = FilterType.REGEX,
-        pattern = "com\\.yas\\.payment\\.paypal\\.config\\..*"))
+    excludeFilters = {
+        @ComponentScan.Filter(
+            type = FilterType.REGEX,
+            pattern = "com\\.yas\\.payment\\.paypal\\.config\\..*"),
+        @ComponentScan.Filter(
+            type = FilterType.REGEX,
+            pattern = "com\\.yas\\.payment\\.paypal\\.PaymentPaypalApplication")
+    })
 @EnableConfigurationProperties({ServiceUrlConfig.class, CorsConfig.class})
 public class PaymentApplication {
 
