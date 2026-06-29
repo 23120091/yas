@@ -110,3 +110,66 @@ docker compose -f docker-compose.yml up  # core services only
 - If limited to 16GB RAM, set `COMPOSE_FILE=docker-compose.yml` and `OTEL_JAVAAGENT_ENABLED=false` in `.env`, and comment out unused services from `docker-compose.yml`.
 - Search service running locally outside Docker: change `spring.kafka.consumer.bootstrap-servers` from `kafka:9092` to `localhost:29092`.
 - BFFs use `TokenRelay=` filter for OAuth2 token propagation; do not remove it.
+
+## K8s Deployment Gotchas
+
+### `yas-configuration` is NOT managed by ArgoCD
+
+The `yas-configuration` Helm chart (shared ConfigMaps + Secrets) is **not** in any ArgoCD ApplicationSet. It must be deployed manually:
+
+```bash
+cd k8s/deploy
+./deploy-yas-configuration.sh <env>   # dev|staging|production
+```
+
+After running this, **Stakater Reloader** auto-restarts BFF pods that reference the updated ConfigMaps. No manual `kubectl rollout restart` needed.
+
+### Spring Cloud Gateway property path (Boot 4 / Gateway 5)
+
+BFF POM uses `spring-cloud-starter-gateway-server-webflux` (new path). Gateway routes must be under:
+
+```yaml
+spring:
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: ...
+```
+
+The old path `spring.cloud.gateway.routes` is **silently ignored** — routes will not load and every request returns 404.
+
+**Where this lives:**
+- Values: `k8s/charts/yas-configuration/values.yaml` → key `gatewayRoutesConfig`
+- Template: `k8s/charts/yas-configuration/templates/yas-configurations.configmap.yaml` wraps the value in the correct property path
+
+### BFF extra configs are for auth/redis only
+
+`backofficeBffExtraConfig` and `storefrontBffExtraConfig` should contain **only** OAuth2 client registration and Redis connection. Do **not** put gateway routes here — they go in `gatewayRoutesConfig` which renders to a separate ConfigMap mounted at `/opt/yas/gateway-routes-config`.
+
+### Host predicate wildcard
+
+Spring Cloud Gateway `Host` predicate uses single `*` (matches characters within one dot-separated segment). `**` is a path-pattern wildcard (multi-segment, `/` separator) and does **not** work in `Host` predicates.
+
+```yaml
+# Correct
+- Host=storefront*.tthong.dev
+
+# Wrong — route will never match
+- Host=storefront**.tthong.dev
+```
+
+### Media `publicUrl` must be overridden per environment
+
+`mediaApplicationConfig.yas.publicUrl` defaults to `http://api.yas.local.com/media` (docker-compose domain). In K8s this must be set per environment in `deploy-yas-configuration.sh`:
+
+```bash
+--set "mediaApplicationConfig.yas.publicUrl=http://${STOREFRONT_HOST}/api/media"
+```
+
+Without this, storefront product images will try to load from the non-resolvable docker-compose domain.
+
+### Why backoffice "works" but storefront 404s
+
+Backoffice has Spring Security OAuth2 which intercepts unauthenticated requests **before** gateway routing (redirects to Keycloak login). Storefront allows anonymous access, so requests hit gateway routing immediately. If gateway routes are broken, storefront shows 404 while backoffice appears to work (shows login page).

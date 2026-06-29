@@ -100,6 +100,7 @@ helm upgrade --install "yas-configuration-${ENV}" ../charts/yas-configuration \
   --set "credentials.elasticsearch.username=elastic" \
   --set "credentials.elasticsearch.password=${ES_PASSWORD}" \
   --set "paymentPaypalApplicationConfig.yas.public.url=http://${STOREFRONT_HOST}/complete-payment" \
+  --set "mediaApplicationConfig.yas.publicUrl=http://${STOREFRONT_HOST}/api/media" \
   --set "sampledataApplicationConfig.spring.datasource.product.url=jdbc:postgresql://postgresql.${PG_NS}:5432/product" \
   --set "sampledataApplicationConfig.spring.datasource.media.url=jdbc:postgresql://postgresql.${PG_NS}:5432/media"
 
