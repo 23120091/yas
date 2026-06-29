@@ -94,10 +94,9 @@ applicationConfig:
 
 # Gateway config for bff microservices
 gatewayRoutesConfig:
-  spring:
-    cloud:
-      gateway:
-        routes:
+  default-filters:
+    - SaveSession
+  routes:
           - id: product_api
             uri: http://product
             predicates:
@@ -199,12 +198,12 @@ gatewayRoutesConfig:
           - id: storefront-ui
             uri: http://storefront-ui:3000
             predicates:
-              - Host=storefront**.tthong.dev
+              - Host=storefront*.tthong.dev
               - Path=/**
           - id: backoffice-ui
             uri: http://backoffice-ui:3000
             predicates:
-              - Host=backoffice**.tthong.dev
+              - Host=backoffice*.tthong.dev
               - Path=/**
 
 
