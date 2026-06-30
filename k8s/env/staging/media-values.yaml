@@ -10,11 +10,31 @@ backend:
     enabled: true
     host: api.staging.yas.local
     path: /media/
+
+  # Persistent storage for uploaded images
+  persistence:
+    enabled: true
+    accessMode: ReadWriteOnce
+    size: 10Gi
+
+  initContainers:
+    - name: copy-sample-images
+      image: ghcr.io/23120091/sampledata:0.5.0
+      command: ['sh', '-c', 'mkdir -p /images/sample && cp -r /sample-images/* /images/sample/ 2>/dev/null || true']
+      volumeMounts:
+        - name: images
+          mountPath: /images
+
   extraVolumes:
+    - name: images
+      persistentVolumeClaim:
+        claimName: media
     - name: media-application
       configMap:
         name: media-application-configmap
   extraVolumeMounts:
+    - name: images
+      mountPath: /images
     - name: media-application
       mountPath: /opt/yas/media
   extraApplicationConfigPaths:

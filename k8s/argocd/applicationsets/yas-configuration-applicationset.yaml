@@ -28,9 +28,9 @@ spec:
   generators:
     - list:
         elements:
-          - {env: "dev",        namespace: "dev",        syncWave: "-1"}
-          - {env: "staging",    namespace: "staging",    syncWave: "-1"}
-          - {env: "production", namespace: "production", syncWave: "-1"}
+          - {env: "dev",        namespace: "dev",        syncWave: "-1", kafkaNs: "kafka-dev",    pgNs: "postgres-dev",    esNs: "elasticsearch-dev",    redisNs: "redis-dev",    identityHost: "identity-dev.tthong.dev",    storefrontHost: "storefront-dev.tthong.dev"}
+          - {env: "staging",    namespace: "staging",    syncWave: "-1", kafkaNs: "kafka-staging", pgNs: "postgres-staging", esNs: "elasticsearch-staging", redisNs: "redis-staging", identityHost: "identity-staging.tthong.dev", storefrontHost: "storefront-staging.tthong.dev"}
+          - {env: "production", namespace: "production", syncWave: "-1", kafkaNs: "kafka-production", pgNs: "postgres-production", esNs: "elasticsearch-production", redisNs: "redis-production", identityHost: "identity.tthong.dev", storefrontHost: "storefront.tthong.dev"}
   template:
     metadata:
       name: "yas-configuration-{{env}}"
@@ -52,6 +52,48 @@ spec:
         helm:
           valueFiles:
             - "../../deploy/cluster-config-{{env}}.yaml"
+          parameters:
+            # ------------------------------------------------------------------
+            # application.yaml overrides (preserves defaults from values.yaml)
+            # ------------------------------------------------------------------
+            - name: applicationConfig.spring.kafka.bootstrap-servers
+              value: "kafka-cluster-kafka-brokers.{{kafkaNs}}:9092"
+            - name: applicationConfig.spring.kafka.consumer.bootstrap-servers
+              value: "kafka-cluster-kafka-brokers.{{kafkaNs}}:9092"
+            - name: applicationConfig.spring.security.oauth2.resourceserver.jwt.issuer-uri
+              value: "http://{{identityHost}}/realms/Yas"
+            - name: applicationConfig.springdoc.oauthflow.authorization-url
+              value: "http://{{identityHost}}/realms/Yas/protocol/openid-connect/auth"
+            - name: applicationConfig.springdoc.oauthflow.token-url
+              value: "http://{{identityHost}}/realms/Yas/protocol/openid-connect/token"
+
+            # ------------------------------------------------------------------
+            # BFF extra configs (Redis + Keycloak)
+            # ------------------------------------------------------------------
+            - name: backofficeBffExtraConfig.spring.data.redis.host
+              value: "redis-master.{{redisNs}}"
+            - name: backofficeBffExtraConfig.spring.security.oauth2.client.provider.keycloak.issuer-uri
+              value: "http://{{identityHost}}/realms/Yas"
+            - name: storefrontBffExtraConfig.spring.data.redis.host
+              value: "redis-master.{{redisNs}}"
+            - name: storefrontBffExtraConfig.spring.security.oauth2.client.provider.keycloak.issuer-uri
+              value: "http://{{identityHost}}/realms/Yas"
+
+            # ------------------------------------------------------------------
+            # Service-specific application configs
+            # ------------------------------------------------------------------
+            - name: customerApplicationConfig.keycloak.auth-server-url
+              value: "http://{{identityHost}}"
+            - name: searchApplicationConfig.elasticsearch.url
+              value: "elasticsearch-es-http.{{esNs}}:9200"
+            - name: paymentPaypalApplicationConfig.yas.public.url
+              value: "http://{{storefrontHost}}/complete-payment"
+            - name: sampledataApplicationConfig.spring.datasource.product.url
+              value: "jdbc:postgresql://postgresql.{{pgNs}}:5432/product"
+            - name: sampledataApplicationConfig.spring.datasource.media.url
+              value: "jdbc:postgresql://postgresql.{{pgNs}}:5432/media"
+            - name: mediaApplicationConfig.yas.publicUrl
+              value: "http://{{storefrontHost}}/api/media"
       destination:
         server: https://kubernetes.default.svc
         namespace: "{{namespace}}"
