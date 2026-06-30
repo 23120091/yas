@@ -57,14 +57,14 @@ spec:
       server: https://kubernetes.default.svc
 
   # --------------------------------------------------------------------------
-  # CLUSTER RESOURCE WHITELIST — Only allow creating these cluster-scoped
-  # resources. Since YAS services are namespace-scoped (Deployments, Services,
-  # etc.), we don't need to allow any cluster-scoped resources.
-  # Leave empty for maximum security.
+  # CLUSTER RESOURCE WHITELIST — Allow creating Namespace resources.
+  # The backend Helm chart uses syncOptions: CreateNamespace=true, which
+  # requires ArgoCD to create the namespace. Without this, sync fails with:
+  #   "resource :Namespace is not permitted in project yas"
   # --------------------------------------------------------------------------
-  # clusterResourceWhitelist:
-  #   - group: ""
-  #     kind: Namespace
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
 
   # --------------------------------------------------------------------------
   # NAMESPACE RESOURCE BLACKLIST — Prevent Applications from creating

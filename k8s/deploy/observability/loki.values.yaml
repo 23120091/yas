@@ -13,31 +13,38 @@ loki:
       chunks: loki-chunks
       ruler: loki-ruler
       admin: loki-admin
-test:
-  enabled: false
+  test:
+    enabled: false
 storage:
   type: 'filesystem'
 minio:
   enabled: false
 
-# Cap memcached — Loki defaults allocate 11+ Gi per env
-memcached:
-  chunkCache:
-    allocatedMemory: 512
-    resources:
-      requests:
-        cpu: 50m
-        memory: 512Mi
-      limits:
-        memory: 768Mi
-  resultsCache:
-    allocatedMemory: 256
-    resources:
-      requests:
-        cpu: 50m
-        memory: 256Mi
-      limits:
-        memory: 384Mi
+# ============================================================================
+# MEMCACHED — Loki chart 7.0.0 dùng chunksCache / resultsCache
+# Default allocatedMemory: 8192 MB (~9GB sau khi chart tính resources)
+# ============================================================================
+chunksCache:
+  enabled: true
+  allocatedMemory: 512          # MB (default 8192)
+  allocatedCPU: 50m
+  resources:
+    requests:
+      cpu: 50m
+      memory: 512Mi
+    limits:
+      memory: 768Mi
+
+resultsCache:
+  enabled: true
+  allocatedMemory: 256          # MB (default 1024)
+  allocatedCPU: 50m
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 384Mi
 
 monitoring:
   selfMonitoring:
