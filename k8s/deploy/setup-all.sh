@@ -49,30 +49,39 @@ echo ""
 # --------------------------------------------------------------------------
 if [ "$TEARDOWN" = "--teardown" ] || [ "$TEARDOWN" = "--clean" ]; then
     echo ""
-    echo ">>> PHASE 0: FULL TEARDOWN (infrastructure + ArgoCD apps)"
+    echo ">>> PHASE 0: FULL TEARDOWN (infrastructure + ALL ArgoCD resources)"
     echo ""
-    read -p "This DESTROYS ALL DATA in ${ENV}. Type 'yes' to continue: " confirm
+    read -p "This DESTROYS ALL DATA and ALL ArgoCD apps across ALL environments. Type 'yes' to continue: " confirm
     if [ "$confirm" != "yes" ]; then
         echo "Aborted."
         exit 0
     fi
 
-    # 0.1 Delete ArgoCD ApplicationSets (cascade = delete all managed pods)
-    echo "[0.1] Deleting ArgoCD ApplicationSets for ${ENV}..."
-    kubectl delete applicationset -n argocd "yas-${ENV}" --cascade=foreground --ignore-not-found --timeout=120s 2>/dev/null || true
-    kubectl delete applicationset -n argocd yas-configuration --cascade=foreground --ignore-not-found --timeout=120s 2>/dev/null || true
+    # 0.1 Delete ALL ArgoCD ApplicationSets (cascade = delete all managed pods across ALL envs)
+    echo "[0.1] Deleting ALL ArgoCD ApplicationSets..."
+    kubectl delete applicationset -n argocd --all --cascade=foreground --ignore-not-found --timeout=120s 2>/dev/null || true
 
-    # 0.2 Delete bootstrap app (keeps ApplicationSet definitions in git, but removes generated Applications)
-    echo "[0.2] Deleting ArgoCD bootstrap app..."
+    # 0.2 Delete ALL ArgoCD Applications
+    echo "[0.2] Deleting ALL ArgoCD Applications..."
+    kubectl delete application -n argocd --all --cascade=foreground --ignore-not-found --timeout=120s 2>/dev/null || true
+
+    # 0.3 Delete ArgoCD AppProject
+    echo "[0.3] Deleting ArgoCD AppProject 'yas'..."
+    kubectl delete appproject -n argocd yas --ignore-not-found --timeout=60s 2>/dev/null || true
+
+    # 0.4 Delete bootstrap app
+    echo "[0.4] Deleting ArgoCD bootstrap app..."
     kubectl delete application -n argocd yas-bootstrap --cascade=foreground --ignore-not-found --timeout=120s 2>/dev/null || true
 
-    # 0.3 Wait for app namespace to empty
-    echo "[0.3] Waiting for ${ENV} namespace to empty..."
-    kubectl delete namespace "${ENV}" --ignore-not-found --timeout=120s 2>/dev/null || true
-    sleep 5
+    # 0.5 Wait for app namespaces to empty
+    echo "[0.5] Waiting for app namespaces to empty..."
+    for ns in dev staging production; do
+        kubectl delete namespace "${ns}" --ignore-not-found --timeout=120s 2>/dev/null || true
+    done
+    sleep 10
 
-    # 0.4 Run infrastructure teardown
-    echo "[0.4] Running infrastructure teardown..."
+    # 0.6 Run infrastructure teardown
+    echo "[0.6] Running infrastructure teardown..."
     ./teardown.sh "${ENV}"
 
     echo ""
@@ -161,21 +170,24 @@ kubectl wait --for=condition=ParametersGenerated applicationset -n argocd "yas-$
 kubectl wait --for=condition=ParametersGenerated applicationset -n argocd yas-configuration --timeout=60s 2>/dev/null || true
 
 # 2.4 Force sync yas-configuration first (wave -1, must deploy before apps)
-echo "[2.4] Syncing yas-configuration (wave -1)..."
-argocd app sync "yas-configuration-${ENV}" 2>/dev/null || {
-    echo "      argocd CLI not available or sync failed. ArgoCD will auto-sync."
+echo "[2.4] Triggering sync for yas-configuration (wave -1)..."
+kubectl patch application -n argocd "yas-configuration-${ENV}" \
+  -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}' \
+  --type merge 2>/dev/null || {
+    echo "      Could not trigger sync. ArgoCD auto-sync should handle it."
 }
 
 # 2.5 Wait for yas-configuration to be synced
 echo "[2.5] Waiting for yas-configuration to be ready..."
 kubectl wait --for=condition=Synced application -n argocd "yas-configuration-${ENV}" --timeout=120s 2>/dev/null || sleep 30
 
-# 2.6 Sync all applications for this environment
-echo "[2.6] Syncing all applications for ${ENV}..."
-argocd app sync -l env="${ENV}" 2>/dev/null || {
-    echo "      argocd CLI not available. ArgoCD auto-sync will deploy apps."
-    echo "      If auto-sync is disabled, manually sync from ArgoCD UI."
-}
+# 2.6 Trigger sync for all applications for this environment
+echo "[2.6] Triggering sync for all applications in ${ENV}..."
+for app in $(kubectl get application -n argocd -l env="${ENV}" -o name 2>/dev/null); do
+  kubectl patch "$app" -n argocd \
+    -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}' \
+    --type merge 2>/dev/null || true
+done
 
 echo ""
 echo ">>> PHASE 2 complete. ArgoCD is managing all applications."
