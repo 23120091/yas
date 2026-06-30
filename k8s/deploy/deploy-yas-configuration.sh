@@ -80,14 +80,13 @@ echo "Kafka namespace: ${KAFKA_NS}"
 echo "Redis namespace: ${REDIS_NS}"
 echo "Identity host:   ${IDENTITY_HOST}"
 
-# Read ECK-generated elastic password (operator auto-creates this secret)
-ES_PASSWORD=$(kubectl get secret elasticsearch-es-elastic-user -n "${ES_NS}" -o jsonpath="{.data.elastic}" 2>/dev/null | base64 -d || echo "")
-if [ -n "$ES_PASSWORD" ]; then
-  echo "Elasticsearch password: read from ECK secret"
-else
-  echo "WARNING: Could not read ECK password, using default 'changeme'"
+# Read Elasticsearch password from cluster-config (fixed value, ECK uses our secret)
+ES_PASSWORD=$(yq -r '.credentials.elasticsearch.password // .elasticsearch.password' "$CONFIG_FILE")
+if [ -z "$ES_PASSWORD" ] || [ "$ES_PASSWORD" = "null" ]; then
+  echo "WARNING: No elasticsearch.password in ${CONFIG_FILE}, using default 'changeme'"
   ES_PASSWORD="changeme"
 fi
+echo "Elasticsearch password: from ${CONFIG_FILE}"
 
 # --------------------------------------------------------------------------
 # Install Stakater Reloader (auto-restart pods on ConfigMap/Secret change)
