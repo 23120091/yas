@@ -32,6 +32,10 @@ spec:
   unsupported:
     podTemplate:
       spec:
+        {{- if .Values.affinity }}
+        affinity:
+          {{- toYaml .Values.affinity | nindent 10 }}
+        {{- end }}
         volumes:
           - name: yas-themes
             configMap:

@@ -80,7 +80,8 @@ helm upgrade --install "keycloak-${ENV}" ./keycloak/keycloak \
   --set "backofficeRedirectUrls[0]=$KEYCLOAK_BACKOFFICE_REDIRECT_URL_0" \
   --set "backofficeRedirectUrls[1]=$KEYCLOAK_BACKOFFICE_REDIRECT_URL_1" \
   --set "storefrontRedirectUrls[0]=$KEYCLOAK_STOREFRONT_REDIRECT_URL_0" \
-  --set "storefrontRedirectUrls[1]=$KEYCLOAK_STOREFRONT_REDIRECT_URL_1"
+  --set "storefrontRedirectUrls[1]=$KEYCLOAK_STOREFRONT_REDIRECT_URL_1" \
+  --values "./infra-${ENV}-affinity.yaml"
 
 echo ""
 echo "============================================"

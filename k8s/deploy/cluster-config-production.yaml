@@ -18,19 +18,19 @@ domain: tthong.dev
 envSubdomain:
 
 postgresql:
-  replicas: 3
+  replicas: 1
   username: yasadminuser
   password: admin
   volumeSize: 50Gi
 
 kafka:
-  replicas: 3
+  replicas: 1
 
 zookeeper:
-  replicas: 3
+  replicas: 1
 
 elasticsearch:
-  replicas: 3
+  replicas: 1
   username: yas
   password: LarUmB3A49NTg9YmgW4=
 

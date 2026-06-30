@@ -16,19 +16,19 @@ domain: tthong.dev
 envSubdomain: staging
 
 postgresql:
-  replicas: 2
+  replicas: 1
   username: yasadminuser
   password: admin
   volumeSize: 20Gi
 
 kafka:
-  replicas: 3
+  replicas: 1
 
 zookeeper:
-  replicas: 3
+  replicas: 1
 
 elasticsearch:
-  replicas: 2
+  replicas: 1
   username: yas
   password: LarUmB3A49NTg9YmgW4=
 

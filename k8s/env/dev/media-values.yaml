@@ -8,11 +8,43 @@ backend:
   databaseName: media
   ingress:
     enabled: false
+
+  # Persistent storage for uploaded images
+  persistence:
+    enabled: true
+    accessMode: ReadWriteOnce
+    size: 10Gi
+    # For multi-node clusters with Longhorn/NFS, change this:
+    # storageClass: longhorn
+
+  # Pin media pod to master node (stable, not spot instance)
+  # Images persist as long as master node disk is intact
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: Exists
+
+  initContainers:
+    - name: copy-sample-images
+      image: ghcr.io/23120091/sampledata:latest
+      command: ['sh', '-c', 'mkdir -p /images/sample && cp -r /sample-images/* /images/sample/ 2>/dev/null || true']
+      volumeMounts:
+        - name: images
+          mountPath: /images
+
   extraVolumes:
+    - name: images
+      persistentVolumeClaim:
+        claimName: media
     - name: media-application
       configMap:
         name: media-application-configmap
   extraVolumeMounts:
+    - name: images
+      mountPath: /images
     - name: media-application
       mountPath: /opt/yas/media
   extraApplicationConfigPaths:
