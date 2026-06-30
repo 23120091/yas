@@ -113,16 +113,29 @@ docker compose -f docker-compose.yml up  # core services only
 
 ## K8s Deployment Gotchas
 
-### `yas-configuration` is NOT managed by ArgoCD
+### `yas-configuration` IS managed by ArgoCD (sync-wave: -1)
 
-The `yas-configuration` Helm chart (shared ConfigMaps + Secrets) is **not** in any ArgoCD ApplicationSet. It must be deployed manually:
+The `yas-configuration` Helm chart (shared ConfigMaps + Secrets) is deployed by the `yas-configuration` ApplicationSet, with **sync-wave: -1** so it deploys BEFORE all application services.
+
+**How it works:**
+1. Edit `k8s/charts/yas-configuration/values.yaml`
+2. Push to git
+3. ArgoCD auto-syncs ConfigMaps in all environments
+4. **Stakater Reloader** auto-restarts pods that reference updated ConfigMaps
+
+**No manual deploy needed.** The old `./deploy-yas-configuration.sh` script is kept for emergency use only (e.g., if ArgoCD is down).
+
+### Infrastructure NOT managed by ArgoCD (run scripts once per env)
+
+These are deployed via scripts because they use custom CRDs and need one-time setup:
 
 ```bash
-cd k8s/deploy
-./deploy-yas-configuration.sh <env>   # dev|staging|production
+./setup-cluster.sh <env>     # PostgreSQL, Kafka, ES, Loki, Tempo, Promtail, OTel, Zookeeper
+./setup-redis.sh <env>       # Redis
+./setup-keycloak.sh <env>    # Keycloak
 ```
 
-After running this, **Stakater Reloader** auto-restarts BFF pods that reference the updated ConfigMaps. No manual `kubectl rollout restart` needed.
+After initial setup, infrastructure rarely changes. Day-to-day changes only need `git push`.
 
 ### Spring Cloud Gateway property path (Boot 4 / Gateway 5)
 

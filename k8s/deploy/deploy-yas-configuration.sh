@@ -2,8 +2,13 @@
 # ============================================================================
 # DEPLOY YAS CONFIGURATION — Multi-Environment
 # ============================================================================
+# ⚠️  DEPRECATED: This script is kept for EMERGENCY USE ONLY.
+#    yas-configuration is now managed by ArgoCD ApplicationSet.
+#    Normal workflow: edit values.yaml → git push → ArgoCD auto-syncs.
+#    Only use this script if ArgoCD is down or for disaster recovery.
+# ============================================================================
 # Deploys shared ConfigMaps and Secrets (yas-configuration Helm chart)
-# for a specific environment. This must run BEFORE yas-applications.
+# for a specific environment.
 #
 # Usage:
 #   ./deploy-yas-configuration.sh <env>     (dev|staging|production, default: dev)
@@ -19,6 +24,16 @@
 #   - Keycloak issuer URI (identity.{env}.yas.local.com)
 #   - BFF Redis host (redis-{env} namespace)
 # ============================================================================
+
+echo "⚠️  WARNING: yas-configuration is managed by ArgoCD."
+echo "    This script should only be used in emergencies (ArgoCD down)."
+echo "    Normal workflow: edit values.yaml → git push → ArgoCD auto-syncs."
+echo ""
+read -p "Continue anyway? (yes/no): " confirm
+if [ "$confirm" != "yes" ]; then
+    echo "Aborted. Use ArgoCD for normal deployments."
+    exit 0
+fi
 
 set -x
 

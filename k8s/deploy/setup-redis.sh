@@ -41,6 +41,7 @@ echo "Redis namespace: ${REDIS_NS}"
 # --------------------------------------------------------------------------
 helm upgrade --install "redis-${ENV}" \
   --set auth.password="$REDIS_PASSWORD" \
+  --values "./infra-${ENV}-affinity.yaml" \
   oci://registry-1.docker.io/bitnamicharts/redis \
   --namespace "${REDIS_NS}" --create-namespace
 

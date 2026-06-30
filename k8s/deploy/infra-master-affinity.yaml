@@ -1,0 +1,15 @@
+# Shared node affinity for infrastructure services
+# Pin all infrastructure pods to the master (control-plane) node
+# to avoid spot instance preemption.
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: Exists
+
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"

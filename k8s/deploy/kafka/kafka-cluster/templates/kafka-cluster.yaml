@@ -4,6 +4,7 @@ metadata:
   name: kafka-cluster
 spec:
   kafka:
+    replicas: {{ .Values.kafka.replicas }}
     listeners:
       - name: plain
         port: 9092
@@ -15,6 +16,26 @@ spec:
       transaction.state.log.min.isr: 1
       default.replication.factor: 1
       min.insync.replicas: 1
+    storage:
+      type: persistent-claim
+      size: 10Gi
+    {{- if .Values.affinity }}
+    affinity:
+      {{- toYaml .Values.affinity | nindent 6 }}
+    {{- end }}
+  zookeeper:
+    replicas: {{ .Values.kafka.replicas }}
+    storage:
+      type: persistent-claim
+      size: 10Gi
+    {{- if .Values.affinity }}
+    affinity:
+      {{- toYaml .Values.affinity | nindent 6 }}
+    {{- end }}
   entityOperator:
     topicOperator: {}
     userOperator: {}
+    {{- if .Values.affinity }}
+    affinity:
+      {{- toYaml .Values.affinity | nindent 6 }}
+    {{- end }}

@@ -18,6 +18,10 @@ spec:
         node.store.allow_mmap: false
       podTemplate:
         spec:
+          {{- if .Values.affinity }}
+          affinity:
+            {{- toYaml .Values.affinity | nindent 12 }}
+          {{- end }}
           containers:
             - name: elasticsearch
               resources:

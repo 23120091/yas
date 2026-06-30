@@ -180,7 +180,8 @@ sleep 30
 # --------------------------------------------------------------------------
 pg_admin_hostname="pgadmin.${HOST_PREFIX}${DOMAIN}" yq -i '.hostname=env(pg_admin_hostname)' ./postgres/pgadmin/values.yaml
 helm upgrade --install "pgadmin-${ENV}" ./postgres/pgadmin \
-  --create-namespace --namespace "${PG_NS}"
+  --create-namespace --namespace "${PG_NS}" \
+  --values "./infra-${ENV}-affinity.yaml"
 
 # --------------------------------------------------------------------------
 # Kafka Cluster
@@ -190,7 +191,8 @@ helm upgrade --install "kafka-cluster-${ENV}" ./kafka/kafka-cluster \
   --set kafka.replicas="$KAFKA_REPLICAS" \
   --set postgresql.username="$PG_USERNAME" \
   --set postgresql.password="$PG_PASSWORD" \
-  --set postgresql.namespace="$PG_NS"
+  --set postgresql.namespace="$PG_NS" \
+  --values "./infra-${ENV}-affinity.yaml"
 
 # --------------------------------------------------------------------------
 # AKHQ (Kafka UI)
@@ -198,7 +200,8 @@ helm upgrade --install "kafka-cluster-${ENV}" ./kafka/kafka-cluster \
 akhq_hostname="akhq.${HOST_PREFIX}${DOMAIN}" yq -i '.hostname=env(akhq_hostname)' ./kafka/akhq.values.yaml
 helm upgrade --install "akhq-${ENV}" akhq/akhq \
   --create-namespace --namespace "${KAFKA_NS}" \
-  --values ./kafka/akhq.values.yaml
+  --values ./kafka/akhq.values.yaml \
+  --values "./infra-${ENV}-affinity.yaml"
 
 # --------------------------------------------------------------------------
 # Elasticsearch Cluster
@@ -212,13 +215,15 @@ kubectl delete pvc -n "${ES_NS}" --all --ignore-not-found --timeout=60s 2>/dev/n
 helm upgrade --install "elasticsearch-cluster-${ENV}" ./elasticsearch/elasticsearch-cluster \
   --create-namespace --namespace "${ES_NS}" \
   --set elasticsearch.replicas="$ES_REPLICAS" \
-  --set kibana.ingress.hostname="kibana.${HOST_PREFIX}${DOMAIN}"
+  --set kibana.ingress.hostname="kibana.${HOST_PREFIX}${DOMAIN}" \
+  --values "./infra-${ENV}-affinity.yaml"
 
 # --------------------------------------------------------------------------
 # Zookeeper
 # --------------------------------------------------------------------------
 helm upgrade --install "zookeeper-${ENV}" ./zookeeper \
-  --namespace "${ZK_NS}" --create-namespace
+  --namespace "${ZK_NS}" --create-namespace \
+  --values "./infra-${ENV}-affinity.yaml"
 
 # ============================================================================
 # OBSERVABILITY — Loki + Tempo + Promtail + OpenTelemetry Collector
@@ -233,21 +238,24 @@ helm upgrade --install "zookeeper-${ENV}" ./zookeeper \
 helm upgrade --install "loki-${ENV}" grafana/loki \
   --create-namespace --namespace "${OBS_NS}" \
   -f ./observability/loki.values.yaml \
-  --set loki.useTestSchema=true
+  --set loki.useTestSchema=true \
+  --values "./infra-${ENV}-affinity.yaml"
 
 # --------------------------------------------------------------------------
 # Tempo (trace storage)
 # --------------------------------------------------------------------------
 helm upgrade --install "tempo-${ENV}" grafana/tempo \
   --create-namespace --namespace "${OBS_NS}" \
-  -f ./observability/tempo.values.yaml
+  -f ./observability/tempo.values.yaml \
+  --values "./infra-${ENV}-affinity.yaml"
 
 # --------------------------------------------------------------------------
 # Promtail (log collector)
 # --------------------------------------------------------------------------
 helm upgrade --install "promtail-${ENV}" grafana/promtail \
   --create-namespace --namespace "${OBS_NS}" \
-  --values ./observability/promtail.values.yaml
+  --values ./observability/promtail.values.yaml \
+  --values "./infra-${ENV}-affinity.yaml"
 
 # --------------------------------------------------------------------------
 # OpenTelemetry Collector
@@ -259,7 +267,8 @@ kubectl wait --for=condition=available deployment/opentelemetry-operator-control
 helm upgrade --install "opentelemetry-collector-${ENV}" ./observability/opentelemetry \
   --create-namespace --namespace "${OBS_NS}" \
   --set lokiEndpoint="http://loki-${ENV}-gateway.${OBS_NS}.svc.cluster.local/loki/api/v1/push" \
-  --set tempoEndpoint="http://tempo-${ENV}.${OBS_NS}.svc.cluster.local:4318"
+  --set tempoEndpoint="http://tempo-${ENV}.${OBS_NS}.svc.cluster.local:4318" \
+  --values "./infra-${ENV}-affinity.yaml"
 
 # ============================================================================
 # GRAFANA & PROMETHEUS — NOT DEPLOYED

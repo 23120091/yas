@@ -1,0 +1,66 @@
+# ============================================================================
+# ARGOCD APPLICATIONSET — YAS CONFIGURATION (Shared ConfigMaps + Secrets)
+# ============================================================================
+# Manages the yas-configuration Helm chart across all environments.
+# This chart contains shared ConfigMaps and Secrets used by ALL services:
+#   - application.yaml (shared Spring Boot config)
+#   - gateway-routes-config.yaml (BFF routing rules)
+#   - media-application.yaml, customer-application.yaml, etc.
+#   - Credential Secrets (postgresql, keycloak, redis, elasticsearch, openai)
+#
+# UPDATE STRATEGY:
+#   Push changes to k8s/charts/yas-configuration/values.yaml → ArgoCD detects
+#   → auto-syncs ConfigMaps → Stakater Reloader auto-restarts pods that
+#   reference updated ConfigMaps.
+#
+# SYNC WAVE: -1 (deploys BEFORE all application services)
+# ============================================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: yas-configuration
+  namespace: argocd
+  labels:
+    service: yas-configuration
+    team: yas
+spec:
+  generators:
+    - list:
+        elements:
+          - {env: "dev",        namespace: "dev",        syncWave: "-1"}
+          - {env: "staging",    namespace: "staging",    syncWave: "-1"}
+          - {env: "production", namespace: "production", syncWave: "-1"}
+  template:
+    metadata:
+      name: "yas-configuration-{{env}}"
+      labels:
+        env: "{{env}}"
+        service: yas-configuration
+        team: yas
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+      annotations:
+        # Deploy BEFORE application services (wave -1)
+        argocd.argoproj.io/sync-wave: "{{syncWave}}"
+    spec:
+      project: yas
+      source:
+        repoURL: https://github.com/23120091/yas
+        targetRevision: main
+        path: k8s/charts/yas-configuration
+        helm:
+          valueFiles:
+            - "../../deploy/cluster-config-{{env}}.yaml"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{namespace}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: true
+        syncOptions:
+          - CreateNamespace=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
