@@ -54,7 +54,7 @@ spec:
             - "../../deploy/cluster-config-{{env}}.yaml"
           parameters:
             # ------------------------------------------------------------------
-            # application.yaml overrides (preserves defaults from values.yaml)
+            # application.yaml overrides
             # ------------------------------------------------------------------
             - name: applicationConfig.spring.kafka.bootstrap-servers
               value: "kafka-cluster-kafka-brokers.{{kafkaNs}}:9092"

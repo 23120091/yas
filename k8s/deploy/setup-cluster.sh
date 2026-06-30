@@ -76,6 +76,7 @@ PG_VOLUME_SIZE=$(yq -r '.postgresql.volumeSize' "$CONFIG_FILE")
 KAFKA_REPLICAS=$(yq -r '.kafka.replicas' "$CONFIG_FILE")
 ZK_REPLICAS=$(yq -r '.zookeeper.replicas' "$CONFIG_FILE")
 ES_REPLICAS=$(yq -r '.elasticsearch.replicas' "$CONFIG_FILE")
+ES_PASSWORD=$(yq -r '.credentials.elasticsearch.password // .elasticsearch.password' "$CONFIG_FILE")
 
 # --------------------------------------------------------------------------
 # Build env-specific namespaces and hostnames
@@ -216,6 +217,14 @@ helm upgrade --install "akhq-${ENV}" akhq/akhq \
 kubectl delete elasticsearch elasticsearch -n "${ES_NS}" --ignore-not-found --timeout=120s 2>/dev/null || true
 kubectl patch pvc -n "${ES_NS}" --all --type merge -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
 kubectl delete pvc -n "${ES_NS}" --all --ignore-not-found --timeout=60s 2>/dev/null || true
+
+# Create the elastic user secret BEFORE deploying ES so ECK uses our fixed password
+# instead of generating a random one.
+echo "Creating Elasticsearch elastic-user secret with password from ${CONFIG_FILE}..."
+kubectl create secret generic elasticsearch-es-elastic-user \
+  -n "${ES_NS}" \
+  --from-literal=elastic="${ES_PASSWORD}" \
+  --dry-run=client -o yaml | kubectl apply -f -
 
 helm upgrade --install "elasticsearch-cluster-${ENV}" ./elasticsearch/elasticsearch-cluster \
   --create-namespace --namespace "${ES_NS}" \
