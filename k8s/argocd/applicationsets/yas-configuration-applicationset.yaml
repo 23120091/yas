@@ -28,9 +28,9 @@ spec:
   generators:
     - list:
         elements:
-          - {env: "dev",        namespace: "dev",        syncWave: "-1"}
-          - {env: "staging",    namespace: "staging",    syncWave: "-1"}
-          - {env: "production", namespace: "production", syncWave: "-1"}
+          - {env: "dev",        namespace: "dev",        syncWave: "-1", envPrefix: "dev",    storefrontHost: "storefront-dev.tthong.dev",    identityHost: "identity-dev.tthong.dev"}
+          - {env: "staging",    namespace: "staging",    syncWave: "-1", envPrefix: "staging", storefrontHost: "storefront-staging.tthong.dev", identityHost: "identity-staging.tthong.dev"}
+          - {env: "production", namespace: "production", syncWave: "-1", envPrefix: "",       storefrontHost: "storefront.tthong.dev",       identityHost: "identity.tthong.dev"}
   template:
     metadata:
       name: "yas-configuration-{{env}}"
@@ -52,6 +52,64 @@ spec:
         helm:
           valueFiles:
             - "../../deploy/cluster-config-{{env}}.yaml"
+          values: |
+            applicationConfig:
+              spring:
+                kafka:
+                  bootstrap-servers: kafka-cluster-kafka-brokers.kafka-{{env}}:9092
+                  consumer:
+                    bootstrap-servers: kafka-cluster-kafka-brokers.kafka-{{env}}:9092
+                security:
+                  oauth2:
+                    resourceserver:
+                      jwt:
+                        issuer-uri: http://{{identityHost}}/realms/Yas
+                springdoc:
+                  oauthflow:
+                    authorization-url: http://{{identityHost}}/realms/Yas/protocol/openid-connect/auth
+                    token-url: http://{{identityHost}}/realms/Yas/protocol/openid-connect/token
+            backofficeBffExtraConfig:
+              spring:
+                data:
+                  redis:
+                    host: redis-master.redis-{{env}}
+                security:
+                  oauth2:
+                    client:
+                      provider:
+                        keycloak:
+                          issuer-uri: http://{{identityHost}}/realms/Yas
+            storefrontBffExtraConfig:
+              spring:
+                data:
+                  redis:
+                    host: redis-master.redis-{{env}}
+                security:
+                  oauth2:
+                    client:
+                      provider:
+                        keycloak:
+                          issuer-uri: http://{{identityHost}}/realms/Yas
+            customerApplicationConfig:
+              keycloak:
+                auth-server-url: http://{{identityHost}}
+            searchApplicationConfig:
+              elasticsearch:
+                url: elasticsearch-es-http.elasticsearch-{{env}}:9200
+            paymentPaypalApplicationConfig:
+              yas:
+                public:
+                  url: http://{{storefrontHost}}/complete-payment
+            sampledataApplicationConfig:
+              spring:
+                datasource:
+                  product:
+                    url: jdbc:postgresql://postgresql.postgres-{{env}}:5432/product
+                  media:
+                    url: jdbc:postgresql://postgresql.postgres-{{env}}:5432/media
+            mediaApplicationConfig:
+              yas:
+                publicUrl: http://{{storefrontHost}}/api/media
       destination:
         server: https://kubernetes.default.svc
         namespace: "{{namespace}}"

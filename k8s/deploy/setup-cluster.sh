@@ -155,13 +155,16 @@ helm upgrade --install opentelemetry-operator open-telemetry/opentelemetry-opera
 # --------------------------------------------------------------------------
 # PostgreSQL Cluster
 # --------------------------------------------------------------------------
-# Cleanup stale PVC/PV and Patroni DCS endpoints from previous deploys
-# Remove finalizers first to prevent delete from hanging on stuck PVs
+# Delete the PostgreSQL CR entirely — Zalando operator cascades to pods,
+# PVCs, secrets, and endpoints. A clean recreate ensures databases and
+# users are properly initialized.
+echo "Deleting PostgreSQL cluster (CR) for clean recreate..."
+kubectl delete postgresql postgresql -n "${PG_NS}" --ignore-not-found --timeout=120s 2>/dev/null || true
+# Wait for cascade deletion to complete
+sleep 10
+# Force-remove any stuck PVCs (in case cascade delete hangs)
 kubectl patch pvc -n "${PG_NS}" --all --type merge -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
 kubectl delete pvc -n "${PG_NS}" --all --ignore-not-found --timeout=60s 2>/dev/null || true
-kubectl delete endpoints -n "${PG_NS}" postgresql-config postgresql postgresql-repl --ignore-not-found 2>/dev/null || true
-kubectl delete secret "${PG_USERNAME}.postgresql.credentials.postgresql.acid.zalan.do" \
-  --namespace "${PG_NS}" --ignore-not-found 2>/dev/null || true
 
 helm upgrade --install "postgres-${ENV}" ./postgres/postgresql \
   --create-namespace --namespace "${PG_NS}" \
@@ -172,6 +175,8 @@ helm upgrade --install "postgres-${ENV}" ./postgres/postgresql \
 
 # Wait for Zalando operator to create databases and users
 echo "Waiting for Postgres leader and databases..."
+kubectl wait --for=condition=ready pod -l application=spilo -n "${PG_NS}" --timeout=300s
+sleep 30
 kubectl wait --for=condition=ready pod -l application=spilo -n "${PG_NS}" --timeout=300s
 sleep 30
 

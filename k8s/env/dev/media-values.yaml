@@ -17,16 +17,6 @@ backend:
     # For multi-node clusters with Longhorn/NFS, change this:
     # storageClass: longhorn
 
-  # Pin media pod to master node (stable, not spot instance)
-  # Images persist as long as master node disk is intact
-  affinity:
-    nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-          - matchExpressions:
-              - key: node-role.kubernetes.io/control-plane
-                operator: Exists
-
   initContainers:
     - name: copy-sample-images
       image: ghcr.io/23120091/sampledata:latest
