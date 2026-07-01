@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kiali-server
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://kiali.github.io/helm-charts
+    chart: kiali-server
+    targetRevision: 1.85.x
+    helm:
+      values: |
+        auth:
+          strategy: anonymous # Bật chế độ không cần mật khẩu để dễ demo, click là vào luôn
+        deployment:
+          accessible_namespaces:
+            - "**" # Cho phép Kiali quét toàn bộ cluster để tìm service của YAS
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
