@@ -51,6 +51,8 @@ spec:
       server: https://kubernetes.default.svc
     - namespace: production
       server: https://kubernetes.default.svc
+    - namespace: istio-system # để cài được Istio/Kiali dưới quyền project yas
+      server: https://kubernetes.default.svc
 
     # Infrastructure namespaces (required for SealedSecrets and operators)
     - namespace: "postgres-*"
@@ -80,10 +82,18 @@ spec:
   # requires ArgoCD to create the namespace. Without this, sync fails with:
   #   "resource :Namespace is not permitted in project yas"
   # --------------------------------------------------------------------------
-  clusterResourceWhitelist:
-    - group: ""
-      kind: Namespace
+  # clusterResourceWhitelist:
+  #   - group: ""
+  #     kind: Namespace
 
+  # Cho phép tạo TẤT CẢ các loại tài nguyên K8s
+  # (Bao gồm Secret, ConfigMap, Deployment, ValidatingWebhook...)
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
   # --------------------------------------------------------------------------
   # NAMESPACE RESOURCE BLACKLIST — Prevent Applications from creating
   # certain resources. For example, we might block NetworkPolicies from
