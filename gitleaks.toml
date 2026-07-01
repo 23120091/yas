@@ -20,7 +20,9 @@ paths = [
   '''test-realm.json''',
   '''realm-export''',
   '''keycloak-yas-realm-import.yaml''',
-  '''target'''
+  '''target''',
+  '''sealed-secrets-public.key''',
+  '''k8s/sealed-secrets/.*\.yaml'''
 ]
 [[rules]]
     description = "Detect .env"
