@@ -1,17 +1,19 @@
 ui:
+  nodeSelector:
+    env: production
   image:
-    repository: ghcr.io/23120091/storefront
-    tag: latest
+    repository: ghcr.io/23120091/storefront-ui
+    tag: 0.4.0
   nameOverride: storefront-ui
   fullnameOverride: storefront-ui
   extraEnvs:
     - name: API_BASE_PATH
-      value: http://storefront.yas.local.com/api
+      value: http://storefront.tthong.dev/api
   ingress:
     enabled: false
   resources:
     requests:
-      cpu: 200m
+      cpu: 50m
       memory: 512Mi
     limits:
       cpu: 750m

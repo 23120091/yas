@@ -10,34 +10,44 @@
 #   - Same security config as production
 # ============================================================================
 
-domain: yas.local.com
+domain: tthong.dev
 
-# Subdomain prefix for this environment (e.g. identity.staging.yas.local.com)
+# Subdomain prefix for this environment (e.g. identity-staging.tthong.dev)
 envSubdomain: staging
 
 postgresql:
-  replicas: 2
+  replicas: 1
   username: yasadminuser
   password: admin
   volumeSize: 20Gi
 
 kafka:
-  replicas: 3
+  replicas: 1
 
 zookeeper:
-  replicas: 3
+  replicas: 1
 
 elasticsearch:
-  replicas: 2
+  replicas: 1
   username: yas
   password: LarUmB3A49NTg9YmgW4=
+
+# Credentials for yas-configuration Helm chart (ArgoCD reads this)
+credentials:
+  elasticsearch:
+    username: yas
+    password: LarUmB3A49NTg9YmgW4=
 
 keycloak:
   bootstrapAdmin:
     username: admin
     password: admin
-  backofficeRedirectUrl: http://backoffice.staging.yas.local.com
-  storefrontRedirectUrl: http://storefront.staging.yas.local.com
+  backofficeRedirectUrls:
+    - http://backoffice-staging.tthong.dev
+    - http://backoffice.staging.yas.local.com
+  storefrontRedirectUrls:
+    - http://storefront-staging.tthong.dev
+    - http://storefront.staging.yas.local.com
 
 redis:
   password: redis

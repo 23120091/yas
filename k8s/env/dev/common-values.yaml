@@ -52,7 +52,7 @@ backend:
   # template as: SPRING_DATASOURCE_URL = databaseConnectionUrl/databaseName
   # See: k8s/charts/backend/templates/deployment.yaml line 58
   # --------------------------------------------------------------------------
-  databaseConnectionUrl: jdbc:postgresql://postgresql.postgres-dev:5432
+  databaseConnectionUrl: jdbc:postgresql://postgresql.postgres-dev.svc.cluster.local:5432
 
   # --------------------------------------------------------------------------
   # NODE SELECTOR — Pin ALL dev pods to nodes labeled "env=dev".

@@ -1,7 +1,7 @@
 backend: 
   image: 
     repository: ghcr.io/23120091/storefront-bff
-    tag: latest
+    tag: 0.4.0
 
   nameOverride: storefront-bff
   fullnameOverride: storefront-bff
@@ -12,12 +12,12 @@ backend:
 
   ingress:
     enabled: true
-    host: storefront.yas.local.com
+    host: storefront.tthong.dev
     path: /
 
   extraEnvs:
   - name: SPRING_PROFILES_ACTIVE
-    value: prod
+    value: k8s
   - name: UI_HOST
     value: http://storefront-ui:3000
 
@@ -47,7 +47,7 @@ backend:
 
   resources:
     requests:
-      cpu: 500m      
+      cpu: 50m      
       memory: 1Gi    
     limits:
       cpu: 3000m      

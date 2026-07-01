@@ -1,6 +1,8 @@
 ui:
+  nodeSelector:
+    env: dev
   image:
-    repository: ghcr.io/23120091/backoffice
+    repository: ghcr.io/23120091/backoffice-ui
     tag: latest
   nameOverride: backoffice-ui
   fullnameOverride: backoffice-ui

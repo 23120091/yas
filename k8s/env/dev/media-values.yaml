@@ -8,11 +8,33 @@ backend:
   databaseName: media
   ingress:
     enabled: false
+
+  # Persistent storage for uploaded images
+  persistence:
+    enabled: true
+    accessMode: ReadWriteOnce
+    size: 10Gi
+    # For multi-node clusters with Longhorn/NFS, change this:
+    # storageClass: longhorn
+
+  initContainers:
+    - name: copy-sample-images
+      image: ghcr.io/23120091/sampledata:latest
+      command: ['sh', '-c', 'mkdir -p /images/sample && cp -r /sample-images/* /images/sample/ 2>/dev/null || true']
+      volumeMounts:
+        - name: images
+          mountPath: /images
+
   extraVolumes:
+    - name: images
+      persistentVolumeClaim:
+        claimName: media
     - name: media-application
       configMap:
         name: media-application-configmap
   extraVolumeMounts:
+    - name: images
+      mountPath: /images
     - name: media-application
       mountPath: /opt/yas/media
   extraApplicationConfigPaths:
@@ -21,6 +43,6 @@ backend:
   resources:
     requests:
       cpu: 50m
-      memory: 256Mi
+      memory: 512Mi
     limits:
       memory: 768Mi

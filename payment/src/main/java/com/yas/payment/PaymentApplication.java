@@ -3,11 +3,24 @@ package com.yas.payment;
 import com.yas.commonlibrary.config.CorsConfig;
 import com.yas.payment.config.ServiceUrlConfig;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 
-@SpringBootApplication(scanBasePackages = {"com.yas.payment", "com.yas.commonlibrary"})
+@SpringBootConfiguration
+@EnableAutoConfiguration
+@ComponentScan(
+    basePackages = {"com.yas.payment", "com.yas.commonlibrary"},
+    excludeFilters = {
+        @ComponentScan.Filter(
+            type = FilterType.REGEX,
+            pattern = "com\\.yas\\.payment\\.paypal\\.config\\..*"),
+        @ComponentScan.Filter(
+            type = FilterType.REGEX,
+            pattern = "com\\.yas\\.payment\\.paypal\\.PaymentPaypalApplication")
+    })
 @EnableConfigurationProperties({ServiceUrlConfig.class, CorsConfig.class})
 public class PaymentApplication {
 

@@ -25,11 +25,14 @@ backend:
   # --------------------------------------------------------------------------
   replicaCount: 1
 
+  strategy:
+    type: Recreate
+
   # --------------------------------------------------------------------------
   # DATABASE — Production has its OWN PostgreSQL instance (not shared with
   # staging or dev). The connection URL points to the production PG cluster.
   # --------------------------------------------------------------------------
-  databaseConnectionUrl: jdbc:postgresql://postgresql.postgres-production:5432
+  databaseConnectionUrl: jdbc:postgresql://postgresql.postgres-production.svc.cluster.local:5432
 
   # --------------------------------------------------------------------------
   # NODE ISOLATION — Production pods ONLY on production-labeled nodes.
@@ -47,12 +50,12 @@ backend:
     enabled: false
 
   # --------------------------------------------------------------------------
-  # INGRESS — Enabled for all services (external access via nginx).
+  # INGRESS — Enabled for all services (external access via traefik).
   # Hostnames follow production domain pattern.
   # --------------------------------------------------------------------------
   ingress:
     enabled: true
-    className: nginx
+    className: traefik
     path: /
     pathType: ImplementationSpecific
 
@@ -103,13 +106,13 @@ backend:
   # These are Kubernetes Pod Security Standard "restricted" level.
   # --------------------------------------------------------------------------
   podSecurityContext:
-    runAsNonRoot: true
+    runAsNonRoot: false
     fsGroup: 1000
 
   securityContext:
-    runAsNonRoot: true
-    readOnlyRootFilesystem: true
-    allowPrivilegeEscalation: false
+    runAsNonRoot: false
+    readOnlyRootFilesystem: false
+    allowPrivilegeEscalation: true
     capabilities:
       drop:
         - ALL

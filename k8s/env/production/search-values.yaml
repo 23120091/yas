@@ -1,7 +1,7 @@
 backend:
   image:
     repository: ghcr.io/23120091/search
-    tag: latest
+    tag: 0.4.0
 
   nameOverride: search
   fullnameOverride: search
@@ -25,14 +25,11 @@ backend:
 
   resources:
     requests:
-      cpu: 500m      
+      cpu: 50m      
       memory: 1Gi    
     limits:
       cpu: 3000m      
       memory: 3Gi
   
   autoscaling:
-    enabled: true
-    minReplicas: 5
-    maxReplicas: 20
-    targetCPUUtilizationPercentage: 60
+    enabled: false 

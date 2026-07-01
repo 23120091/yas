@@ -2,8 +2,13 @@
 # ============================================================================
 # DEPLOY YAS CONFIGURATION — Multi-Environment
 # ============================================================================
+# ⚠️  DEPRECATED: This script is kept for EMERGENCY USE ONLY.
+#    yas-configuration is now managed by ArgoCD ApplicationSet.
+#    Normal workflow: edit values.yaml → git push → ArgoCD auto-syncs.
+#    Only use this script if ArgoCD is down or for disaster recovery.
+# ============================================================================
 # Deploys shared ConfigMaps and Secrets (yas-configuration Helm chart)
-# for a specific environment. This must run BEFORE yas-applications.
+# for a specific environment.
 #
 # Usage:
 #   ./deploy-yas-configuration.sh <env>     (dev|staging|production, default: dev)
@@ -19,6 +24,16 @@
 #   - Keycloak issuer URI (identity.{env}.yas.local.com)
 #   - BFF Redis host (redis-{env} namespace)
 # ============================================================================
+
+echo "⚠️  WARNING: yas-configuration is managed by ArgoCD."
+echo "    This script should only be used in emergencies (ArgoCD down)."
+echo "    Normal workflow: edit values.yaml → git push → ArgoCD auto-syncs."
+echo ""
+read -p "Continue anyway? (yes/no): " confirm
+if [ "$confirm" != "yes" ]; then
+    echo "Aborted. Use ArgoCD for normal deployments."
+    exit 0
+fi
 
 set -x
 
@@ -44,8 +59,14 @@ read -rd '' DOMAIN ENV_SUBDOMAIN < <(yq -r '.domain, .envSubdomain' "$CONFIG_FIL
 
 if [ -z "$ENV_SUBDOMAIN" ] || [ "$ENV_SUBDOMAIN" = "null" ]; then
     HOST_PREFIX=""
+    IDENTITY_HOST="identity.${DOMAIN}"
+    STOREFRONT_HOST="storefront.${DOMAIN}"
+    BACKOFFICE_HOST="backoffice.${DOMAIN}"
 else
-    HOST_PREFIX="${ENV_SUBDOMAIN}."
+    HOST_PREFIX="${ENV_SUBDOMAIN}-"
+    IDENTITY_HOST="identity-${ENV_SUBDOMAIN}.${DOMAIN}"
+    STOREFRONT_HOST="storefront-${ENV_SUBDOMAIN}.${DOMAIN}"
+    BACKOFFICE_HOST="backoffice-${ENV_SUBDOMAIN}.${DOMAIN}"
 fi
 
 YAS_NS="${ENV}"
@@ -54,21 +75,18 @@ REDIS_NS="redis-${ENV}"
 PG_NS="postgres-${ENV}"
 ES_NS="elasticsearch-${ENV}"
 
-IDENTITY_HOST="identity.${HOST_PREFIX}${DOMAIN}"
-
 echo "YAS namespace:   ${YAS_NS}"
 echo "Kafka namespace: ${KAFKA_NS}"
 echo "Redis namespace: ${REDIS_NS}"
 echo "Identity host:   ${IDENTITY_HOST}"
 
-# Read ECK-generated elastic password (operator auto-creates this secret)
-ES_PASSWORD=$(kubectl get secret elasticsearch-es-elastic-user -n "${ES_NS}" -o jsonpath="{.data.elastic}" 2>/dev/null | base64 -d || echo "")
-if [ -n "$ES_PASSWORD" ]; then
-  echo "Elasticsearch password: read from ECK secret"
-else
-  echo "WARNING: Could not read ECK password, using default 'changeme'"
+# Read Elasticsearch password from cluster-config (fixed value, ECK uses our secret)
+ES_PASSWORD=$(yq -r '.credentials.elasticsearch.password // .elasticsearch.password' "$CONFIG_FILE")
+if [ -z "$ES_PASSWORD" ] || [ "$ES_PASSWORD" = "null" ]; then
+  echo "WARNING: No elasticsearch.password in ${CONFIG_FILE}, using default 'changeme'"
   ES_PASSWORD="changeme"
 fi
+echo "Elasticsearch password: from ${CONFIG_FILE}"
 
 # --------------------------------------------------------------------------
 # Install Stakater Reloader (auto-restart pods on ConfigMap/Secret change)
@@ -92,10 +110,11 @@ helm upgrade --install "yas-configuration-${ENV}" ../charts/yas-configuration \
   --set "storefrontBffExtraConfig.spring.data.redis.host=redis-master.${REDIS_NS}" \
   --set "storefrontBffExtraConfig.spring.security.oauth2.client.provider.keycloak.issuer-uri=http://${IDENTITY_HOST}/realms/Yas" \
   --set "customerApplicationConfig.keycloak.auth-server-url=http://${IDENTITY_HOST}" \
-  --set "searchApplicationConfig.elasticsearch.url=http://elasticsearch-es-http.${ES_NS}:9200" \
+  --set "searchApplicationConfig.elasticsearch.url=elasticsearch-es-http.${ES_NS}:9200" \
   --set "credentials.elasticsearch.username=elastic" \
   --set "credentials.elasticsearch.password=${ES_PASSWORD}" \
-  --set "paymentPaypalApplicationConfig.yas.public.url=http://storefront.${HOST_PREFIX}${DOMAIN}/complete-payment" \
+  --set "paymentPaypalApplicationConfig.yas.public.url=http://${STOREFRONT_HOST}/complete-payment" \
+  --set "mediaApplicationConfig.yas.publicUrl=http://${STOREFRONT_HOST}/api/media" \
   --set "sampledataApplicationConfig.spring.datasource.product.url=jdbc:postgresql://postgresql.${PG_NS}:5432/product" \
   --set "sampledataApplicationConfig.spring.datasource.media.url=jdbc:postgresql://postgresql.${PG_NS}:5432/media"
 

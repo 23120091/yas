@@ -1,10 +1,23 @@
 hostname: identity.yas.local.com
-backofficeRedirectUrl: http://backoffice.yas.local.com
-storefrontRedirectUrl: http://storefront.yas.local.com
+backchannelDynamic: false
+extraHostnames:
+  - identity-dev.tthong.dev
+  - identity-staging.tthong.dev
+  - identity.tthong.dev
+backofficeRedirectUrls:
+  - http://backoffice.yas.local.com
+  - http://backoffice-dev.tthong.dev
+  - http://backoffice-staging.tthong.dev
+  - http://backoffice.tthong.dev
+storefrontRedirectUrls:
+  - http://storefront.yas.local.com
+  - http://storefront-dev.tthong.dev
+  - http://storefront-staging.tthong.dev
+  - http://storefront.tthong.dev
 postgresql:
   username: yasadminuser
   password: admin
-  host: postgresql.postgres
+  host: postgresql.postgres.svc.cluster.local
 
 bootstrapAdmin:
   username: admin

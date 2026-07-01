@@ -21,23 +21,34 @@ spec:
     httpEnabled: true
     httpPort: 80
   hostname:
-    hostname: http://{{ .Values.hostname }}
-    backchannelDynamic: true
+    hostname: {{ .Values.hostname }}
+    backchannelDynamic: {{ .Values.backchannelDynamic }}
     strict: false
   proxy:
     headers: xforwarded
   ingress:
     enabled: true
-    className: nginx
+    className: traefik
   unsupported:
     podTemplate:
       spec:
+        {{- if .Values.affinity }}
+        affinity:
+          {{- toYaml .Values.affinity | nindent 10 }}
+        {{- end }}
         volumes:
           - name: yas-themes
             configMap:
               name: yas-themes-configmap
         containers:
           - name: keycloak
+            resources:
+              requests:
+                cpu: 200m
+                memory: 512Mi
+              limits:
+                cpu: 1000m
+                memory: 1Gi
             volumeMounts:
               - name: yas-themes
                 mountPath: /opt/keycloak/providers

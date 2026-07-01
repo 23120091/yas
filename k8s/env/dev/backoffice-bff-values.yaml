@@ -13,12 +13,12 @@ backend:
 
   ingress:
     enabled: true
-    host: backoffice.dev.yas.local.com
+    host: backoffice-dev.tthong.dev
     path: /
 
   extraEnvs:
     - name: SPRING_PROFILES_ACTIVE
-      value: dev
+      value: k8s
     - name: UI_HOST
       value: http://backoffice-ui:3000
 
@@ -49,6 +49,6 @@ backend:
   resources:
     requests:
       cpu: 50m
-      memory: 256Mi
+      memory: 750Mi
     limits:
       memory: 768Mi

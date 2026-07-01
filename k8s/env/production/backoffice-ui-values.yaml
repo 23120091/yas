@@ -1,14 +1,16 @@
 ui:
+  nodeSelector:
+    env: production
   image:
-    repository: ghcr.io/23120091/backoffice
-    tag: latest
+    repository: ghcr.io/23120091/backoffice-ui
+    tag: 0.4.0
   nameOverride: backoffice-ui
   fullnameOverride: backoffice-ui
   ingress:
     enabled: false
   resources:
     requests:
-      cpu: 200m
+      cpu: 50m
       memory: 512Mi
     limits:
       cpu: 750m

@@ -1,7 +1,7 @@
 backend:
   image:
     repository: ghcr.io/23120091/customer
-    tag: latest
+    tag: 0.4.0
   nameOverride: customer
   fullnameOverride: customer
   databaseName: customer
@@ -23,13 +23,8 @@ backend:
     - /opt/yas/customer/customer-application.yaml
   resources:
     requests:
-      cpu: 200m
+      cpu: 50m
       memory: 512Mi
     limits:
       cpu: 1500m
       memory: 1536Mi
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70

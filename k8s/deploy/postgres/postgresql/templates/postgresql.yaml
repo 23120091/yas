@@ -94,5 +94,20 @@ spec:
         plugin: wal2json
   allowedSourceRanges:
   # IP ranges to access your cluster go here
+  podTemplate:
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: env
+                    operator: In
+                    values:
+                      - {{ .Values.env | quote }}
+      tolerations:
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: "Exists"
+          effect: "NoSchedule"
   resources:
     {{ toYaml .Values.resources | nindent 4 }}

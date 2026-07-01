@@ -18,7 +18,7 @@ backend:
   # --------------------------------------------------------------------------
   image:
     repository: ghcr.io/23120091/product
-    tag: latest
+    tag: 0.4.0
     # NOTE: CI pipeline replaces "latest" with the git tag (e.g., "v1.2.3")
     # during the staging deployment workflow.
     # See: .github/workflows/ci-staging.yaml
@@ -39,7 +39,7 @@ backend:
   # --------------------------------------------------------------------------
   resources:
     requests:
-      cpu: 256m       # 1.3x dev — enough for concurrent request processing
+      cpu: 50m       # 1.3x dev — enough for concurrent request processing
       memory: 700Mi   # 1.3x dev — JVM heap + off-heap + OS overhead
     limits:
       cpu: 1500m      # 1.5 full cores burst limit (1.5x dev)
@@ -60,11 +60,6 @@ backend:
   # Product service is tuned to be more sensitive because it's the most
   # heavily trafficked service (catalog browsing, search).
   # --------------------------------------------------------------------------
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
 
   # --------------------------------------------------------------------------
   # CONFIG MOUNTS — Same as dev: mount product-specific ConfigMap.

@@ -94,10 +94,9 @@ applicationConfig:
 
 # Gateway config for bff microservices
 gatewayRoutesConfig:
-  spring:
-    cloud:
-      gateway:
-        routes:
+  default-filters:
+    - SaveSession
+  routes:
           - id: product_api
             uri: http://product
             predicates:
@@ -196,10 +195,17 @@ gatewayRoutesConfig:
             filters:
               - RewritePath=/api/(?<segment>.*), /$\{segment}
               - TokenRelay=
-          - id: ui
-            uri: ${UI_HOST}
+          - id: storefront-ui
+            uri: http://storefront-ui:3000
             predicates:
+              - Host=storefront*.tthong.dev
               - Path=/**
+          - id: backoffice-ui
+            uri: http://backoffice-ui:3000
+            predicates:
+              - Host=backoffice*.tthong.dev
+              - Path=/**
+
 
 backofficeBffExtraConfig:
   spring:
@@ -259,9 +265,14 @@ customerApplicationConfig:
       secret: ${KEYCLOAK_CUSTOMER_MANAGEMENT_CLIENT_SECRET}
 
 # Search application config custom
+# NOTE: Elasticsearch URL format:
+#   - Must use hostname:port format (NO http:// scheme) for Spring Data Elasticsearch ClientConfiguration.connectedTo()
+#   - Uses environment-specific namespace (elasticsearch-dev, elasticsearch-staging, elasticsearch-production)
+#   - Deploy script (deploy-yas-configuration.sh) automatically sets correct namespace per environment
+# Version: Both K8s and docker-compose use 9.2.3 (client and server aligned)
 searchApplicationConfig:
   elasticsearch:
-    url: http://elasticsearch-es-http.elasticsearch:9200
+    url: elasticsearch-es-http.elasticsearch-dev:9200
     username: ${ELASTICSEARCH_USERNAME}
     password: ${ELASTICSEARCH_PASSWORD}
 

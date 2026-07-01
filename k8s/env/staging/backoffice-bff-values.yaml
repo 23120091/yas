@@ -1,7 +1,7 @@
 backend: 
   image: 
     repository: ghcr.io/23120091/backoffice-bff
-    tag: latest
+    tag: 0.5.0
 
   nameOverride: backoffice-bff
   fullnameOverride: backoffice-bff
@@ -13,12 +13,12 @@ backend:
 
   ingress:
     enabled: true
-    host: backoffice.staging.yas.local.com
+    host: backoffice-staging.tthong.dev
     path: /
 
   extraEnvs:
     - name: SPRING_PROFILES_ACTIVE
-      value: prod
+      value: k8s
     - name: UI_HOST
       value: http://backoffice-ui:3000
 
@@ -47,15 +47,9 @@ backend:
     - /opt/yas/extra-config/backoffice-bff-extra-config.yaml
 
   resources:
-  requests:
-    cpu: 200m      
-    memory: 512Mi   
-  limits:
-    cpu: 1500m      
-    memory: 1536Mi
-
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
+    requests:
+      cpu: 50m
+      memory: 512Mi
+    limits:
+      cpu: 1500m
+      memory: 1536Mi

@@ -44,18 +44,12 @@ Each defines replica counts, volume sizes, passwords, and domain/redirect URLs f
 
 ## Local installation steps
 
-- Require a minikube node minimum 16G memory and 40G disk space and run on Ubuntu operator
-```shell
-minikube start --disk-size='40000mb' --memory='16g'
-```
-- Enable ingress addon
-```shell
-minikube addons enable ingress
-```
-- Install helm
-  https://helm.sh/
-- Install yq (the tool read, update yaml file)
-  https://github.com/mikefarah/yq
+- Require a k3s cluster (master + worker nodes) with minimum 16G memory and 40G disk space, running Ubuntu.
+  See `k8s/setup_server/` for master/agent node startup scripts.
+- k3s bundles **Traefik** as the default ingress controller — no extra install needed.
+  All YAS charts use `className: traefik`. Traefik's LoadBalancer ServiceLB runs on every node.
+- Install helm: https://helm.sh/
+- Install yq: https://github.com/mikefarah/yq
 - Goto `k8s/deploy` folder
 
 ### Deploy DEV environment (default)
@@ -96,31 +90,33 @@ minikube addons enable ingress
 
 ## Hosts file
 
-Add to `/etc/hosts` for each environment. Example for dev:
+Add to `/etc/hosts` on your host machine. Use your master node's external IP (the same IP agent nodes use to join).
 
+Get the master IP:
+```shell
+kubectl get node master -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}'
 ```
-192.168.49.2 pgadmin.dev.yas.local.com
-192.168.49.2 akhq.dev.yas.local.com
-192.168.49.2 kibana.dev.yas.local.com
-192.168.49.2 identity.dev.yas.local.com
-192.168.49.2 backoffice.dev.yas.local.com
-192.168.49.2 storefront.dev.yas.local.com
+
+Example for dev (replace `MASTER_IP` with the actual IP):
+```
+MASTER_IP pgadmin.dev.yas.local.com
+MASTER_IP akhq.dev.yas.local.com
+MASTER_IP kibana.dev.yas.local.com
+MASTER_IP identity.dev.yas.local.com
+MASTER_IP backoffice.dev.yas.local.com
+MASTER_IP storefront.dev.yas.local.com
+MASTER_IP api.dev.yas.local.com
 ```
 
 Replace `dev` with `staging` for staging. Production uses clean URLs (no subdomain prefix):
-
 ```
-192.168.49.2 pgadmin.yas.local.com
-192.168.49.2 akhq.yas.local.com
-192.168.49.2 kibana.yas.local.com
-192.168.49.2 identity.yas.local.com
-192.168.49.2 backoffice.yas.local.com
-192.168.49.2 storefront.yas.local.com
-```
-
-`192.168.49.2` is the IP of the minikube node. Get it with:
-```shell
-minikube ip
+MASTER_IP pgadmin.yas.local.com
+MASTER_IP akhq.yas.local.com
+MASTER_IP kibana.yas.local.com
+MASTER_IP identity.yas.local.com
+MASTER_IP backoffice.yas.local.com
+MASTER_IP storefront.yas.local.com
+MASTER_IP api.yas.local.com
 ```
 
 ## Keycloak bootstrap admin credentials

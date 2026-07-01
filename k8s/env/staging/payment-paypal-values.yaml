@@ -1,7 +1,7 @@
 backend:
   image:
     repository: ghcr.io/23120091/payment-paypal
-    tag: latest
+    tag: 0.5.0
   nameOverride: payment-paypal
   fullnameOverride: payment-paypal
   databaseName: payment-paypal
@@ -20,13 +20,8 @@ backend:
     - /opt/yas/payment-paypal/payment-paypal-application.yaml
   resources:
     requests:
-      cpu: 200m
+      cpu: 50m
       memory: 512Mi
     limits:
       cpu: 1500m
       memory: 1536Mi
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70

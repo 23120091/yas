@@ -29,34 +29,29 @@ echo " Deploying Keycloak for: ${ENV}"
 echo "============================================"
 
 # --------------------------------------------------------------------------
-# Read configuration
+# Read configuration individually (not read -rd '' which breaks on empty values)
 # --------------------------------------------------------------------------
-read -rd '' DOMAIN ENV_SUBDOMAIN \
-PG_USERNAME PG_PASSWORD \
-BOOTSTRAP_ADMIN_USERNAME BOOTSTRAP_ADMIN_PASSWORD \
-KEYCLOAK_BACKOFFICE_REDIRECT_URL KEYCLOAK_STOREFRONT_REDIRECT_URL \
-< <(yq -r '
-  .domain,
-  .envSubdomain,
-  .postgresql.username,
-  .postgresql.password,
-  .keycloak.bootstrapAdmin.username,
-  .keycloak.bootstrapAdmin.password,
-  .keycloak.backofficeRedirectUrl,
-  .keycloak.storefrontRedirectUrl
-' "$CONFIG_FILE")
+DOMAIN=$(yq -r '.domain' "$CONFIG_FILE")
+ENV_SUBDOMAIN=$(yq -r '.envSubdomain // ""' "$CONFIG_FILE")
+PG_USERNAME=$(yq -r '.postgresql.username' "$CONFIG_FILE")
+PG_PASSWORD=$(yq -r '.postgresql.password' "$CONFIG_FILE")
+BOOTSTRAP_ADMIN_USERNAME=$(yq -r '.keycloak.bootstrapAdmin.username' "$CONFIG_FILE")
+BOOTSTRAP_ADMIN_PASSWORD=$(yq -r '.keycloak.bootstrapAdmin.password' "$CONFIG_FILE")
+KEYCLOAK_BACKOFFICE_REDIRECT_URL_0=$(yq -r '.keycloak.backofficeRedirectUrls[0]' "$CONFIG_FILE")
+KEYCLOAK_BACKOFFICE_REDIRECT_URL_1=$(yq -r '.keycloak.backofficeRedirectUrls[1] // ""' "$CONFIG_FILE")
+KEYCLOAK_STOREFRONT_REDIRECT_URL_0=$(yq -r '.keycloak.storefrontRedirectUrls[0]' "$CONFIG_FILE")
+KEYCLOAK_STOREFRONT_REDIRECT_URL_1=$(yq -r '.keycloak.storefrontRedirectUrls[1] // ""' "$CONFIG_FILE")
 
 # Build env-specific hostname and namespace
 if [ -z "$ENV_SUBDOMAIN" ] || [ "$ENV_SUBDOMAIN" = "null" ]; then
-    HOST_PREFIX=""
+    KEYCLOAK_HOSTNAME="identity.${DOMAIN}"
 else
-    HOST_PREFIX="${ENV_SUBDOMAIN}."
+    KEYCLOAK_HOSTNAME="identity-${ENV_SUBDOMAIN}.${DOMAIN}"
 fi
 
 KEYCLOAK_NS="keycloak-${ENV}"
 PG_NS="postgres-${ENV}"
-KEYCLOAK_HOSTNAME="identity.${HOST_PREFIX}${DOMAIN}"
-PG_HOST="postgresql.${PG_NS}"
+PG_HOST="postgresql.${PG_NS}.svc.cluster.local"
 
 echo "Keycloak namespace: ${KEYCLOAK_NS}"
 echo "Keycloak hostname:  ${KEYCLOAK_HOSTNAME}"
@@ -76,13 +71,17 @@ kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resourc
 helm upgrade --install "keycloak-${ENV}" ./keycloak/keycloak \
   --namespace "${KEYCLOAK_NS}" \
   --set hostname="${KEYCLOAK_HOSTNAME}" \
+  --set backchannelDynamic=false \
   --set postgresql.username="$PG_USERNAME" \
   --set postgresql.password="$PG_PASSWORD" \
   --set postgresql.host="$PG_HOST" \
   --set bootstrapAdmin.username="$BOOTSTRAP_ADMIN_USERNAME" \
   --set bootstrapAdmin.password="$BOOTSTRAP_ADMIN_PASSWORD" \
-  --set backofficeRedirectUrl="$KEYCLOAK_BACKOFFICE_REDIRECT_URL" \
-  --set storefrontRedirectUrl="$KEYCLOAK_STOREFRONT_REDIRECT_URL"
+  --set "backofficeRedirectUrls[0]=$KEYCLOAK_BACKOFFICE_REDIRECT_URL_0" \
+  --set "backofficeRedirectUrls[1]=$KEYCLOAK_BACKOFFICE_REDIRECT_URL_1" \
+  --set "storefrontRedirectUrls[0]=$KEYCLOAK_STOREFRONT_REDIRECT_URL_0" \
+  --set "storefrontRedirectUrls[1]=$KEYCLOAK_STOREFRONT_REDIRECT_URL_1" \
+  --values "./infra-${ENV}-affinity.yaml"
 
 echo ""
 echo "============================================"
@@ -92,13 +91,13 @@ echo " URL:       http://${KEYCLOAK_HOSTNAME}"
 echo " Admin:     ${BOOTSTRAP_ADMIN_USERNAME} / ${BOOTSTRAP_ADMIN_PASSWORD}"
 echo "============================================"
 
-# --- CoreDNS rewrite: resolve external Keycloak hostname to cluster-internal IPs ---
-# Pods need to reach identity.{env}.yas.local.com for OIDC discovery
-# Rewrite it to the nginx ingress controller, which routes via Keycloak's Ingress
+# --- CoreDNS rewrite: route identity.{env}.yas.local.com to Traefik ingress ---
+# BFF pods call Keycloak's OIDC discovery endpoint via the external hostname.
+# Rewrite it to the Traefik service so traffic stays cluster-internal.
 echo "Patching CoreDNS to resolve ${KEYCLOAK_HOSTNAME}..."
 kubectl get configmap -n kube-system coredns -o yaml > /tmp/coredns-${ENV}.yaml
-if ! grep -q "rewrite stop name ${KEYCLOAK_HOSTNAME}" /tmp/coredns-${ENV}.yaml; then
-  sed -i "/^\s*kubernetes cluster.local/i\        rewrite stop name ${KEYCLOAK_HOSTNAME} ingress-nginx-controller.ingress-nginx.svc.cluster.local" /tmp/coredns-${ENV}.yaml
+if ! grep -q "rewrite stop name ${KEYCLOAK_HOSTNAME} traefik" /tmp/coredns-${ENV}.yaml; then
+  sed -i "/^\s*kubernetes cluster.local/i\        rewrite stop name ${KEYCLOAK_HOSTNAME} traefik.kube-system.svc.cluster.local" /tmp/coredns-${ENV}.yaml
   kubectl apply -f /tmp/coredns-${ENV}.yaml
   kubectl rollout restart deployment -n kube-system coredns
   echo "CoreDNS patched. DNS will be active in ~30s."

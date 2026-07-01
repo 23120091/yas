@@ -1,7 +1,7 @@
 backend:
   image:
     repository: ghcr.io/23120091/sampledata
-    tag: latest
+    tag: 0.5.0
 
   nameOverride: sampledata
   fullnameOverride: sampledata
@@ -23,7 +23,12 @@ backend:
   resources:
     requests:
       cpu: 50m
-      memory: 128Mi
+      memory: 256Mi
     limits:
       cpu: 300m
       memory: 384Mi
+
+  livenessProbe:
+    initialDelaySeconds: 180
+  readinessProbe:
+    initialDelaySeconds: 180

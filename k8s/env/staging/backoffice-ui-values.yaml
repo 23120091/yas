@@ -1,14 +1,16 @@
 ui:
+  nodeSelector:
+    env: staging
   image:
-    repository: ghcr.io/23120091/backoffice
-    tag: latest
+    repository: ghcr.io/23120091/backoffice-ui
+    tag: 0.4.0
   nameOverride: backoffice-ui
   fullnameOverride: backoffice-ui
   ingress:
     enabled: false
   resources:
     requests:
-      cpu: 100m
+      cpu: 50m
       memory: 256Mi
     limits:
       cpu: 450m

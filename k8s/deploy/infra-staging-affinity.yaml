@@ -1,0 +1,11 @@
+# Staging environment node affinity
+# Pins staging infrastructure to staging worker node (spot instance, acceptable to crash)
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: env
+              operator: In
+              values:
+                - staging

@@ -1,7 +1,7 @@
 backend:
   image:
     repository: ghcr.io/23120091/order
-    tag: latest
+    tag: 0.5.0
   nameOverride: order
   fullnameOverride: order
   databaseName: order
@@ -20,13 +20,11 @@ backend:
     - /opt/yas/order/order-application.yaml
   resources:
     requests:
-      cpu: 500m
+      cpu: 50m
       memory: 1Gi
     limits:
       cpu: 3000m
       memory: 3Gi
   autoscaling:
-    enabled: true
-    minReplicas: 5
-    maxReplicas: 20
-    targetCPUUtilizationPercentage: 60
+    enabled: false 
+

@@ -21,7 +21,7 @@ backend:
   # --------------------------------------------------------------------------
   image:
     repository: ghcr.io/23120091/product
-    tag: latest
+    tag: 0.4.0
     # NOTE: CI pipeline replaces "latest" with the selected version tag.
     # This field is intentionally "latest" as a placeholder that will
     # always be overwritten before deployment. If it reaches the cluster
@@ -45,7 +45,7 @@ backend:
   # --------------------------------------------------------------------------
   resources:
     requests:
-      cpu: 650m          # 1.3x guaranteed per pod
+      cpu: 50m          # 1.3x guaranteed per pod
       memory: 1536Mi     # 1.3x reserved (JVM heap ~1Gi at 70%)
     limits:
       cpu: 3000m         # burst to 3 full cores during traffic spikes
@@ -55,7 +55,8 @@ backend:
   # HPA — Disabled per-service; common-values manages scaling policy.
   # --------------------------------------------------------------------------
   autoscaling:
-    enabled: false
+    enabled: false 
+
 
   # --------------------------------------------------------------------------
   # INGRESS — Production domain for the API gateway.
@@ -64,8 +65,10 @@ backend:
   # Set to false unless this service needs direct external access.
   # --------------------------------------------------------------------------
   ingress:
-    enabled: false      # product is internal-only, accessed via BFF gateway
-    host: api.yas.local.com
+    enabled: true      # product is internal-only, accessed via BFF gateway
+    host: api.yas.local
+    path: / 
+
 
   # --------------------------------------------------------------------------
   # CONFIG MOUNTS — Production-specific ConfigMap with feature flags.

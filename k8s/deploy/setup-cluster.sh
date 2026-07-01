@@ -65,23 +65,18 @@ helm repo add jetstack https://charts.jetstack.io
 helm repo update
 
 # --------------------------------------------------------------------------
-# Read configuration from env-specific config file
+# Read configuration individually (not read -rd '' which breaks on empty values)
 # --------------------------------------------------------------------------
-read -rd '' DOMAIN ENV_SUBDOMAIN \
-PG_REPLICAS PG_USERNAME PG_PASSWORD PG_VOLUME_SIZE \
-KAFKA_REPLICAS ZK_REPLICAS \
-ES_REPLICAS \
-< <(yq -r '
-  .domain,
-  .envSubdomain,
-  .postgresql.replicas,
-  .postgresql.username,
-  .postgresql.password,
-  .postgresql.volumeSize,
-  .kafka.replicas,
-  .zookeeper.replicas,
-  .elasticsearch.replicas
-' "$CONFIG_FILE")
+DOMAIN=$(yq -r '.domain' "$CONFIG_FILE")
+ENV_SUBDOMAIN=$(yq -r '.envSubdomain // ""' "$CONFIG_FILE")
+PG_REPLICAS=$(yq -r '.postgresql.replicas' "$CONFIG_FILE")
+PG_USERNAME=$(yq -r '.postgresql.username' "$CONFIG_FILE")
+PG_PASSWORD=$(yq -r '.postgresql.password' "$CONFIG_FILE")
+PG_VOLUME_SIZE=$(yq -r '.postgresql.volumeSize' "$CONFIG_FILE")
+KAFKA_REPLICAS=$(yq -r '.kafka.replicas' "$CONFIG_FILE")
+ZK_REPLICAS=$(yq -r '.zookeeper.replicas' "$CONFIG_FILE")
+ES_REPLICAS=$(yq -r '.elasticsearch.replicas' "$CONFIG_FILE")
+ES_PASSWORD=$(yq -r '.credentials.elasticsearch.password // .elasticsearch.password' "$CONFIG_FILE")
 
 # --------------------------------------------------------------------------
 # Build env-specific namespaces and hostnames
@@ -140,9 +135,13 @@ helm upgrade --install cert-manager jetstack/cert-manager \
   --version v1.12.0 \
   --set installCRDs=true \
   --set prometheus.enabled=false \
-  --set webhook.timeoutSeconds=4 \
+  --set webhook.timeoutSeconds=30 \
   --set admissionWebhooks.certManager.create=true \
   --set startupapicheck.enabled=false
+
+# Wait for cert-manager webhook pod to be ready before anything touches Ingresses
+echo "Waiting for cert-manager webhook to be ready..."
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=cert-manager -n cert-manager --timeout=120s 2>/dev/null || sleep 30
 
 # --------------------------------------------------------------------------
 # OpenTelemetry Operator
@@ -157,15 +156,16 @@ helm upgrade --install opentelemetry-operator open-telemetry/opentelemetry-opera
 # --------------------------------------------------------------------------
 # PostgreSQL Cluster
 # --------------------------------------------------------------------------
-# Pre-create the user password secret so the Zalando operator uses
-# our password instead of generating a random one. The secret must
-# exist BEFORE the postgresql CRD for the operator to pick it up.
-kubectl create namespace "${PG_NS}" --dry-run=client -o yaml | kubectl apply -f -
-kubectl create secret generic "${PG_USERNAME}.postgresql.credentials.postgresql.acid.zalan.do" \
-  --namespace "${PG_NS}" \
-  --from-literal=password="${PG_PASSWORD}" \
-  --from-literal=username="${PG_USERNAME}" \
-  --dry-run=client -o yaml | kubectl apply -f -
+# Delete the PostgreSQL CR entirely — Zalando operator cascades to pods,
+# PVCs, secrets, and endpoints. A clean recreate ensures databases and
+# users are properly initialized.
+echo "Deleting PostgreSQL cluster (CR) for clean recreate..."
+kubectl delete postgresql postgresql -n "${PG_NS}" --ignore-not-found --timeout=120s 2>/dev/null || true
+# Wait for cascade deletion to complete
+sleep 10
+# Force-remove any stuck PVCs (in case cascade delete hangs)
+kubectl patch pvc -n "${PG_NS}" --all --type merge -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
+kubectl delete pvc -n "${PG_NS}" --all --ignore-not-found --timeout=60s 2>/dev/null || true
 
 helm upgrade --install "postgres-${ENV}" ./postgres/postgresql \
   --create-namespace --namespace "${PG_NS}" \
@@ -174,12 +174,20 @@ helm upgrade --install "postgres-${ENV}" ./postgres/postgresql \
   --set password="$PG_PASSWORD" \
   --set volumeSize="$PG_VOLUME_SIZE"
 
+# Wait for Zalando operator to create databases and users
+echo "Waiting for Postgres leader and databases..."
+kubectl wait --for=condition=ready pod -l application=spilo -n "${PG_NS}" --timeout=300s
+sleep 30
+kubectl wait --for=condition=ready pod -l application=spilo -n "${PG_NS}" --timeout=300s
+sleep 30
+
 # --------------------------------------------------------------------------
 # pgAdmin
 # --------------------------------------------------------------------------
 pg_admin_hostname="pgadmin.${HOST_PREFIX}${DOMAIN}" yq -i '.hostname=env(pg_admin_hostname)' ./postgres/pgadmin/values.yaml
 helm upgrade --install "pgadmin-${ENV}" ./postgres/pgadmin \
-  --create-namespace --namespace "${PG_NS}"
+  --create-namespace --namespace "${PG_NS}" \
+  --values "./infra-${ENV}-affinity.yaml"
 
 # --------------------------------------------------------------------------
 # Kafka Cluster
@@ -189,7 +197,8 @@ helm upgrade --install "kafka-cluster-${ENV}" ./kafka/kafka-cluster \
   --set kafka.replicas="$KAFKA_REPLICAS" \
   --set postgresql.username="$PG_USERNAME" \
   --set postgresql.password="$PG_PASSWORD" \
-  --set postgresql.namespace="$PG_NS"
+  --set postgresql.namespace="$PG_NS" \
+  --values "./infra-${ENV}-affinity.yaml"
 
 # --------------------------------------------------------------------------
 # AKHQ (Kafka UI)
@@ -197,21 +206,38 @@ helm upgrade --install "kafka-cluster-${ENV}" ./kafka/kafka-cluster \
 akhq_hostname="akhq.${HOST_PREFIX}${DOMAIN}" yq -i '.hostname=env(akhq_hostname)' ./kafka/akhq.values.yaml
 helm upgrade --install "akhq-${ENV}" akhq/akhq \
   --create-namespace --namespace "${KAFKA_NS}" \
-  --values ./kafka/akhq.values.yaml
+  --values ./kafka/akhq.values.yaml \
+  --values "./infra-${ENV}-affinity.yaml"
 
 # --------------------------------------------------------------------------
 # Elasticsearch Cluster
 # --------------------------------------------------------------------------
+# Delete the ES custom resource first to cascade-delete pods and PVCs,
+# then patch/delete any remaining PVCs to avoid version-upgrade errors.
+kubectl delete elasticsearch elasticsearch -n "${ES_NS}" --ignore-not-found --timeout=120s 2>/dev/null || true
+kubectl patch pvc -n "${ES_NS}" --all --type merge -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
+kubectl delete pvc -n "${ES_NS}" --all --ignore-not-found --timeout=60s 2>/dev/null || true
+
+# Create the elastic user secret BEFORE deploying ES so ECK uses our fixed password
+# instead of generating a random one.
+echo "Creating Elasticsearch elastic-user secret with password from ${CONFIG_FILE}..."
+kubectl create secret generic elasticsearch-es-elastic-user \
+  -n "${ES_NS}" \
+  --from-literal=elastic="${ES_PASSWORD}" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
 helm upgrade --install "elasticsearch-cluster-${ENV}" ./elasticsearch/elasticsearch-cluster \
   --create-namespace --namespace "${ES_NS}" \
   --set elasticsearch.replicas="$ES_REPLICAS" \
-  --set kibana.ingress.hostname="kibana.${HOST_PREFIX}${DOMAIN}"
+  --set kibana.ingress.hostname="kibana.${HOST_PREFIX}${DOMAIN}" \
+  --values "./infra-${ENV}-affinity.yaml"
 
 # --------------------------------------------------------------------------
 # Zookeeper
 # --------------------------------------------------------------------------
 helm upgrade --install "zookeeper-${ENV}" ./zookeeper \
-  --namespace "${ZK_NS}" --create-namespace
+  --namespace "${ZK_NS}" --create-namespace \
+  --values "./infra-${ENV}-affinity.yaml"
 
 # ============================================================================
 # OBSERVABILITY — Loki + Tempo + Promtail + OpenTelemetry Collector
@@ -226,31 +252,37 @@ helm upgrade --install "zookeeper-${ENV}" ./zookeeper \
 helm upgrade --install "loki-${ENV}" grafana/loki \
   --create-namespace --namespace "${OBS_NS}" \
   -f ./observability/loki.values.yaml \
-  --set loki.useTestSchema=true
+  --set loki.useTestSchema=true \
+  --values "./infra-${ENV}-affinity.yaml"
 
 # --------------------------------------------------------------------------
 # Tempo (trace storage)
 # --------------------------------------------------------------------------
 helm upgrade --install "tempo-${ENV}" grafana/tempo \
   --create-namespace --namespace "${OBS_NS}" \
-  -f ./observability/tempo.values.yaml
+  -f ./observability/tempo.values.yaml \
+  --values "./infra-${ENV}-affinity.yaml"
 
 # --------------------------------------------------------------------------
 # Promtail (log collector)
 # --------------------------------------------------------------------------
 helm upgrade --install "promtail-${ENV}" grafana/promtail \
   --create-namespace --namespace "${OBS_NS}" \
-  --values ./observability/promtail.values.yaml
+  --values ./observability/promtail.values.yaml \
+  --values "./infra-${ENV}-affinity.yaml"
 
 # --------------------------------------------------------------------------
 # OpenTelemetry Collector
 # --------------------------------------------------------------------------
 # Wait for the opentelemetry operator webhook to be ready
 echo "Waiting for OpenTelemetry operator webhook..."
-kubectl wait --for=condition=available deployment/opentelemetry-operator-controller-manager -n observability --timeout=120s 2>/dev/null || sleep 30
+kubectl wait --for=condition=available deployment/opentelemetry-operator-controller-manager -n observability --timeout=180s 2>/dev/null || sleep 30
 
 helm upgrade --install "opentelemetry-collector-${ENV}" ./observability/opentelemetry \
-  --create-namespace --namespace "${OBS_NS}"
+  --create-namespace --namespace "${OBS_NS}" \
+  --set lokiEndpoint="http://loki-${ENV}-gateway.${OBS_NS}.svc.cluster.local/loki/api/v1/push" \
+  --set tempoEndpoint="http://tempo-${ENV}.${OBS_NS}.svc.cluster.local:4318" \
+  --values "./infra-${ENV}-affinity.yaml"
 
 # ============================================================================
 # GRAFANA & PROMETHEUS — NOT DEPLOYED

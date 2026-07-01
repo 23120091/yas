@@ -1,7 +1,7 @@
 backend:
   image:
     repository: ghcr.io/23120091/cart
-    tag: latest
+    tag: 0.5.0
   nameOverride: cart
   fullnameOverride: cart
   databaseName: cart
@@ -20,13 +20,11 @@ backend:
     - /opt/yas/cart/cart-application.yaml
   resources:
     requests:
-      cpu: 500m
+      cpu: 50m
       memory: 1Gi
     limits:
       cpu: 3000m
       memory: 3Gi
   autoscaling:
-    enabled: true
-    minReplicas: 5
-    maxReplicas: 20
-    targetCPUUtilizationPercentage: 60
+    enabled: false 
+
