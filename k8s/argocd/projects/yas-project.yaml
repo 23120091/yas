@@ -30,6 +30,8 @@ spec:
   # --------------------------------------------------------------------------
   sourceRepos:
     - https://github.com/23120091/yas   # main monorepo
+    - https://istio-release.storage.googleapis.com/charts
+    - https://kiali.github.io/helm-charts
     # Add additional repos if you store charts or values in separate repos:
     # - https://github.com/23120091/yas-configs
     # - https://charts.example.com
