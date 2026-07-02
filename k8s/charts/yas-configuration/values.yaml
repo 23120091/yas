@@ -261,8 +261,8 @@ customerApplicationConfig:
 searchApplicationConfig:
   elasticsearch:
     url: elasticsearch-es-http.elasticsearch-dev:9200
-    username: ${ELASTICSEARCH_USERNAME}
-    password: ${ELASTICSEARCH_PASSWORD}
+    username: ${username}
+    password: ${password}
 
 # Payment-paypal application config custom
 paymentPaypalApplicationConfig:
