@@ -83,12 +83,10 @@ grafana:
         gnetId: 10280
         revision: 1
 
-
   ingress:
     enabled: true
-    ingressClassName: traefik
     hosts:
-      - grafana.tthong.dev
+      - "grafana.tthong.dev"
 
   admin:
     existingSecret: "grafana-admin-secret"

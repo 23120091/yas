@@ -7,5 +7,5 @@ environments:
   - production
 
 grafana:
-  enabled: true
+  enabled: false
   ingressHost: "grafana.tthong.dev"
