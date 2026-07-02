@@ -17,7 +17,6 @@ backend:
       value: prod
     - name: UI_HOST
       value: http://backoffice-ui:3000
-  extraEnvFroms: []
   extraVolumes:
     - name: yas-gateway-routes-config
       configMap:
