@@ -21,11 +21,7 @@ backend:
   - name: UI_HOST
     value: http://storefront-ui:3000
 
-  extraEnvFroms:
-    - secretRef:
-        name: yas-keycloak-credentials-secret
-    - secretRef:
-        name: yas-redis-credentials-secret
+  extraEnvFroms: []
 
   extraVolumes:
     - name: yas-gateway-routes-config
