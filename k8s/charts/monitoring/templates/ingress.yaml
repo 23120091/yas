@@ -1,0 +1,34 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "monitoring.fullname" . }}-ingress
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+    # 1. Rule cho Grafana (Dùng chung cho mọi env)
+    - host: grafana.tthong.dev
+      http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: {{ include "grafana.serviceName" . }}
+              port:
+                number: 80
+    
+    # 2. Rule cho Prometheus (Loop theo danh sách môi trường)
+    {{- range .Values.environments }}
+    - host: prometheus-{{ . }}.tthong.dev
+      http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              # Tên này cần khớp với tên service mà Helm chart con prometheus tạo ra
+              name: {{ $.Release.Name }}-prometheus-server
+              port:
+                number: 80
+    {{- end }}
