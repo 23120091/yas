@@ -264,6 +264,8 @@ else
     echo "      Grafana already exists."
 fi
 
+kubectl create secret generic grafana-admin-secret -n observability   --from-literal=admin-user=admin   --from-literal=admin-password=admin
+
 # 4.3 Wait for Prometheus to be ready
 echo "[4.3] Waiting for Prometheus ${ENV}..."
 kubectl wait --for=condition=ready pod -l app=prometheus -n "observability-${ENV}" --timeout=180s 2>/dev/null || {

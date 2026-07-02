@@ -69,6 +69,9 @@ spec:
             - name: SPRING_CONFIG_ADDITIONAL_LOCATION
               value: /opt/yas/config/application.yaml
             {{- end }}
+            {{- with .Values.globalExtraEnvs }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
             {{- with .Values.extraEnvs }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
