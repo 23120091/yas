@@ -62,3 +62,10 @@ prometheus:
               
 grafana:
   enabled: false
+  deploymentStrategy:
+    type: Recreate
+  replicas: 0
+  service:
+    enabled: false
+  ingress:
+    enabled: false
