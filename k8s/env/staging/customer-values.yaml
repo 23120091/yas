@@ -9,7 +9,6 @@ backend:
     enabled: true
     host: api.staging.yas.local
     path: /
-  extraEnvFroms: []
   extraVolumes:
     - name: customer-application
       configMap:
