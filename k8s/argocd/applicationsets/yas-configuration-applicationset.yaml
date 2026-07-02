@@ -84,6 +84,14 @@ spec:
             # ------------------------------------------------------------------
             - name: customerApplicationConfig.keycloak.auth-server-url
               value: "http://{{identityHost}}"
+
+            # These may fix the CrashLoopBackOff of search-service when it tries to connect to Elasticsearch
+            # - name: searchApplicationConfig.elasticsearch.username
+            #   value: "elastic"
+            # - name: searchApplicationConfig.elasticsearch.password
+            #   value: "6Gg0Fk7VQhYxRkk7TNWSACoO"
+            # value is get by: kubectl get secret elasticsearch-es-elastic-user -n elasticsearch-dev -o jsonpath='{.data.elastic}' | base64 -d; echo
+
             - name: searchApplicationConfig.elasticsearch.url
               value: "elasticsearch-es-http.{{esNs}}:9200"
             - name: paymentPaypalApplicationConfig.yas.public.url

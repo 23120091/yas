@@ -9,9 +9,6 @@ backend:
     enabled: true
     host: api.yas.local
     path: /
-  extraEnvFroms:
-    - secretRef:
-        name: yas-openai-api-key-secret
   extraVolumes:
     - name: recommendation-application
       configMap:

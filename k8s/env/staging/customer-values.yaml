@@ -9,9 +9,6 @@ backend:
     enabled: true
     host: api.staging.yas.local
     path: /
-  extraEnvFroms:
-    - secretRef:
-        name: yas-keycloak-credentials-secret
   extraVolumes:
     - name: customer-application
       configMap:

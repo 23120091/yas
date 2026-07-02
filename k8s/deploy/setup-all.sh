@@ -155,6 +155,13 @@ echo ""
 echo ">>> PHASE 2: BOOTSTRAPPING ARGOCD"
 echo ""
 
+# 2.0 Label application namespaces for Istio sidecar injection
+echo "[2.0] Labeling application namespaces for Istio injection..."
+for ns in dev staging production; do
+    kubectl label namespace "${ns}" istio-injection=enabled --overwrite 2>/dev/null || true
+    echo "      Namespace '${ns}' labeled for Istio injection."
+done
+
 # 2.1 Apply ArgoCD Project
 echo "[2.1] Applying ArgoCD AppProject 'yas'..."
 kubectl apply -f ../argocd/projects/yas-project.yaml
@@ -238,4 +245,37 @@ echo "     kubectl port-forward -n argocd svc/argocd-server 8080:443"
 echo ""
 echo "If any pods are CrashLoopBackOff, check logs:"
 echo "  kubectl logs -n ${ENV} deployment/<service> --tail=50"
+echo ""
+
+echo ""
+echo ">>> PHASE 4: DEPLOYING MONITORING"
+echo ""
+
+# 4.1 Deploy Prometheus per env (ArgoCD auto-syncs from ApplicationSet)
+echo "[4.1] Monitoring ApplicationSet will auto-deploy Prometheus for ${ENV}..."
+# Không cần lệnh gì — ArgoCD bootstrap đã tạo ApplicationSet
+
+# 4.2 Deploy Grafana (shared) — chỉ cần 1 lần cho cả cluster
+echo "[4.2] Applying Grafana shared Application..."
+if ! kubectl get application -n argocd grafana >/dev/null 2>&1; then
+    kubectl apply -f ../argocd/applications/grafana.yaml
+    echo "      Grafana Application created."
+else
+    echo "      Grafana already exists."
+fi
+
+kubectl create secret generic grafana-admin-secret -n observability   --from-literal=admin-user=admin   --from-literal=admin-password=admin
+
+# 4.3 Wait for Prometheus to be ready
+echo "[4.3] Waiting for Prometheus ${ENV}..."
+kubectl wait --for=condition=ready pod -l app=prometheus -n "observability-${ENV}" --timeout=180s 2>/dev/null || {
+    echo "      WARNING: Prometheus pod not ready yet. Will retry later."
+}
+
+# 4.4 Verify Grafana
+echo "[4.4] Grafana status:"
+kubectl get pods -n observability -l app.kubernetes.io/name=grafana --no-headers 2>/dev/null || echo "      Grafana pod not found yet."
+
+echo ""
+echo ">>> PHASE 4 complete."
 echo ""

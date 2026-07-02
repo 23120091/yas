@@ -98,6 +98,19 @@ backend:
   deployment:
     annotations:
       reloader.stakater.com/search: "true"
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8090"
+      prometheus.io/path: "/actuator/prometheus"
+
+  extraEnvFroms:
+    - secretRef:
+        name: yas-credentials-secret
+
+  globalExtraEnvs:
+  - name: MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE
+    value: "prometheus,health,info"
+  - name: MANAGEMENT_ENDPOINT_PROMETHEUS_ENABLED
+    value: "true"
 
   # --------------------------------------------------------------------------
   # PROBES — Health check configuration.

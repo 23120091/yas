@@ -7,9 +7,6 @@ backend:
   databaseName: recommendation
   ingress:
     enabled: false
-  extraEnvFroms:
-    - secretRef:
-        name: yas-openai-api-key-secret
   extraVolumes:
     - name: recommendation-application
       configMap:

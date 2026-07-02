@@ -1,0 +1,11 @@
+global:
+  domain: "tthong.dev"
+
+environments:
+  - dev
+  - staging
+  - production
+
+grafana:
+  enabled: false
+  ingressHost: "grafana.tthong.dev"
