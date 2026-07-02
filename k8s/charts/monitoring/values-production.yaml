@@ -33,7 +33,7 @@ prometheus:
     prometheus.yml:
       scrape_configs:
         # Auto-discover Java services in dev namespace
-        - job_name: 'kubernetes-pods'
+        - job_name: 'kubernetes-pods-custom'
           kubernetes_sd_configs:
             - role: pod
               namespaces:
