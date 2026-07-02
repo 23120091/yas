@@ -94,4 +94,11 @@ grafana:
     passwordKey: "admin-password" 
 
 prometheus:
-  enabled: false
+  server:
+    enabled: false
+  alertmanager:
+    enabled: false
+  pushgateway:
+    enabled: false
+  nodeExporter:
+    enabled: false
