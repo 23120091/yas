@@ -65,7 +65,6 @@ for e in $ENVS; do
   helm uninstall "opentelemetry-collector-${e}" --namespace "observability-${e}" 2>/dev/null || true
   helm uninstall "redis-${e}"             --namespace "redis-${e}"             2>/dev/null || true
   helm uninstall "keycloak-${e}"          --namespace "keycloak-${e}"          2>/dev/null || true
-  helm uninstall "prometheus-${e}"        --namespace "observability-${e}" 2>/dev/null || true
 
   # --------------------------------------------------------------------------
   # 2. Force-delete PVCs to avoid "Terminating" hang
@@ -112,10 +111,6 @@ for e in $ENVS; do
   echo ""
   echo "Environment ${e} teardown complete."
 done
-
-echo "Delete Grafana"
-helm uninstall grafana --namespace observability 2>/dev/null || true
-kubectl delete application -n argocd grafana --ignore-not-found 2>/dev/null || true
 
 echo ""
 echo "============================================"
