@@ -8,9 +8,7 @@ backend:
   databaseName: customer
   ingress:
     enabled: false
-  extraEnvFroms:
-    - secretRef:
-        name: yas-keycloak-credentials-secret
+  extraEnvFroms: []
   extraVolumes:
     - name: customer-application
       configMap:

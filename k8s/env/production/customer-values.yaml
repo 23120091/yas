@@ -9,9 +9,7 @@ backend:
     enabled: true
     host: api.yas.local
     path: /
-  extraEnvFroms:
-    - secretRef:
-        name: yas-keycloak-credentials-secret
+  extraEnvFroms: []
   extraVolumes:
     - name: customer-application
       configMap:
