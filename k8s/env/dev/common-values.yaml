@@ -102,6 +102,10 @@ backend:
       prometheus.io/port: "8090"
       prometheus.io/path: "/actuator/prometheus"
 
+  extraEnvFroms:
+    - secretRef:
+        name: yas-credentials-secret
+
   # --------------------------------------------------------------------------
   # PROBES — Health check configuration.
   # These are standard Spring Boot Actuator endpoints.

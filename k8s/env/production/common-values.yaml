@@ -131,6 +131,10 @@ backend:
       prometheus.io/port: "8090"
       prometheus.io/path: "/actuator/prometheus"
 
+  extraEnvFroms:
+    - secretRef:
+        name: yas-credentials-secret
+
   # --------------------------------------------------------------------------
   # POD ANTI-AFFINITY — Production spreads across nodes AND zones.
   #   preferredDuringScheduling: "please try to put pods on different nodes"
