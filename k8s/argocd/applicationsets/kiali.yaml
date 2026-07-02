@@ -5,17 +5,20 @@ metadata:
   namespace: argocd
 spec:
   project: yas
-  source:
-    repoURL: https://kiali.github.io/helm-charts
-    chart: kiali-server
-    targetRevision: 1.85.x
-    helm:
-      values: |
-        auth:
-          strategy: anonymous # Bật chế độ không cần mật khẩu để dễ demo, click là vào luôn
-        deployment:
-          accessible_namespaces:
-            - "**" # Cho phép Kiali quét toàn bộ cluster để tìm service của YAS
+  sources:
+    - repoURL: https://kiali.github.io/helm-charts
+      chart: kiali-server
+      targetRevision: 1.85.x
+      helm:
+        values: |
+          auth:
+            strategy: anonymous
+          deployment:
+            accessible_namespaces:
+              - "**"
+    - repoURL: https://github.com/23120091/yas
+      targetRevision: main
+      path: k8s/istio
   destination:
     server: https://kubernetes.default.svc
     namespace: istio-system

@@ -155,6 +155,13 @@ echo ""
 echo ">>> PHASE 2: BOOTSTRAPPING ARGOCD"
 echo ""
 
+# 2.0 Label application namespaces for Istio sidecar injection
+echo "[2.0] Labeling application namespaces for Istio injection..."
+for ns in dev staging production; do
+    kubectl label namespace "${ns}" istio-injection=enabled --overwrite 2>/dev/null || true
+    echo "      Namespace '${ns}' labeled for Istio injection."
+done
+
 # 2.1 Apply ArgoCD Project
 echo "[2.1] Applying ArgoCD AppProject 'yas'..."
 kubectl apply -f ../argocd/projects/yas-project.yaml
