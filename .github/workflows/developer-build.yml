@@ -1,122 +1,43 @@
 name: Developer Build (Sandbox Deploy)
 
 # ============================================================================
-# Mục 4 của đề bài:
-# Developer chọn branch riêng cho TỪNG service (mặc định "main" cho service
-# không sửa). Workflow sẽ:
-#   1. Build + push image cho service nào branch != main (nếu image với tag đó
-#      chưa tồn tại trên GHCR — tránh build lại không cần thiết)
-#   2. helm upgrade --install toàn bộ 19 service vào namespace "sandbox"
-#      (dùng chung 1 namespace, mỗi lần chạy sẽ OVERWRITE — theo yêu cầu của bạn)
-#   3. Set Service type=NodePort cho service được test (hoặc tất cả, tùy chọn)
-#   4. In ra domain:port để developer add vào /etc/hosts và truy cập
-#
-# Yêu cầu: kubeconfig của cluster (1 master/1 worker, K3s) lưu trong
-# secret KUBE_CONFIG (base64-encoded kubeconfig file).
+# Giải pháp Tối ưu: Chạy đè tag tạm thời bằng ArgoCD CLI
+# - Nhận đúng 2 tham số: Tên Service và Tên Nhánh.
+# - Build và Push Image cho service tương ứng.
+# - Dùng lệnh 'argocd app set --core' để ép đổi tag của service đó trên cụm.
 # ============================================================================
 
 on:
   workflow_dispatch:
     inputs:
-      backoffice-bff:
-        description: "Branch for backoffice-bff"
-        required: false
-        default: "main"
-        type: string
-      backoffice-ui:
-        description: "Branch for backoffice-ui"
-        required: false
-        default: "main"
-        type: string
-      cart:
-        description: "Branch for cart"
-        required: false
-        default: "main"
-        type: string
-      customer:
-        description: "Branch for customer"
-        required: false
-        default: "main"
-        type: string
-      inventory:
-        description: "Branch for inventory"
-        required: false
-        default: "main"
-        type: string
-      location:
-        description: "Branch for location"
-        required: false
-        default: "main"
-        type: string
-      media:
-        description: "Branch for media"
-        required: false
-        default: "main"
-        type: string
-      order:
-        description: "Branch for order"
-        required: false
-        default: "main"
-        type: string
-      payment:
-        description: "Branch for payment"
-        required: false
-        default: "main"
-        type: string
-      payment-paypal:
-        description: "Branch for payment-paypal"
-        required: false
-        default: "main"
-        type: string
-      product:
-        description: "Branch for product"
-        required: false
-        default: "main"
-        type: string
-      promotion:
-        description: "Branch for promotion"
-        required: false
-        default: "main"
-        type: string
-      rating:
-        description: "Branch for rating"
-        required: false
-        default: "main"
-        type: string
-      recommendation:
-        description: "Branch for recommendation"
-        required: false
-        default: "main"
-        type: string
-      sampledata:
-        description: "Branch for sampledata"
-        required: false
-        default: "main"
-        type: string
-      search:
-        description: "Branch for search"
-        required: false
-        default: "main"
-        type: string
-      storefront-bff:
-        description: "Branch for storefront-bff"
-        required: false
-        default: "main"
-        type: string
-      storefront-ui:
-        description: "Branch for storefront-ui"
-        required: false
-        default: "main"
-        type: string
-      tax:
-        description: "Branch for tax"
-        required: false
-        default: "main"
-        type: string
-      webhook:
-        description: "Branch for webhook"
-        required: false
-        default: "main"
+      service_name:
+        description: "Service cần test"
+        required: true
+        type: choice
+        options:
+          - backoffice-bff
+          - backoffice-ui
+          - cart
+          - customer
+          - inventory
+          - location
+          - media
+          - order
+          - payment
+          - payment-paypal
+          - product
+          - promotion
+          - rating
+          - recommendation
+          - sampledata
+          - search
+          - storefront-bff
+          - storefront-ui
+          - tax
+          - webhook
+      branch_name:
+        description: "Nhánh (branch) chứa mã nguồn mới (ví dụ: dev_tax_service)"
+        required: true
         type: string
 
 permissions:
@@ -124,96 +45,35 @@ permissions:
   packages: read
 
 env:
-  NAMESPACE: sandbox
   REGISTRY: ghcr.io
-  OWNER: 23120091   # repository_owner, matches existing ci.yml image path convention
+  OWNER: 23120091
 
 jobs:
-  resolve-tags:
-    name: Resolve image tag per service
+  build-and-deploy:
+    name: Build & Deploy ${{ github.event.inputs.service_name }}
     runs-on: ubuntu-latest
-    outputs:
-      tags_json: ${{ steps.resolve.outputs.tags_json }}
-      build_matrix: ${{ steps.resolve.outputs.build_matrix }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Resolve branch -> image tag for every service
-        id: resolve
-        shell: bash
-        run: |
-          declare -A SERVICES=(
-            [backoffice-bff]="${{ inputs['backoffice-bff'] }}"
-            [backoffice-ui]="${{ inputs['backoffice-ui'] }}"
-            [cart]="${{ inputs.cart }}"
-            [customer]="${{ inputs.customer }}"
-            [inventory]="${{ inputs.inventory }}"
-            [location]="${{ inputs.location }}"
-            [media]="${{ inputs.media }}"
-            [order]="${{ inputs.order }}"
-            [payment]="${{ inputs.payment }}"
-            [payment-paypal]="${{ inputs['payment-paypal'] }}"
-            [product]="${{ inputs.product }}"
-            [promotion]="${{ inputs.promotion }}"
-            [rating]="${{ inputs.rating }}"
-            [recommendation]="${{ inputs.recommendation }}"
-            [sampledata]="${{ inputs.sampledata }}"
-            [search]="${{ inputs.search }}"
-            [storefront-bff]="${{ inputs['storefront-bff'] }}"
-            [storefront-ui]="${{ inputs['storefront-ui'] }}"
-            [tax]="${{ inputs.tax }}"
-            [webhook]="${{ inputs.webhook }}"
-          )
-
-          echo "{" > tags.json
-          echo "[" > build_matrix.json
-          first=true
-          first_build=true
-          for svc in "${!SERVICES[@]}"; do
-            branch="${SERVICES[$svc]}"
-            if [ "$branch" = "main" ] || [ -z "$branch" ]; then
-              tag="latest"
-            else
-              # Get the latest commit SHA on that branch from the remote
-              sha=$(git ls-remote origin "refs/heads/$branch" | cut -f1 | cut -c1-7)
-              if [ -z "$sha" ]; then
-                echo "::error::Branch '$branch' not found for service '$svc'"
-                exit 1
-              fi
-              safe_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9._-]/-/g')
-              tag="${safe_branch}-${sha}"
-              
-              if [ "$first_build" = true ]; then first_build=false; else echo "," >> build_matrix.json; fi
-              printf '{"name":"%s","branch":"%s","tag":"%s"}' "$svc" "$branch" "$tag" >> build_matrix.json
-            fi
-
-            if [ "$first" = true ]; then first=false; else echo "," >> tags.json; fi
-            printf '"%s":"%s"' "$svc" "$tag" >> tags.json
-          done
-          echo "}" >> tags.json
-          echo "]" >> build_matrix.json
-
-          cat tags.json
-          echo ""
-          cat build_matrix.json
-          echo ""
-          echo "tags_json=$(cat tags.json | tr -d '\n')" >> "$GITHUB_OUTPUT"
-          echo "build_matrix=$(cat build_matrix.json | tr -d '\n')" >> "$GITHUB_OUTPUT"
-
-  build-images:
-    name: Build & Push image for ${{ matrix.service.name }}
-    needs: resolve-tags
-    if: ${{ needs.resolve-tags.outputs.build_matrix != '[]' && needs.resolve-tags.outputs.build_matrix != '' }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        service: ${{ fromJson(needs.resolve-tags.outputs.build_matrix) }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          ref: ${{ matrix.service.branch }}
+          ref: ${{ github.event.inputs.branch_name }}
+
+      - name: Resolve Tag
+        id: resolve
+        shell: bash
+        run: |
+          SERVICE="${{ github.event.inputs.service_name }}"
+          BRANCH="${{ github.event.inputs.branch_name }}"
+          
+          # Lấy 7 ký tự SHA của commit mới nhất
+          SHA=$(git rev-parse --short=7 HEAD)
+          SAFE_BRANCH=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9._-]/-/g')
+          TAG="${SAFE_BRANCH}-${SHA}"
+          
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "service=$SERVICE" >> "$GITHUB_OUTPUT"
+          
+          echo "Build tag resolved: $TAG for service $SERVICE"
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -223,7 +83,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up JDK 25
-        if: ${{ matrix.service.name != 'storefront-ui' && matrix.service.name != 'backoffice-ui' }}
+        if: ${{ github.event.inputs.service_name != 'storefront-ui' && github.event.inputs.service_name != 'backoffice-ui' }}
         uses: actions/setup-java@v4
         with:
           java-version: '25'
@@ -231,19 +91,19 @@ jobs:
           cache: 'maven'
 
       - name: Build Java JAR
-        if: ${{ matrix.service.name != 'storefront-ui' && matrix.service.name != 'backoffice-ui' }}
+        if: ${{ github.event.inputs.service_name != 'storefront-ui' && github.event.inputs.service_name != 'backoffice-ui' }}
         run: |
-          ./mvnw clean package -pl ${{ matrix.service.name }} -am -DskipTests
+          ./mvnw clean package -pl ${{ github.event.inputs.service_name }} -am -DskipTests
 
-      - name: Set Docker Build Context Path
+      - name: Set Docker Context Path
         id: context
         run: |
-          if [ "${{ matrix.service.name }}" = "storefront-ui" ]; then
+          if [ "${{ github.event.inputs.service_name }}" = "storefront-ui" ]; then
             echo "path=storefront" >> "$GITHUB_OUTPUT"
-          elif [ "${{ matrix.service.name }}" = "backoffice-ui" ]; then
+          elif [ "${{ github.event.inputs.service_name }}" = "backoffice-ui" ]; then
             echo "path=backoffice" >> "$GITHUB_OUTPUT"
           else
-            echo "path=${{ matrix.service.name }}" >> "$GITHUB_OUTPUT"
+            echo "path=${{ github.event.inputs.service_name }}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build and Push Docker Image
@@ -251,21 +111,10 @@ jobs:
         with:
           context: ./${{ steps.context.outputs.path }}
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.service.name }}:${{ matrix.service.tag }}
-
-  deploy-sandbox:
-    name: Deploy sandbox namespace
-    needs: [resolve-tags, build-images]
-    if: always() && (needs.build-images.result == 'success' || needs.build-images.result == 'skipped') && needs.resolve-tags.result == 'success'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ github.event.inputs.service_name }}:${{ steps.resolve.outputs.tag }}
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
-
-      - name: Setup Helm
-        uses: azure/setup-helm@v4
 
       - name: Configure kubeconfig
         run: |
@@ -273,47 +122,30 @@ jobs:
           echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$HOME/.kube/config"
           chmod 600 "$HOME/.kube/config"
 
-      - name: Build helm dependencies and deploy each service
-        shell: bash
-        run: |  
-          TAGS_JSON='${{ needs.resolve-tags.outputs.tags_json }}'
-          echo "Resolved tags: $TAGS_JSON"
+      - name: Install ArgoCD CLI
+        run: |
+          curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
 
-          kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
-
-          for svc in backoffice-bff backoffice-ui cart customer inventory location media order payment payment-paypal product promotion rating recommendation sampledata search storefront-bff storefront-ui tax webhook; do
-            tag=$(echo "$TAGS_JSON" | jq -r --arg s "$svc" '.[$s]')
-            echo "== Deploying $svc with tag=$tag =="
-
-            helm dependency build "k8s/charts/$svc" || true
-
-            # backoffice-ui/storefront-ui use the "ui" base chart key, others use "backend"
-            if [ "$svc" = "backoffice-ui" ] || [ "$svc" = "storefront-ui" ]; then
-              VALUE_KEY="ui"
-            else
-              VALUE_KEY="backend"
-            fi
-
-            helm upgrade --install "$svc" "k8s/charts/$svc" \
-              --namespace "$NAMESPACE" --create-namespace \
-              --set "${VALUE_KEY}.image.repository=${REGISTRY}/${OWNER}/${svc}" \
-              --set "${VALUE_KEY}.image.tag=${tag}" \
-              --set "${VALUE_KEY}.image.pullPolicy=Always" \
-              --set "${VALUE_KEY}.service.type=NodePort" \
-              --wait --timeout 5m || echo "::warning::Deploy failed for $svc, continuing with others"
-          done
-
-      - name: Print access information
+      - name: Deploy via ArgoCD CLI Override
         shell: bash
         run: |
-          echo "## Sandbox deployed. NodePort access info:" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Add these to your /etc/hosts pointing at your K3s worker node IP," >> "$GITHUB_STEP_SUMMARY"
-          echo "then access via http://<service>.sandbox.yas.local.com:<nodeport>" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo '| Service | NodePort |' >> "$GITHUB_STEP_SUMMARY"
-          echo '|---|---|' >> "$GITHUB_STEP_SUMMARY"
-          for svc in backoffice-bff backoffice-ui cart customer inventory location media order payment payment-paypal product promotion rating recommendation sampledata search storefront-bff storefront-ui tax webhook; do
-            PORT=$(kubectl get svc "$svc" -n "$NAMESPACE" -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "n/a")
-            echo "| $svc | $PORT |" >> "$GITHUB_STEP_SUMMARY"
-          done
+          SERVICE="${{ steps.resolve.outputs.service }}"
+          TAG="${{ steps.resolve.outputs.tag }}"
+          
+          if [ "$SERVICE" = "backoffice-ui" ] || [ "$SERVICE" = "storefront-ui" ]; then
+            VALUE_KEY="ui"
+          else
+            VALUE_KEY="backend"
+          fi
+          
+          echo "Đang ghi đè tag bằng ArgoCD CLI..."
+          # Sử dụng --core để tương tác trực tiếp với kubeconfig mà không cần login qua server ArgoCD
+          argocd app set "$SERVICE" --helm-set "${VALUE_KEY}.image.tag=$TAG" --core --namespace argocd
+          
+          # Kích hoạt sync ngay lập tức để áp dụng sự thay đổi
+          argocd app sync "$SERVICE" --core --namespace argocd || true
+          
+          echo "## Đã cập nhật tag cho service $SERVICE!" >> "$GITHUB_STEP_SUMMARY"
+          echo "Image Tag mới: \`${TAG}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "> **Cách dọn dẹp (Reset):** Sau khi test xong, để đưa service về lại tag mặc định, hãy chạy lệnh: \`argocd app unset $SERVICE --helm-set ${VALUE_KEY}.image.tag --core\` (Hoặc nhấn Sync trực tiếp trên giao diện ArgoCD UI)" >> "$GITHUB_STEP_SUMMARY"
