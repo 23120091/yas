@@ -31,6 +31,10 @@ prometheus:
 
   serverFiles:
     prometheus.yml:
+      global:
+        scrape_interval: 15s
+        evaluation_interval: 15s
+        
       scrape_configs:
         # Auto-discover Java services in dev namespace
         - job_name: 'kubernetes-pods'
