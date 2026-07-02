@@ -25,7 +25,8 @@ paths = [
   '''k8s/sealed-secrets/.*\.yaml''',
   '''k8s/deploy/SECRET_MNG.md''',
   '''k8s/setup_server/setup-argocd-users.sh''',
-  '''k8s/deploy/deploy-yas-configuration.sh'''
+  '''k8s/deploy/deploy-yas-configuration.sh''',
+  '''k8s/charts/monitoring/values-grafana\.yaml'''
 ]
 [[rules]]
     description = "Detect .env"
