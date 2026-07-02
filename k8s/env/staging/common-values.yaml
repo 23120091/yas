@@ -107,7 +107,9 @@ backend:
   deployment:
     annotations:
       reloader.stakater.com/search: "true"
-
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8090"
+      prometheus.io/path: "/actuator/prometheus"
   # --------------------------------------------------------------------------
   # POD AFFINITY — Spread replicas across nodes for HA.
   # In staging, with replicaCount=2, this ensures the two pods are NOT

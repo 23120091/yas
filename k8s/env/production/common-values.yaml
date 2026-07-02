@@ -127,6 +127,9 @@ backend:
   deployment:
     annotations:
       reloader.stakater.com/search: "true"
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8090"
+      prometheus.io/path: "/actuator/prometheus"
 
   # --------------------------------------------------------------------------
   # POD ANTI-AFFINITY — Production spreads across nodes AND zones.
