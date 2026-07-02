@@ -43,17 +43,21 @@ prometheus:
             - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
               action: keep
               regex: true
+            
             - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
               action: replace
               target_label: __address__
               regex: ([^:]+)(?::\d+)?;(\d+)
               replacement: $1:$2
-              # Simplified: scrape tất cả pod có port 8090 (metric port)
-            - source_labels: [__meta_kubernetes_pod_container_port_number]
-              action: keep
-              regex: "8090"
+            
+            - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+              action: replace
+              target_label: __metrics_path__
+              regex: (.+)
+            
             - source_labels: [__meta_kubernetes_namespace]
               target_label: namespace
+            
             - source_labels: [__meta_kubernetes_pod_name]
               target_label: pod
               
