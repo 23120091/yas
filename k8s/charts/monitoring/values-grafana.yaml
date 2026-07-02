@@ -16,18 +16,18 @@ grafana:
       datasources:
         - name: Prometheus-Dev
           type: prometheus
-          url: http://prometheus-dev-server.observability-dev:9090
+          url: http://prometheus-dev-server.observability-dev:80
           access: proxy
           isDefault: true
           editable: false
         - name: Prometheus-Staging
           type: prometheus
-          url: http://prometheus-staging-server.observability-staging:9090
+          url: http://prometheus-staging-server.observability-staging:80
           access: proxy
           editable: false
         - name: Prometheus-Production
           type: prometheus
-          url: http://prometheus-production-server.observability-production:9090
+          url: http://prometheus-production-server.observability-production:80
           access: proxy
           editable: false
         - name: Loki-Dev
