@@ -106,6 +106,12 @@ backend:
     - secretRef:
         name: yas-credentials-secret
 
+  globalExtraEnvs:
+  - name: MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE
+    value: "prometheus,health,info"
+  - name: MANAGEMENT_ENDPOINT_PROMETHEUS_ENABLED
+    value: "true"
+
   # --------------------------------------------------------------------------
   # PROBES — Health check configuration.
   # These are standard Spring Boot Actuator endpoints.
