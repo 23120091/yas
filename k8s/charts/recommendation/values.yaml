@@ -8,7 +8,6 @@ backend:
   databaseName: recommendation
   ingress:
     enabled: false
-  extraEnvFroms: []
   extraVolumes:
     - name: recommendation-application
       configMap:
