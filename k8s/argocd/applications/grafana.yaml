@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: argocd
+spec:
+  project: yas
+  source:
+    repoURL: https://github.com/23120091/yas
+    targetRevision: main
+    path: k8s/charts/monitoring
+    helm:
+      valueFiles:
+        - "values-grafana.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
