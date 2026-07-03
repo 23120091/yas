@@ -39,6 +39,14 @@ on:
         description: "Nhánh (branch) chứa mã nguồn mới (ví dụ: dev_tax_service)"
         required: true
         type: string
+      environment:
+        description: "Môi trường ArgoCD cần deploy"
+        required: false
+        type: choice
+        default: "dev"
+        options:
+          - dev
+          - staging
 
 permissions:
   contents: read
@@ -122,16 +130,16 @@ jobs:
           mkdir -p "$HOME/.kube"
           echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$HOME/.kube/config"
           chmod 600 "$HOME/.kube/config"
+          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
-      - name: Install ArgoCD CLI
-        run: |
-          curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
-          sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
 
-      - name: Deploy via ArgoCD CLI Override
+
+      - name: Override image tag via kubectl patch
         shell: bash
         run: |
           SERVICE="${{ steps.resolve.outputs.service }}"
+          ENV="${{ inputs.environment }}"
+          APP_NAME="${SERVICE}-${ENV}"
           TAG="${{ steps.resolve.outputs.tag }}"
           
           if [ "$SERVICE" = "backoffice-ui" ] || [ "$SERVICE" = "storefront-ui" ]; then
@@ -140,13 +148,11 @@ jobs:
             VALUE_KEY="backend"
           fi
           
-          echo "Đang ghi đè tag bằng ArgoCD CLI..."
-          # Sử dụng --core để tương tác trực tiếp với kubeconfig mà không cần login qua server ArgoCD
-          argocd app set "$SERVICE" --helm-set "${VALUE_KEY}.image.tag=$TAG" --core
+          echo "Đang ghi đè tag cho Application: $APP_NAME ..."
+          kubectl patch application "$APP_NAME" -n argocd --type merge \
+            -p "{\"spec\":{\"source\":{\"helm\":{\"parameters\":[{\"name\":\"${VALUE_KEY}.image.tag\",\"value\":\"${TAG}\"}]}}}}"
           
-          # Kích hoạt sync ngay lập tức để áp dụng sự thay đổi
-          argocd app sync "$SERVICE" --core || true
-          
-          echo "## Đã cập nhật tag cho service $SERVICE!" >> "$GITHUB_STEP_SUMMARY"
+          echo "## ✅ Đã cập nhật tag cho $APP_NAME!" >> "$GITHUB_STEP_SUMMARY"
           echo "Image Tag mới: \`${TAG}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "> **Cách dọn dẹp (Reset):** Sau khi test xong, để đưa service về lại tag mặc định, hãy chạy lệnh: \`argocd app unset $SERVICE --helm-set ${VALUE_KEY}.image.tag --core\` (Hoặc nhấn Sync trực tiếp trên giao diện ArgoCD UI)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "> 💡 **Cách dọn dẹp (Reset):** Nhấn **Sync** trên ArgoCD UI để đưa service về lại tag mặc định theo Git." >> "$GITHUB_STEP_SUMMARY"
