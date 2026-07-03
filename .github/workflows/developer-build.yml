@@ -1,0 +1,151 @@
+name: Developer Build (Sandbox Deploy)
+
+# ============================================================================
+# Giải pháp Tối ưu: Chạy đè tag tạm thời bằng ArgoCD CLI
+# - Nhận đúng 2 tham số: Tên Service và Tên Nhánh.
+# - Build và Push Image cho service tương ứng.
+# - Dùng lệnh 'argocd app set --core' để ép đổi tag của service đó trên cụm.
+# ============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      service_name:
+        description: "Service cần test"
+        required: true
+        type: choice
+        options:
+          - backoffice-bff
+          - backoffice-ui
+          - cart
+          - customer
+          - inventory
+          - location
+          - media
+          - order
+          - payment
+          - payment-paypal
+          - product
+          - promotion
+          - rating
+          - recommendation
+          - sampledata
+          - search
+          - storefront-bff
+          - storefront-ui
+          - tax
+          - webhook
+      branch_name:
+        description: "Nhánh (branch) chứa mã nguồn mới (ví dụ: dev_tax_service)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: 23120091
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy ${{ github.event.inputs.service_name }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch_name }}
+
+      - name: Resolve Tag
+        id: resolve
+        shell: bash
+        run: |
+          SERVICE="${{ github.event.inputs.service_name }}"
+          BRANCH="${{ github.event.inputs.branch_name }}"
+          
+          # Lấy 7 ký tự SHA của commit mới nhất
+          SHA=$(git rev-parse --short=7 HEAD)
+          SAFE_BRANCH=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9._-]/-/g')
+          TAG="${SAFE_BRANCH}-${SHA}"
+          
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "service=$SERVICE" >> "$GITHUB_OUTPUT"
+          
+          echo "Build tag resolved: $TAG for service $SERVICE"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up JDK 25
+        if: ${{ github.event.inputs.service_name != 'storefront-ui' && github.event.inputs.service_name != 'backoffice-ui' }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build Java JAR
+        if: ${{ github.event.inputs.service_name != 'storefront-ui' && github.event.inputs.service_name != 'backoffice-ui' }}
+        run: |
+          ./mvnw clean package -pl ${{ github.event.inputs.service_name }} -am -DskipTests
+
+      - name: Set Docker Context Path
+        id: context
+        run: |
+          if [ "${{ github.event.inputs.service_name }}" = "storefront-ui" ]; then
+            echo "path=storefront" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.inputs.service_name }}" = "backoffice-ui" ]; then
+            echo "path=backoffice" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=${{ github.event.inputs.service_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ steps.context.outputs.path }}
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ github.event.inputs.service_name }}:${{ steps.resolve.outputs.tag }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Install ArgoCD CLI
+        run: |
+          curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
+
+      - name: Deploy via ArgoCD CLI Override
+        shell: bash
+        run: |
+          SERVICE="${{ steps.resolve.outputs.service }}"
+          TAG="${{ steps.resolve.outputs.tag }}"
+          
+          if [ "$SERVICE" = "backoffice-ui" ] || [ "$SERVICE" = "storefront-ui" ]; then
+            VALUE_KEY="ui"
+          else
+            VALUE_KEY="backend"
+          fi
+          
+          echo "Đang ghi đè tag bằng ArgoCD CLI..."
+          # Sử dụng --core để tương tác trực tiếp với kubeconfig mà không cần login qua server ArgoCD
+          argocd app set "$SERVICE" --helm-set "${VALUE_KEY}.image.tag=$TAG" --core --namespace argocd
+          
+          # Kích hoạt sync ngay lập tức để áp dụng sự thay đổi
+          argocd app sync "$SERVICE" --core --namespace argocd || true
+          
+          echo "## Đã cập nhật tag cho service $SERVICE!" >> "$GITHUB_STEP_SUMMARY"
+          echo "Image Tag mới: \`${TAG}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "> **Cách dọn dẹp (Reset):** Sau khi test xong, để đưa service về lại tag mặc định, hãy chạy lệnh: \`argocd app unset $SERVICE --helm-set ${VALUE_KEY}.image.tag --core\` (Hoặc nhấn Sync trực tiếp trên giao diện ArgoCD UI)" >> "$GITHUB_STEP_SUMMARY"
