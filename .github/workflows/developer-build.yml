@@ -140,6 +140,7 @@ jobs:
         run: |
           SERVICE="${{ steps.resolve.outputs.service }}"
           ENV="${{ inputs.environment }}"
+          APP_NAME="${SERVICE}-${ENV}"
           TAG="${{ steps.resolve.outputs.tag }}"
           NAMESPACE="sandbox"
           
