@@ -1,5 +1,5 @@
 package com.yas.cart.config;
-
+ 
 import java.util.Optional;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.context.annotation.Bean;
