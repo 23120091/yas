@@ -132,27 +132,73 @@ jobs:
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
 
-
-      - name: Override image tag via kubectl patch
+      - name: Deploy via Helm to Sandbox Namespace
         shell: bash
         run: |
           SERVICE="${{ steps.resolve.outputs.service }}"
           ENV="${{ inputs.environment }}"
-          APP_NAME="${SERVICE}-${ENV}"
           TAG="${{ steps.resolve.outputs.tag }}"
+          NAMESPACE="sandbox"
           
+          # 1. Tạo namespace sandbox nếu chưa tồn tại
+          echo "Khởi tạo namespace $NAMESPACE..."
+          kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+          
+          # 2. Copy cấu hình và credentials từ namespace gốc sang sandbox
+          echo "Đang đồng bộ cấu hình (configmaps/secrets) từ namespace $ENV sang $NAMESPACE..."
+          for cm in $(kubectl get configmaps -n "$ENV" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null | tr ' ' '\n' | grep '^yas-'); do
+            kubectl get configmap "$cm" -n "$ENV" -o json | jq 'del(.metadata.namespace,.metadata.resourceVersion,.metadata.uid,.metadata.creationTimestamp,.metadata.ownerReferences)' | kubectl apply -n "$NAMESPACE" -f -
+          done
+
+          for secret in $(kubectl get secrets -n "$ENV" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null | tr ' ' '\n' | grep '^yas-'); do
+            kubectl get secret "$secret" -n "$ENV" -o json | jq 'del(.metadata.namespace,.metadata.resourceVersion,.metadata.uid,.metadata.creationTimestamp,.metadata.ownerReferences)' | kubectl apply -n "$NAMESPACE" -f -
+          done
+          
+          # Copy configmap cấu hình riêng của service
+          kubectl get configmap "${SERVICE}-application-configmap" -n "$ENV" -o json 2>/dev/null | jq 'del(.metadata.namespace,.metadata.resourceVersion,.metadata.uid,.metadata.creationTimestamp,.metadata.ownerReferences)' | kubectl apply -n "$NAMESPACE" -f - || true
+          
+          # 3. Tạo ExternalName để chuyển tiếp các service không được deploy sang namespace gốc
+          echo "Đang thiết lập định tuyến ExternalName liên namespace sang $ENV..."
+          ALL_SERVICES="backoffice-bff backoffice-ui cart customer inventory location media order payment payment-paypal product promotion rating recommendation sampledata search storefront-bff storefront-ui tax webhook"
+          for svc in $ALL_SERVICES; do
+            if [ "$svc" != "$SERVICE" ]; then
+              kubectl delete service "$svc" -n "$NAMESPACE" --ignore-not-found
+              kubectl create service externalname "$svc" -n "$NAMESPACE" --external-name="$svc.$ENV.svc.cluster.local"
+            fi
+          done
+          
+          # 4. Deploy service lên Sandbox bằng Helm
           if [ "$SERVICE" = "backoffice-ui" ] || [ "$SERVICE" = "storefront-ui" ]; then
             VALUE_KEY="ui"
           else
             VALUE_KEY="backend"
           fi
           
-          echo "Đang ghi đè tag cho Application: $APP_NAME ..."
-          kubectl patch application "$APP_NAME" -n argocd --type merge \
-            -p "{\"spec\":{\"source\":{\"helm\":{\"parameters\":[{\"name\":\"${VALUE_KEY}.image.tag\",\"value\":\"${TAG}\"}]}}}}"
+          echo "Đang build Helm dependencies cho $SERVICE..."
+          helm dependency build "k8s/charts/$SERVICE" || true
           
-          echo "## ✅ Đã cập nhật tag cho $APP_NAME!" >> "$GITHUB_STEP_SUMMARY"
-          echo "Image Tag mới: \`${TAG}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Đang thực hiện helm upgrade cho $SERVICE..."
+          helm upgrade --install "$SERVICE" "k8s/charts/$SERVICE" \
+            --namespace "$NAMESPACE" \
+            -f "k8s/env/${ENV}/common-values.yaml" \
+            -f "k8s/env/${ENV}/${SERVICE}-values.yaml" \
+            --set "${VALUE_KEY}.image.repository=${REGISTRY}/${OWNER}/${SERVICE}" \
+            --set "${VALUE_KEY}.image.tag=${TAG}" \
+            --set "${VALUE_KEY}.image.pullPolicy=Always" \
+            --set "${VALUE_KEY}.service.type=NodePort" \
+            --wait --timeout 5m
+            
+          # 5. In thông tin truy cập
+          PORT=$(kubectl get svc "$SERVICE" -n "$NAMESPACE" -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "n/a")
+          echo "## ✅ Đã deploy thành công $SERVICE lên namespace $NAMESPACE!" >> "$GITHUB_STEP_SUMMARY"
+          echo "* **Môi trường gốc:** \`$ENV\` (các service liên quan được tự động trỏ chéo sang namespace này)" >> "$GITHUB_STEP_SUMMARY"
+          echo "* **Image Tag:** \`$TAG\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "* **NodePort:** \`$PORT\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "> 💡 **Cách dọn dẹp (Reset):** Nhấn **Sync** trên ArgoCD UI để đưa service về lại tag mặc định theo Git." >> "$GITHUB_STEP_SUMMARY"
+          echo "### 🌐 Cách truy cập test:" >> "$GITHUB_STEP_SUMMARY"
+          echo "1. Thêm dòng sau vào file \`hosts\` trên máy tính cá nhân của bạn (với IP của K3s master/worker):" >> "$GITHUB_STEP_SUMMARY"
+          echo "   \`<IP_K3S>    $SERVICE.sandbox.yas.local.com\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "2. Truy cập qua địa chỉ: \`http://$SERVICE.sandbox.yas.local.com:$PORT\`" >> "$GITHUB_STEP_SUMMARY"

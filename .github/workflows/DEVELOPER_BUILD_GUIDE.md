@@ -1,23 +1,21 @@
-# Hướng dẫn sử dụng Workflow Developer Build (ArgoCD Sandbox Deploy)
+# Hướng dẫn sử dụng Workflow Developer Build (Hybrid Sandbox Namespace)
 
 ## 1. Giới thiệu tổng quan
-File `.github/workflows/developer-build.yml` định nghĩa một quá trình (workflow) CI/CD dành cho developer để test code của mình trên môi trường Dev (hoặc Sandbox) một cách nhanh chóng và tiết kiệm tài nguyên.
+File `.github/workflows/developer-build.yml` định nghĩa quá trình (workflow) CI/CD dành cho developer để test code của mình một cách biệt lập, an toàn và tối ưu tài nguyên trước khi merge vào `main`.
 
-**Workflow này áp dụng giải pháp "Chạy đè tag bằng ArgoCD CLI" và hoạt động như sau:**
-1. **Lựa chọn Đơn giản:** Cho phép developer chọn 1 Service duy nhất cần test từ danh sách (Dropdown) và nhập tên nhánh (Branch) chứa mã nguồn mới.
-2. **Build & Push Nhanh chóng:** Tự động build Docker image cho riêng service đó. Image tag sẽ được gán theo định dạng `tên_nhánh-mã_sha_commit` (ví dụ: `dev_tax-a1b2c3d`).
-3. **Deploy Siêu tốc (ArgoCD Override):** Thay vì chạy lại Helm cho hàng loạt service, Job sẽ dùng lệnh `argocd app set` để can thiệp trực tiếp vào ArgoCD, **ép (override) đổi tag** của riêng service đó sang image mới. Quá trình này diễn ra chỉ trong vài giây.
-4. **Giữ nguyên trạng thái Git:** Cấu hình trên Git (file values.yaml của môi trường dev) vẫn giữ nguyên là tag `latest` hoặc `main`.
-
-> **⚠️ LƯU Ý BẢO MẬT/XUNG ĐỘT:** 
-> - Vì bạn đang can thiệp trực tiếp vào cụm qua ArgoCD, sự thay đổi tag này chỉ mang tính tạm thời (không lưu vào Git).
-> - Nếu nhiều developer cùng thao tác test trên một service ở cùng thời điểm, người chạy job sau sẽ ghi đè lên tag của người chạy trước. 
+**Cơ chế hoạt động (Hybrid Sandbox):**
+1. **Cô lập theo Namespace:** Thay vì đè lên môi trường chung, service bạn chọn test sẽ được deploy vào một namespace riêng tên là `sandbox`.
+2. **Liên kết môi trường (Hybrid Routing):** 
+   - Để tiết kiệm tài nguyên (không cần khởi tạo lại cả 19 service khác), workflow chỉ deploy đúng duy nhất service bạn cần test lên `sandbox`.
+   - Các service còn lại mà service của bạn cần gọi sẽ được hệ thống định tuyến (thông qua Kubernetes **ExternalName**) trỏ chéo sang namespace môi trường thật bạn chọn (ví dụ: `dev` hoặc `staging`).
+3. **Đồng bộ cấu hình tự động:** Job sẽ tự động sao chép các ConfigMaps và Secrets gốc (ví dụ các DB credentials, logback, JWT secrets) từ namespace nguồn sang namespace `sandbox` để đảm bảo kết nối thông suốt.
+4. **NodePort truy cập:** Service được test sẽ tự động cấu hình kiểu `NodePort` để cho phép truy cập trực tiếp từ máy cá nhân của bạn.
 
 ---
 
 ## 2. Quy trình chi tiết để thực hiện deploy và test
 
-Để đưa mã nguồn mới của mình lên môi trường test, hãy thực hiện lần lượt các bước dưới đây:
+Để đưa mã nguồn mới của mình lên môi trường test Sandbox:
 
 ### Bước 1: Phát triển và đẩy code lên Github (Push)
 Làm việc trên một nhánh riêng tư và đẩy mã nguồn lên Github:
@@ -40,23 +38,40 @@ git push origin dev_tax_service
 2. Chuyển sang tab **Actions**.
 3. Tìm ở menu bên trái và nhấp vào workflow **Developer Build (Sandbox Deploy)**.
 4. Nhấp vào nút **Run workflow** ở góc trên bên phải.
-5. Sẽ chỉ có 2 thông tin bạn cần nhập:
+5. Nhập các thông số đầu vào:
    - **service_name (Dropdown):** Bấm chọn đúng tên service bạn vừa sửa (ví dụ: `tax`).
    - **branch_name (Text):** Nhập chính xác tên nhánh bạn vừa push lên (ví dụ: `dev_tax_service`).
-6. Nhấp nút **Run workflow** (màu xanh lá) để hệ thống chạy Build và Override tag.
+   - **environment (Dropdown):** Chọn môi trường chạy các service vệ tinh còn lại (mặc định là `dev`).
+6. Nhấp nút **Run workflow** (màu xanh lá) để bắt đầu.
 
-### Bước 3: Đợi tiến trình hoàn tất và Kiểm tra
-1. Quá trình build và deploy kiểu mới diễn ra rất nhanh. Hãy đợi dấu tích xanh báo hoàn tất.
-2. Bấm vào chi tiết lần chạy, xem phần **Summary** để xác nhận Tag mới đã được cập nhật thành công qua ArgoCD.
-3. Tiến hành test service thông qua Domain/URL (hoặc Postman) của môi trường Dev/Sandbox hiện tại mà bạn vẫn thường dùng.
+### Bước 3: Đợi tiến trình hoàn tất và lấy thông tin truy cập
+1. Đợi đến khi tiến trình (job) hiển thị trạng thái hoàn tất (dấu tích xanh).
+2. Bấm vào chi tiết của lần chạy, tìm phần **Summary** của Workflow.
+3. Hệ thống sẽ in ra thông tin chi tiết bao gồm **NodePort** (Ví dụ: `30123`).
 
-### Bước 4: Dọn dẹp môi trường (Reset) sau khi test xong
-Vì đây là thao tác ép tag tạm thời, sau khi bạn test xong và merge code, hoặc muốn nhường môi trường lại cho người khác, bạn cần trả service về trạng thái mặc định:
+### Bước 4: Cấu hình file Hosts và bắt đầu Test
+Sử dụng NodePort nhận được từ Bước 3 để tiến hành trỏ IP:
+1. Mở file `hosts` trên máy tính cá nhân của bạn với quyền Administrator (hoặc Sudo):
+   - **Windows:** `C:\Windows\System32\drivers\etc\hosts`
+   - **Linux / Mac:** `/etc/hosts`
+2. Thêm dòng khai báo ánh xạ (mapping) IP ngoại (External IP) của K3s master với tên miền Sandbox tương ứng:
+   ```text
+   34.87.6.157    tax.sandbox.yas.local.com
+   ```
+3. Mở trình duyệt web hoặc công cụ test (như Postman), truy cập vào địa chỉ dạng: 
+   `http://tax.sandbox.yas.local.com:<NodePort_của_bạn>` để kiểm tra.
 
-**Cách 1 (Khuyên dùng):** Truy cập vào giao diện Web UI của ArgoCD. Tìm đến Application của service đó, nhấp vào nút **Sync** (đảm bảo nó đối chiếu lại với cấu hình trên Git gốc, tự kéo tag `latest` về lại).
+---
 
-**Cách 2 (Bằng lệnh CLI):** Nếu bạn có công cụ ArgoCD CLI trên máy:
-```bash
-argocd app unset tên_service --helm-set backend.image.tag --core
-```
-Lệnh này sẽ gỡ bỏ ép buộc tag, giúp hệ thống tự phục hồi về nguyên trạng theo GitOps.
+## 3. Dọn dẹp môi trường (Cleanup)
+
+Sau khi hoàn thành test, nếu bạn muốn dọn dẹp để làm trống tài nguyên cụm:
+- **Để xóa hoàn toàn Sandbox:** Chạy lệnh sau trên máy `phuoc@master`:
+  ```bash
+  kubectl delete namespace sandbox
+  ```
+- **Nếu chỉ muốn gỡ bỏ service đó:**
+  ```bash
+  helm uninstall <tên_service> -n sandbox
+  ```
+- *Lưu ý:* Nếu bạn không xóa, lần chạy sau của bất kỳ developer nào trên cùng service đó sẽ tự động cập nhật đè lên bản cũ của bạn.
