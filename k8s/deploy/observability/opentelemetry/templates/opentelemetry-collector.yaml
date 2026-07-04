@@ -39,7 +39,7 @@ spec:
           - action: insert
             key: loki.format
             value: raw
-            
+
     exporters:
       logging:
         verbosity: detailed
@@ -53,7 +53,7 @@ spec:
           address: 0.0.0.0:8889
       pipelines:
         logs:
-          receivers: [loki]
+          receivers: [loki, otlp]
           processors: [attributes, batch]
           exporters: [loki]
         traces:
