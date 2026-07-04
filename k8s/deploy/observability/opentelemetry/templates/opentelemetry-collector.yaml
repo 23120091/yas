@@ -29,6 +29,8 @@ spec:
         use_incoming_timestamp: true
     processors:
       batch:
+        send_batch_size: 1024
+        timeout: 10s
       attributes:
         actions:
           - action: insert
@@ -37,6 +39,10 @@ spec:
           - action: insert
             key: loki.format
             value: raw
+      filter/logs:
+        logs:
+          log_record:
+            - 'severity_text == "DEBUG"'
     exporters:
       logging:
         verbosity: detailed
