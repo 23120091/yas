@@ -10,6 +10,10 @@ spec:
       port: 3500
       protocol: TCP
       targetPort: 3500
+    - name: metrics
+      port: 8889
+      protocol: TCP
+      targetPort: 8889
   config: |
     receivers:
       otlp:
@@ -41,6 +45,9 @@ spec:
       otlphttp:
         endpoint: {{ .Values.tempoEndpoint }}
     service:
+      telemetry:
+        metrics:
+          address: 0.0.0.0:8889
       pipelines:
         logs:
           receivers: [loki]
