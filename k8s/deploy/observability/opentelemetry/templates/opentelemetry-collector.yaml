@@ -39,10 +39,7 @@ spec:
           - action: insert
             key: loki.format
             value: raw
-      filter/logs:
-        logs:
-          log_record:
-            - 'severity_text == "DEBUG"'
+            
     exporters:
       logging:
         verbosity: detailed
@@ -57,7 +54,7 @@ spec:
       pipelines:
         logs:
           receivers: [loki]
-          processors: [attributes, batch, filter/logs]
+          processors: [attributes, batch]
           exporters: [loki]
         traces:
           receivers: [otlp]

@@ -32,7 +32,7 @@ grafana:
           editable: false
         - name: Loki-Dev
           type: loki
-          url: http://loki-read.observability-staging:3100
+          url: http://loki-read.observability-dev:3100
           access: proxy
           editable: false
         - name: Tempo-Dev
