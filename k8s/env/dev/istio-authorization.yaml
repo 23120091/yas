@@ -1,0 +1,69 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all-by-default
+  namespace: dev
+spec:
+  {} # Bật Zero-Trust: Mặc định khóa toàn bộ kết nối nội bộ namespace dev
+
+---
+# TẦNG 1: Bảo vệ Storefront BFF (Chỉ cho phép duy nhất Storefront UI kết nối)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-storefront-ui-to-bff
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: storefront-bff 
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/dev/sa/storefront-ui"]
+
+---
+# TẦNG 1 (Tiếp theo): Bảo vệ Backoffice BFF (Chỉ cho phép Backoffice UI kết nối)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-backoffice-ui-to-bff
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backoffice-bff
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/dev/sa/backoffice-ui"]
+
+---
+# TẦNG 2: Bảo vệ 10 Business Services (Chỉ cho phép 2 ông BFF gọi xuống)
+# Cấm tuyệt đối các Business Services tự gọi chéo trực tiếp lẫn nhau
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-business-services
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      # Sử dụng danh sách liệt kê để bọc toàn bộ 10 business services cốt lõi
+      # Cách này giúp ta không bị phụ thuộc vào một nhãn chung nào cả
+      app.kubernetes.io/name: product
+      app.kubernetes.io/name: cart
+      app.kubernetes.io/name: order
+      app.kubernetes.io/name: customer
+      app.kubernetes.io/name: inventory
+      app.kubernetes.io/name: tax
+      app.kubernetes.io/name: media
+      app.kubernetes.io/name: search
+      app.kubernetes.io/name: rating
+      app.kubernetes.io/name: recommendation
+  rules:
+  - from:
+    - source:
+        principals: 
+          - "cluster.local/ns/dev/sa/storefront-bff"
+          - "cluster.local/ns/dev/sa/backoffice-bff"
