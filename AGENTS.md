@@ -2,14 +2,14 @@
 
 ## Architecture
 
-- **Monorepo**: root `pom.xml` declares 20 Maven modules — 18 Java Spring Boot 4.0 services + `common-library/` (shared entities, Kafka CDC helpers, CSV, mappers) + `sampledata/` (seed data).
+- **Monorepo**: root `pom.xml` declares 20 Maven modules — 18 Java Spring Boot 4.0.2 services + `common-library/` (shared entities, Kafka CDC helpers, CSV, mappers) + `sampledata/` (seed data).
 - **BFF modules** (`storefront-bff/`, `backoffice-bff/`) are Spring Cloud Gateway apps that proxy to backend microservices and handle OAuth2 token relay.
 - **2 standalone Next.js 14 frontends** — `storefront/` and `backoffice/`.
 - Authentication: **Keycloak** (realm export at `identity/realm-export.json`).
 - Event-driven: **Kafka** + Debezium CDC source connectors (`kafka/connects/`).
 - Search: **Elasticsearch** (separate `docker-compose.search.yml`).
 - Observability: **OpenTelemetry** Java agent → **Grafana/Loki/Tempo/Prometheus** (separate `docker-compose.o11y.yml`).
-- Modules `webhook`, `recommendation`, and `delivery` exist in `pom.xml` but are **commented out** in `docker-compose.yml`.
+- `webhook` and `recommendation` exist in `pom.xml` but are **commented out** in `docker-compose.yml`. `delivery` exists in `pom.xml` but is entirely absent from `docker-compose.yml`.
 
 ## Developer Commands
 
@@ -42,9 +42,13 @@ docker exec -it yas-java-25 bash
 ```bash
 # In storefront/ or backoffice/
 npm run dev        # dev server
-npm test -- --coverage
+npm test -- --coverage --passWithNoTests
+npm ci --legacy-peer-deps  # install deps (peer dep conflicts)
 npx prettier -w .  # format before committing
 ```
+
+- **Jest versions differ**: storefront uses `jest@30.3.0`, backoffice uses `jest@29.7.0`.
+- CI uses `npm ci --legacy-peer-deps` (not `npm install`) because of peer dependency conflicts.
 
 ### Docker Compose
 
@@ -67,8 +71,10 @@ docker compose -f docker-compose.yml up  # core services only
 
 1. `docker compose up` to start infrastructure (postgres, kafka, keycloak, etc.).
 2. Run the target Java service in your IDE (default port, e.g. product on 8092).
-3. In the BFF's `application.yaml`, add a route pointing to your local service as the **first** gateway route (see `docs/developer-guidelines.md`).
+3. In the BFF's `application-dev.yaml`, add a route pointing to your local service as the **first** gateway route. Use `path: gateway.server.webflux.routes` — **not** `gateway.routes` (see K8s Gotcha below).
 4. Run the matching frontend via `npm run dev` in `storefront/` or `backoffice/`.
+
+**Note:** `docs/developer-guidelines.md` references the old `spring.cloud.gateway.routes` property path which is **silently ignored** in this version. The correct path is shown in `application-dev.yaml`.
 
 ## Testing Conventions
 
@@ -103,6 +109,13 @@ docker compose -f docker-compose.yml up  # core services only
 - Keycloak admin: `admin/admin`. PostgreSQL: `admin/admin`. PGAdmin: `admin@yas.com/admin`.
 - Backoffice login: `admin/password`.
 - Swagger UI at `http://api.yas.local/swagger-ui/` when containers are running.
+
+## Architecture Notes
+
+- **Nginx** (port 80) is the front proxy — it routes incoming requests to BFFs, backend services, Keycloak, and pgAdmin via hostnames (`api.yas.local`, `backoffice`, `storefront`, `identity`, etc.).
+- **Virtual threads** enabled in both BFF modules (`spring.threads.virtual.enabled: true`).
+- **Spring profiles**: `dev` (default) for local/IDE runs, `prod` in Docker containers via `SPRING_PROFILES_ACTIVE=prod`.
+- **automation-ui/** is a separate Java 21 + Spring Boot 3.3.2 + Cucumber/Selenium test project (not part of the main Java 25 build).
 
 ## Known Gotchas
 

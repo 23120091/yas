@@ -98,9 +98,11 @@ backend:
   deployment:
     annotations:
       reloader.stakater.com/search: "true"
-      prometheus.io/scrape: "true"
-      prometheus.io/port: "8090"
-      prometheus.io/path: "/actuator/prometheus"
+
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8090"
+    prometheus.io/path: "/actuator/prometheus"
 
   extraEnvFroms:
     - secretRef:
