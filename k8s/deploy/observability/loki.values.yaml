@@ -13,6 +13,12 @@ loki:
       chunks: loki-chunks
       ruler: loki-ruler
       admin: loki-admin
+  config:
+    limits_config:
+      ingestion_rate_mb: 50  
+      ingestion_burst_size_mb: 100  
+      reject_old_samples: false     
+      enforce_metric_name: false
   test:
     enabled: false
 storage:
@@ -51,3 +57,4 @@ monitoring:
     enabled: false
     grafanaAgent:
       installOperator: false
+
