@@ -6,10 +6,23 @@ prometheus:
     resources:
       requests:
         cpu: 200m
-        memory: 512Mi
+        memory: 1Gi   
       limits:
         cpu: 500m
-        memory: 1Gi
+        memory: 2Gi 
+
+    startupProbe:
+      httpGet:
+        path: /-/healthy
+        port: 9090
+      failureThreshold: 60
+      periodSeconds: 15
+      
+    readinessProbe:
+      initialDelaySeconds: 60
+      periodSeconds: 10
+      timeoutSeconds: 5
+      
     ingress:
       enabled: true
       ingressClassName: traefik
