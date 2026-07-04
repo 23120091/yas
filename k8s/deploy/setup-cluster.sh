@@ -287,6 +287,7 @@ helm upgrade --install "loki-${ENV}" grafana/loki \
 helm upgrade --install "tempo-${ENV}" grafana/tempo \
   --create-namespace --namespace "${OBS_NS}" \
   -f ./observability/tempo.values.yaml \
+  -f "./observability/tempo-${ENV}.values.yaml" \
   --values "./infra-${ENV}-affinity.yaml"
 
 # --------------------------------------------------------------------------

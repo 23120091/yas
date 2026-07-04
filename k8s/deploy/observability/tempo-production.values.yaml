@@ -1,0 +1,6 @@
+tempo:
+  metricsGenerator:
+    enabled: true
+    remoteWrite:
+      enabled: true
+      endpoint: http://prometheus-production-server:9090/api/v1/write
