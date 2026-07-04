@@ -32,32 +32,32 @@ grafana:
           editable: false
         - name: Loki-Dev
           type: loki
-          url: http://loki-dev-gateway.observability-dev:80
+          url: http://loki-read.observability-staging:3100
           access: proxy
           editable: false
         - name: Tempo-Dev
           type: tempo
-          url: http://tempo-dev.observability-dev:4318
+          url: http://tempo-dev.observability-dev:3200
           access: proxy
           editable: false
         - name: Loki-Staging
           type: loki
-          url: http://loki-staging-gateway.observability-staging:80
+          url: http://loki-read.observability-staging:3100
           access: proxy
           editable: false
         - name: Tempo-Staging
           type: tempo
-          url: http://tempo-staging.observability-staging:4318
+          url: http://tempo-staging.observability-staging:3200
           access: proxy
           editable: false
         - name: Loki-Production
           type: loki
-          url: http://loki-production-gateway.observability-production:80
+          url: http://loki-read.observability-production:3100
           access: proxy
           editable: false
         - name: Tempo-Production
           type: tempo
-          url: http://tempo-production.observability-production:4318
+          url: http://tempo-production.observability-production:3200
           access: proxy
           editable: false
 
