@@ -1,16 +1,13 @@
 # Production environment node affinity
-# Pins production infrastructure to the master (control-plane) node
-# because master is the most stable (not a spot instance).
-# Dev/staging workers are spot instances and may be preempted.
+# Pins production infrastructure to production worker node (stable, non-spot)
+# Ensures production runs smoothly even when dev/staging workers crash or get preempted
+tolerations: []
 affinity:
   nodeAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
       nodeSelectorTerms:
         - matchExpressions:
-            - key: node-role.kubernetes.io/control-plane
-              operator: Exists
-
-tolerations:
-  - key: "node-role.kubernetes.io/control-plane"
-    operator: "Exists"
-    effect: "NoSchedule"
+            - key: env
+              operator: In
+              values:
+                - production
