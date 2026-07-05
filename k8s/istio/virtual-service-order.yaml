@@ -18,7 +18,7 @@ spec:
       retries:
         attempts: 3
         perTryTimeout: 2s
-        retryOn: connect-failure,refused-stream,unavailable,503
+        retryOn: connect-failure,refused-stream,unavailable,503,5xx
       timeout: 10s
 ---
 apiVersion: networking.istio.io/v1beta1
@@ -41,7 +41,7 @@ spec:
       retries:
         attempts: 3
         perTryTimeout: 2s
-        retryOn: connect-failure,refused-stream,unavailable,503
+        retryOn: connect-failure,refused-stream,unavailable,503,5xx
       timeout: 10s
 ---
 apiVersion: networking.istio.io/v1beta1
@@ -64,7 +64,7 @@ spec:
       retries:
         attempts: 3
         perTryTimeout: 2s
-        retryOn: connect-failure,refused-stream,unavailable,503
+        retryOn: connect-failure,refused-stream,unavailable,503,5xx
       timeout: 10s
 ---
 apiVersion: networking.istio.io/v1beta1
@@ -87,7 +87,7 @@ spec:
       retries:
         attempts: 2
         perTryTimeout: 2s
-        retryOn: connect-failure,refused-stream,unavailable,503
+        retryOn: connect-failure,refused-stream,unavailable,503,5xx
       timeout: 10s
 ---
 apiVersion: networking.istio.io/v1beta1
@@ -110,7 +110,7 @@ spec:
       retries:
         attempts: 2
         perTryTimeout: 2s
-        retryOn: connect-failure,refused-stream,unavailable,503
+        retryOn: connect-failure,refused-stream,unavailable,503,5xx
       timeout: 10s
 ---
 apiVersion: networking.istio.io/v1beta1
@@ -133,5 +133,5 @@ spec:
       retries:
         attempts: 2
         perTryTimeout: 2s
-        retryOn: connect-failure,refused-stream,unavailable,503
+        retryOn: connect-failure,refused-stream,unavailable,503,5xx
       timeout: 10s
