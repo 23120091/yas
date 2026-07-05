@@ -33,12 +33,18 @@
 # ============================================================================
 
 set -x
+DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# --------------------------------------------------------------------------
+# Load common passwords from .env
+# --------------------------------------------------------------------------
+source "$DIR/.env"
 
 # --------------------------------------------------------------------------
 # Environment selection
 # --------------------------------------------------------------------------
 ENV=${1:-dev}
-CONFIG_FILE="cluster-config-${ENV}.yaml"
+CONFIG_FILE="$DIR/cluster-config-${ENV}.yaml"
 
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "ERROR: Config file '$CONFIG_FILE' not found."
@@ -72,12 +78,13 @@ DOMAIN=$(yq -r '.domain' "$CONFIG_FILE")
 ENV_SUBDOMAIN=$(yq -r '.envSubdomain // ""' "$CONFIG_FILE")
 PG_REPLICAS=$(yq -r '.postgresql.replicas' "$CONFIG_FILE")
 PG_USERNAME=$(yq -r '.postgresql.username' "$CONFIG_FILE")
-PG_PASSWORD=$(yq -r '.postgresql.password' "$CONFIG_FILE")
 PG_VOLUME_SIZE=$(yq -r '.postgresql.volumeSize' "$CONFIG_FILE")
 KAFKA_REPLICAS=$(yq -r '.kafka.replicas' "$CONFIG_FILE")
 ZK_REPLICAS=$(yq -r '.zookeeper.replicas' "$CONFIG_FILE")
 ES_REPLICAS=$(yq -r '.elasticsearch.replicas' "$CONFIG_FILE")
-ES_PASSWORD=$(yq -r '.credentials.elasticsearch.password // .elasticsearch.password' "$CONFIG_FILE")
+
+# Passwords come from .env.txt (sourced above):
+#   POSTGRES_USERNAME, POSTGRES_PASSWORD, ES_PASSWORD, REDIS_PASSWORD, etc.
 
 # --------------------------------------------------------------------------
 # Build env-specific namespaces and hostnames

@@ -1,24 +1,25 @@
-domain: yas.local.com
+# ============================================================================
+# CLUSTER CONFIGURATION — BASE TEMPLATE
+# ============================================================================
+# This file is a reference template. Per-environment overrides are in
+# cluster-config-{env}.yaml. Passwords are in .env.txt (gitignored).
+#
+# Usage: source .env.txt && ./setup-cluster.sh <env>
+# ============================================================================
+
+domain: tthong.dev
+
 postgresql:
   replicas: 1
   username: yasadminuser
-  password: admin
+  volumeSize: 5Gi
+
 kafka:
   replicas: 1
+
 zookeeper:
   replicas: 1
+
 elasticsearch:
   replicas: 1
   username: yas
-  password: LarUmB3A49NTg9YmgW4=
-keycloak:
-  bootstrapAdmin:
-    username: admin
-    password: admin
-  backofficeRedirectUrl: http://backoffice.yas.local.com
-  storefrontRedirectUrl: http://storefront.yas.local.com
-grafana:
-  username: admin
-  password: admin
-redis:
-  password: redis

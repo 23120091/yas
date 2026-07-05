@@ -27,6 +27,10 @@
 # ============================================================================
 
 set -e
+DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Load common passwords
+source "$DIR/.env"
 
 ENV=${1:-dev}
 TEARDOWN=${2:-""}

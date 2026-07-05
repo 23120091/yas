@@ -12,12 +12,18 @@
 # ============================================================================
 
 set -x
+DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# --------------------------------------------------------------------------
+# Load common passwords from .env
+# --------------------------------------------------------------------------
+source "$DIR/.env"
 
 # --------------------------------------------------------------------------
 # Environment selection
 # --------------------------------------------------------------------------
 ENV=${1:-dev}
-CONFIG_FILE="cluster-config-${ENV}.yaml"
+CONFIG_FILE="$DIR/cluster-config-${ENV}.yaml"
 
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "ERROR: Config file '$CONFIG_FILE' not found."
@@ -34,13 +40,13 @@ echo "============================================"
 DOMAIN=$(yq -r '.domain' "$CONFIG_FILE")
 ENV_SUBDOMAIN=$(yq -r '.envSubdomain // ""' "$CONFIG_FILE")
 PG_USERNAME=$(yq -r '.postgresql.username' "$CONFIG_FILE")
-PG_PASSWORD=$(yq -r '.postgresql.password' "$CONFIG_FILE")
-BOOTSTRAP_ADMIN_USERNAME=$(yq -r '.keycloak.bootstrapAdmin.username' "$CONFIG_FILE")
-BOOTSTRAP_ADMIN_PASSWORD=$(yq -r '.keycloak.bootstrapAdmin.password' "$CONFIG_FILE")
 KEYCLOAK_BACKOFFICE_REDIRECT_URL_0=$(yq -r '.keycloak.backofficeRedirectUrls[0]' "$CONFIG_FILE")
 KEYCLOAK_BACKOFFICE_REDIRECT_URL_1=$(yq -r '.keycloak.backofficeRedirectUrls[1] // ""' "$CONFIG_FILE")
 KEYCLOAK_STOREFRONT_REDIRECT_URL_0=$(yq -r '.keycloak.storefrontRedirectUrls[0]' "$CONFIG_FILE")
 KEYCLOAK_STOREFRONT_REDIRECT_URL_1=$(yq -r '.keycloak.storefrontRedirectUrls[1] // ""' "$CONFIG_FILE")
+
+# Passwords come from .env.txt (sourced above):
+#   POSTGRES_PASSWORD, KEYCLOAK_ADMIN_USERNAME, KEYCLOAK_ADMIN_PASSWORD
 
 # Build env-specific hostname and namespace
 if [ -z "$ENV_SUBDOMAIN" ] || [ "$ENV_SUBDOMAIN" = "null" ]; then
@@ -73,10 +79,10 @@ helm upgrade --install "keycloak-${ENV}" ./keycloak/keycloak \
   --set hostname="${KEYCLOAK_HOSTNAME}" \
   --set backchannelDynamic=false \
   --set postgresql.username="$PG_USERNAME" \
-  --set postgresql.password="$PG_PASSWORD" \
+  --set postgresql.password="$POSTGRES_PASSWORD" \
   --set postgresql.host="$PG_HOST" \
-  --set bootstrapAdmin.username="$BOOTSTRAP_ADMIN_USERNAME" \
-  --set bootstrapAdmin.password="$BOOTSTRAP_ADMIN_PASSWORD" \
+  --set bootstrapAdmin.username="$KEYCLOAK_ADMIN_USERNAME" \
+  --set bootstrapAdmin.password="$KEYCLOAK_ADMIN_PASSWORD" \
   --set "backofficeRedirectUrls[0]=$KEYCLOAK_BACKOFFICE_REDIRECT_URL_0" \
   --set "backofficeRedirectUrls[1]=$KEYCLOAK_BACKOFFICE_REDIRECT_URL_1" \
   --set "storefrontRedirectUrls[0]=$KEYCLOAK_STOREFRONT_REDIRECT_URL_0" \
@@ -88,7 +94,7 @@ echo "============================================"
 echo " Keycloak deployed for: ${ENV}"
 echo " Namespace: ${KEYCLOAK_NS}"
 echo " URL:       http://${KEYCLOAK_HOSTNAME}"
-echo " Admin:     ${BOOTSTRAP_ADMIN_USERNAME} / ${BOOTSTRAP_ADMIN_PASSWORD}"
+echo " Admin:     ${KEYCLOAK_ADMIN_USERNAME} / ${KEYCLOAK_ADMIN_PASSWORD}"
 echo "============================================"
 
 # --- CoreDNS rewrite: route identity.{env}.yas.local.com to Traefik ingress ---
