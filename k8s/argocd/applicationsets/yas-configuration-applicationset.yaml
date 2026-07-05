@@ -71,11 +71,11 @@ spec:
             # BFF extra configs (Redis + Keycloak)
             # ------------------------------------------------------------------
             - name: backofficeBffExtraConfig.spring.data.redis.host
-              value: "redis-master.{{redisNs}}"
+              value: "{{redisNs}}-master.{{redisNs}}"
             - name: backofficeBffExtraConfig.spring.security.oauth2.client.provider.keycloak.issuer-uri
               value: "http://{{identityHost}}/realms/Yas"
             - name: storefrontBffExtraConfig.spring.data.redis.host
-              value: "redis-master.{{redisNs}}"
+              value: "{{redisNs}}-master.{{redisNs}}"
             - name: storefrontBffExtraConfig.spring.security.oauth2.client.provider.keycloak.issuer-uri
               value: "http://{{identityHost}}/realms/Yas"
 
