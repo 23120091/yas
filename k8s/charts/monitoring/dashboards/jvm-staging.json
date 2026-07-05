@@ -26,44 +26,74 @@
         "uid": "Prometheus-Staging"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
-          "color": {
-            "mode": "thresholds"
+          "custom": {
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "off"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "gradientMode": "none",
+            "axisPlacement": "auto",
+            "fillOpacity": 15,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "lineWidth": 2,
+            "axisLabel": "",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "drawStyle": "line",
+            "axisColorMode": "text",
+            "axisCenteredZero": false,
+            "lineInterpolation": "smooth",
+            "pointSize": 5,
+            "spanNulls": false
           },
-          "mappings": [],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "s",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               }
             ]
           },
-          "unit": "s"
-        },
-        "overrides": []
+          "mappings": []
+        }
       },
       "gridPos": {
-        "h": 8,
+        "h": 10,
         "w": 24,
         "x": 0,
         "y": 0
       },
       "id": 101,
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
-            "lastNotNull"
+            "mean",
+            "max"
           ],
-          "fields": "",
-          "values": false
+          "showLegend": true
         },
-        "textMode": "auto"
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
@@ -71,66 +101,88 @@
             "uid": "Prometheus-Staging"
           },
           "editorMode": "code",
-          "expr": "process_uptime_seconds{application=~\"$application\",namespace=~\"$namespace\"}",
-          "legendFormat": "",
+          "expr": "max(process_uptime_seconds{application=~\"$application\",namespace=~\"$namespace\"}) by (application)",
+          "legendFormat": "{{application}}",
           "range": true,
           "refId": "A"
         }
       ],
       "title": "Uptime",
-      "type": "stat"
+      "type": "timeseries"
     },
     {
       "datasource": {
         "uid": "Prometheus-Staging"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
-          "color": {
-            "mode": "thresholds"
+          "custom": {
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "off"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "gradientMode": "none",
+            "axisPlacement": "auto",
+            "fillOpacity": 15,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "lineWidth": 2,
+            "axisLabel": "",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "drawStyle": "line",
+            "axisColorMode": "text",
+            "axisCenteredZero": false,
+            "lineInterpolation": "smooth",
+            "pointSize": 5,
+            "spanNulls": false
           },
-          "mappings": [],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percentunit",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 0.7
-              },
-              {
-                "color": "red",
-                "value": 0.9
+                "value": null,
+                "color": "green"
               }
             ]
           },
-          "unit": "percentunit"
-        },
-        "overrides": []
+          "mappings": []
+        }
       },
       "gridPos": {
-        "h": 8,
+        "h": 10,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 16
       },
       "id": 102,
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
-            "lastNotNull"
+            "mean",
+            "max"
           ],
-          "fields": "",
-          "values": false
+          "showLegend": true
         },
-        "textMode": "auto"
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
@@ -138,58 +190,88 @@
             "uid": "Prometheus-Staging"
           },
           "editorMode": "code",
-          "expr": "avg(process_cpu_usage{application=~\"$application\",namespace=~\"$namespace\"})",
-          "legendFormat": "",
+          "expr": "avg(process_cpu_usage{application=~\"$application\",namespace=~\"$namespace\"}) by (application)",
+          "legendFormat": "{{application}}",
           "range": true,
           "refId": "A"
         }
       ],
       "title": "CPU",
-      "type": "stat"
+      "type": "timeseries"
     },
     {
       "datasource": {
         "uid": "Prometheus-Staging"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
-          "color": {
-            "mode": "thresholds"
+          "custom": {
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "off"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "gradientMode": "none",
+            "axisPlacement": "auto",
+            "fillOpacity": 15,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "lineWidth": 2,
+            "axisLabel": "",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "drawStyle": "line",
+            "axisColorMode": "text",
+            "axisCenteredZero": false,
+            "lineInterpolation": "smooth",
+            "pointSize": 5,
+            "spanNulls": false
           },
-          "mappings": [],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "bytes",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               }
             ]
           },
-          "unit": "bytes"
-        },
-        "overrides": []
+          "mappings": []
+        }
       },
       "gridPos": {
-        "h": 8,
+        "h": 10,
         "w": 24,
         "x": 0,
-        "y": 16
+        "y": 24
       },
       "id": 103,
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
-            "lastNotNull"
+            "mean",
+            "max"
           ],
-          "fields": "",
-          "values": false
+          "showLegend": true
         },
-        "textMode": "auto"
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
@@ -197,58 +279,88 @@
             "uid": "Prometheus-Staging"
           },
           "editorMode": "code",
-          "expr": "jvm_memory_used_bytes{application=~\"$application\",namespace=~\"$namespace\",area=\"heap\"}",
-          "legendFormat": "",
+          "expr": "sum(jvm_memory_used_bytes{application=~\"$application\",namespace=~\"$namespace\",area=\"heap\"}) by (application)",
+          "legendFormat": "{{application}}",
           "range": true,
           "refId": "A"
         }
       ],
       "title": "Heap Used",
-      "type": "stat"
+      "type": "timeseries"
     },
     {
       "datasource": {
         "uid": "Prometheus-Staging"
       },
       "fieldConfig": {
+        "overrides": [],
         "defaults": {
-          "color": {
-            "mode": "thresholds"
+          "custom": {
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "off"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "gradientMode": "none",
+            "axisPlacement": "auto",
+            "fillOpacity": 15,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "lineWidth": 2,
+            "axisLabel": "",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "drawStyle": "line",
+            "axisColorMode": "text",
+            "axisCenteredZero": false,
+            "lineInterpolation": "smooth",
+            "pointSize": 5,
+            "spanNulls": false
           },
-          "mappings": [],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               }
             ]
           },
-          "unit": "short"
-        },
-        "overrides": []
+          "mappings": []
+        }
       },
       "gridPos": {
-        "h": 8,
+        "h": 10,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 32
       },
       "id": 104,
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
           "calcs": [
-            "lastNotNull"
+            "mean",
+            "max"
           ],
-          "fields": "",
-          "values": false
+          "showLegend": true
         },
-        "textMode": "auto"
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
@@ -256,14 +368,14 @@
             "uid": "Prometheus-Staging"
           },
           "editorMode": "code",
-          "expr": "jvm_threads_live_threads{application=~\"$application\",namespace=~\"$namespace\"}",
-          "legendFormat": "",
+          "expr": "sum(jvm_threads_live_threads{application=~\"$application\",namespace=~\"$namespace\"}) by (application)",
+          "legendFormat": "{{application}}",
           "range": true,
           "refId": "A"
         }
       ],
       "title": "Threads",
-      "type": "stat"
+      "type": "timeseries"
     },
     {
       "datasource": {
@@ -321,7 +433,7 @@
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 32
+        "y": 40
       },
       "id": 201,
       "options": {
@@ -345,7 +457,7 @@
             "uid": "Prometheus-Staging"
           },
           "editorMode": "code",
-          "expr": "jvm_memory_used_bytes{application=~\"$application\",namespace=~\"$namespace\",area=\"heap\"}",
+          "expr": "sum(jvm_memory_used_bytes{application=~\"$application\",namespace=~\"$namespace\",area=\"heap\"}) by (application)",
           "legendFormat": "{{application}} - used",
           "range": true,
           "refId": "A"
@@ -355,7 +467,7 @@
             "uid": "Prometheus-Staging"
           },
           "editorMode": "code",
-          "expr": "jvm_memory_max_bytes{application=~\"$application\",namespace=~\"$namespace\",area=\"heap\"}",
+          "expr": "sum(jvm_memory_max_bytes{application=~\"$application\",namespace=~\"$namespace\",area=\"heap\"}) by (application)",
           "legendFormat": "{{application}} - max",
           "range": true,
           "refId": "B"
@@ -420,7 +532,7 @@
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 44
+        "y": 52
       },
       "id": 202,
       "options": {
@@ -444,7 +556,7 @@
             "uid": "Prometheus-Staging"
           },
           "editorMode": "code",
-          "expr": "rate(jvm_gc_pause_seconds_sum{application=~\"$application\",namespace=~\"$namespace\"}[5m])",
+          "expr": "sum(rate(jvm_gc_pause_seconds_sum{application=~\"$application\",namespace=~\"$namespace\"}[5m])) by (application)",
           "legendFormat": "{{application}}",
           "range": true,
           "refId": "A"

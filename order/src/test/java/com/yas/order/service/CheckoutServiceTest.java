@@ -19,6 +19,7 @@ import com.yas.order.model.enumeration.CheckoutState;
 import com.yas.order.repository.CheckoutItemRepository;
 import com.yas.order.repository.CheckoutRepository;
 import com.yas.order.viewmodel.checkout.CheckoutPaymentMethodPutVm;
+import com.yas.order.viewmodel.checkout.CheckoutItemPostVm;
 import com.yas.order.viewmodel.checkout.CheckoutPostVm;
 import com.yas.order.viewmodel.product.ProductCheckoutListVm;
 import com.yas.order.viewmodel.product.ProductGetCheckoutListVm;
@@ -76,6 +77,7 @@ class CheckoutServiceTest {
 
         checkoutPostVm = Instancio.of(CheckoutPostVm.class)
                 .supply(field(CheckoutPostVm.class, "shippingAddressId"), gen -> Long.toString(gen.longRange(1, 10000)))
+                .generate(field(CheckoutItemPostVm.class, "productId"), gen -> gen.longSeq().start(1L))
                 .create();
         checkoutCreated = Checkout.builder()
                 .id(checkoutId)

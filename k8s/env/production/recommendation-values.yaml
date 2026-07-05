@@ -1,7 +1,7 @@
 backend:
   image:
     repository: ghcr.io/23120091/recommendation
-    tag: 0.4.0
+    tag: 0.4.1
   nameOverride: recommendation
   fullnameOverride: recommendation
   databaseName: recommendation
