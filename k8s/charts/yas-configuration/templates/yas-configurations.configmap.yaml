@@ -8,6 +8,9 @@ metadata:
 data:
   application.yaml: |
     {{- $appConfig := deepCopy .Values.applicationConfig -}}
+    {{- if not $appConfig.management.otlp.tracing -}}
+    {{- $_ := set $appConfig.management.otlp "tracing" dict -}}
+    {{- end -}}
     {{- $_ := set $appConfig.management.otlp.tracing "endpoint" (printf "http://opentelemetry-collector.observability-%s.svc.cluster.local:4318/v1/traces" .Release.Namespace) -}}
     {{- toYaml $appConfig | nindent 4 }}
   logback.xml: |

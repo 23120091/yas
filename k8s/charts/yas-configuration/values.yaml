@@ -9,6 +9,11 @@ applicationConfig:
     port: 80
 
   management:
+    tracing:
+      enabled: true
+      sampling:
+        probability: 1.0
+
     otlp:
       tracing:
         endpoint: ""
@@ -19,9 +24,7 @@ applicationConfig:
         enabled: true
       livenessstate:
         enabled: true
-    tracing:
-      sampling:
-        probability: 1.0
+
     metrics:
       tags:
         application: ${spring.application.name}
