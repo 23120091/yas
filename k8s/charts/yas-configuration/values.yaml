@@ -199,11 +199,15 @@ gatewayRoutesConfig:
             predicates:
               - Host=storefront*.tthong.dev
               - Path=/**
+            filters:
+              - SetRequestHeader=Host, storefront-ui:3000
           - id: backoffice-ui
             uri: http://backoffice-ui:3000
             predicates:
               - Host=backoffice*.tthong.dev
               - Path=/**
+            filters:
+              - SetRequestHeader=Host, backoffice-ui:3000
 
 
 backofficeBffExtraConfig:
@@ -225,6 +229,8 @@ backofficeBffExtraConfig:
               client-id: backoffice-bff
               client-secret: ${KEYCLOAK_BACKOFFICE_BFF_CLIENT_SECRET}
               scope: openid, profile, email, roles
+    # Overridden per environment by ArgoCD -> redis-master.<redis-ns>
+    # Actual service: <release-name>-master.<namespace> (e.g. redis-dev-master.redis-dev)
 
 storefrontBffExtraConfig:
   spring:
