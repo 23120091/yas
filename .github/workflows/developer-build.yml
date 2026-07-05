@@ -69,8 +69,8 @@ jobs:
           kubectl delete ingressroute -n sandbox --all --ignore-not-found
           kubectl delete pvc -n sandbox --all --ignore-not-found
           # Xoá các service thật (ClusterIP, NodePort), giữ lại ExternalName
-          for svc in $(kubectl get svc -n sandbox -o name 2>/dev/null); do
-            TYPE=$(kubectl get $svc -n sandbox -o jsonpath='{.spec.type}' 2>/dev/null)
+          for svc in $(kubectl get svc -n sandbox -o name 2>/dev/null || true); do
+            TYPE=$(kubectl get $svc -n sandbox -o jsonpath='{.spec.type}' 2>/dev/null || true)
             if [ "$TYPE" != "ExternalName" ]; then
               kubectl delete $svc -n sandbox --ignore-not-found
             fi
@@ -223,7 +223,7 @@ jobs:
             ALL_SERVICES="backoffice-bff backoffice-ui cart customer inventory location media order payment payment-paypal product promotion rating recommendation sampledata search storefront-bff storefront-ui tax webhook"
             for svc in $ALL_SERVICES; do
               if [ "$svc" = "$SERVICE" ]; then continue; fi
-              EXISTING=$(kubectl get service "$svc" -n "$NAMESPACE" -o name 2>/dev/null)
+              EXISTING=$(kubectl get service "$svc" -n "$NAMESPACE" -o name 2>/dev/null || true)
               if [ -z "$EXISTING" ]; then
                 kubectl create service externalname "$svc" -n "$NAMESPACE" --external-name="$svc.$ENV.svc.cluster.local"
               fi
