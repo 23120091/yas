@@ -15,47 +15,56 @@ grafana:
       apiVersion: 1
       datasources:
         - name: Prometheus-Dev
+          uid: Prometheus-Dev
           type: prometheus
           url: http://prometheus-dev-server.observability-dev:80
           access: proxy
           isDefault: true
           editable: false
         - name: Prometheus-Staging
+          uid: Prometheus-Staging
           type: prometheus
           url: http://prometheus-staging-server.observability-staging:80
           access: proxy
           editable: false
         - name: Prometheus-Production
+          uid: Prometheus-Production
           type: prometheus
           url: http://prometheus-production-server.observability-production:80
           access: proxy
           editable: false
         - name: Loki-Dev
+          uid: Loki-Dev
           type: loki
           url: http://loki-read.observability-dev:3100
           access: proxy
           editable: false
         - name: Tempo-Dev
+          uid: Tempo-Dev
           type: tempo
           url: http://tempo-dev.observability-dev:3200
           access: proxy
           editable: false
         - name: Loki-Staging
+          uid: Loki-Staging
           type: loki
           url: http://loki-read.observability-staging:3100
           access: proxy
           editable: false
         - name: Tempo-Staging
+          uid: Tempo-Staging
           type: tempo
           url: http://tempo-staging.observability-staging:3200
           access: proxy
           editable: false
         - name: Loki-Production
+          uid: Loki-Production
           type: loki
           url: http://loki-read.observability-production:3100
           access: proxy
           editable: false
         - name: Tempo-Production
+          uid: Tempo-Production
           type: tempo
           url: http://tempo-production.observability-production:3200
           access: proxy
