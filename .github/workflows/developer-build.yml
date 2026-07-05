@@ -61,12 +61,19 @@ jobs:
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
-      - name: Delete only real pods/services/ingressroutes
+      - name: Delete real pods/services, keep ExternalName + namespace
         run: |
           kubectl delete deployment -n sandbox --all --ignore-not-found
           kubectl delete replicaset -n sandbox --all --ignore-not-found
           kubectl delete pod -n sandbox --all --ignore-not-found
           kubectl delete ingressroute -n sandbox --all --ignore-not-found
+          # Xoá các service thật (ClusterIP, NodePort), giữ lại ExternalName
+          for svc in $(kubectl get svc -n sandbox -o name 2>/dev/null); do
+            TYPE=$(kubectl get $svc -n sandbox -o jsonpath='{.spec.type}' 2>/dev/null)
+            if [ "$TYPE" != "ExternalName" ]; then
+              kubectl delete $svc -n sandbox --ignore-not-found
+            fi
+          done
           echo "## ✅ Sandbox cleaned — ExternalName routes & namespace kept" >> "$GITHUB_STEP_SUMMARY"
 
   build-and-deploy:
