@@ -71,7 +71,7 @@
             "uid": "Prometheus-Production"
           },
           "editorMode": "code",
-          "expr": "process_uptime_seconds{application=~\"$application\",namespace=~\"$namespace\"}",
+          "expr": "max(process_uptime_seconds{application=~\"$application\",namespace=~\"$namespace\"}) by (application)",
           "legendFormat": "",
           "range": true,
           "refId": "A"
