@@ -181,7 +181,7 @@ jobs:
             fi
 
             if [ "$NEED_BUILD" = true ]; then
-              if [ -z "$BRANCH" ]; then
+              if [ -z "$THIS_BRANCH" ]; then
                 echo "ERROR: branch_name required to build new image for $SERVICE"
                 exit 1
               fi
