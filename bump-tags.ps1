@@ -2,26 +2,26 @@
 # STEP 1: Create and push git tags (with 15s delay between each)
 # ====================================================================
 $tags = @(
-  "backoffice-bff-0.5.1",
-  "backoffice-ui-0.4.1",
-  "cart-0.5.1",
-  "customer-0.4.1",
-  "inventory-0.4.1",
-  "location-0.4.1",
-  "media-0.4.1",
-  "order-0.5.1",
-  "payment-paypal-0.5.1",
-  "payment-0.9.1",
-  "product-0.4.1",
-  "promotion-0.4.1",
-  "rating-0.4.1",
-  "recommendation-0.4.1",
-  "sampledata-0.5.1",
-  "search-0.4.1",
-  "storefront-bff-0.4.1",
-  "storefront-ui-0.4.1",
-  "tax-0.4.1",
-  "webhook-0.4.1"
+  "backoffice-bff-0.5.2",
+  "backoffice-ui-0.4.2",
+  "cart-0.5.2",
+  "customer-0.4.2",
+  "inventory-0.4.2",
+  "location-0.4.2",
+  "media-0.4.2",
+  "order-0.5.3",
+  "payment-paypal-0.5.2",
+  "payment-0.9.2",
+  "product-0.4.2",
+  "promotion-0.4.2",
+  "rating-0.4.2",
+  "recommendation-0.4.2",
+  "sampledata-0.5.2",
+  "search-0.4.2",
+  "storefront-bff-0.4.2",
+  "storefront-ui-0.4.2",
+  "tax-0.4.2",
+  "webhook-0.4.2"
 )
 
 Write-Host "Creating and pushing $($tags.Count) tags with 15s delay..."

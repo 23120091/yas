@@ -19,6 +19,20 @@ spec:
             external_services:
               prometheus:
                 url: http://prometheus-dev-server.observability-dev:80
+              grafana:
+                enabled: true
+                internal_url: http://grafana-grafana.observability:80/
+                external_url: https://grafana.tthong.dev/
+              tracing:
+                enabled: true
+                provider: tempo
+                internal_url: http://tempo-dev.observability-dev:3200/
+                external_url: https://grafana.tthong.dev/
+                use_grpc: false
+                tempo_config:
+                  datasource_uid: Tempo-Dev
+                  org_id: "1"
+                  url_format: grafana
     - repoURL: https://github.com/23120091/yas
       targetRevision: main
       path: k8s/istio

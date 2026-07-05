@@ -1,0 +1,58 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: keycloak
+  namespace: argocd
+  labels:
+    service: keycloak
+    team: yas
+spec:
+  generators:
+    - list:
+        elements:
+          - {env: "dev",        keycloakNs: "keycloak-dev",        pgNs: "postgres-dev",        hostname: "identity-dev.tthong.dev",    boUrl0: "http://backoffice-dev.tthong.dev",    boUrl1: "http://backoffice.dev.yas.local.com",   sfUrl0: "http://storefront-dev.tthong.dev",    sfUrl1: "http://storefront.dev.yas.local.com"}
+          - {env: "staging",    keycloakNs: "keycloak-staging",    pgNs: "postgres-staging",    hostname: "identity-staging.tthong.dev",boUrl0: "http://backoffice-staging.tthong.dev",boUrl1: "http://backoffice.staging.yas.local.com", sfUrl0: "http://storefront-staging.tthong.dev",sfUrl1: "http://storefront.staging.yas.local.com"}
+          - {env: "production", keycloakNs: "keycloak-production", pgNs: "postgres-production", hostname: "identity.tthong.dev",       boUrl0: "http://backoffice.tthong.dev",       boUrl1: "http://backoffice.yas.local.com",      sfUrl0: "http://storefront.tthong.dev",       sfUrl1: "http://storefront.yas.local.com"}
+  template:
+    metadata:
+      name: "keycloak-{{env}}"
+      labels:
+        env: "{{env}}"
+        service: keycloak
+        team: yas
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: yas
+      source:
+        repoURL: https://github.com/23120091/yas
+        targetRevision: main
+        path: k8s/deploy/keycloak/keycloak
+        helm:
+          valueFiles:
+            - ../../infra-{{env}}-affinity.yaml
+          parameters:
+            - name: hostname
+              value: "{{hostname}}"
+            - name: postgresql.host
+              value: "postgresql.{{pgNs}}.svc.cluster.local"
+            - name: "backofficeRedirectUrls[0]"
+              value: "{{boUrl0}}"
+            - name: "backofficeRedirectUrls[1]"
+              value: "{{boUrl1}}"
+            - name: "storefrontRedirectUrls[0]"
+              value: "{{sfUrl0}}"
+            - name: "storefrontRedirectUrls[1]"
+              value: "{{sfUrl1}}"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{keycloakNs}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: true
+        syncOptions:
+          - CreateNamespace=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground

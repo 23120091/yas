@@ -2,22 +2,23 @@
 # ============================================================================
 # SYNC PASSWORD — Sync K8s secrets to live databases
 # ============================================================================
-# Reads passwords from .env.txt and the running K8s secrets, then updates
-# PostgreSQL and Elasticsearch to match. Run this after setup-cluster.sh
-# if databases were recreated with different passwords.
+# Reads passwords from K8s secrets (created by SealedSecrets) and applies
+# them to the live databases (PostgreSQL, Elasticsearch).
+#
+# Run this AFTER changing a SealedSecret:
+#   1. Edit SealedSecret in k8s/sealed-secrets/{env}/
+#   2. Commit + push → ArgoCD applies → K8s secret updated
+#   3. Run this script to sync the password TO the actual DB
 #
 # Usage:
-#   source .env.txt
 #   ./sync-password.sh <env>     (dev|staging|production)
 # ============================================================================
 
 set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Load common passwords
-source "$DIR/.env"
-
 ENV=${1:-dev}
+KEYCLOAK_NS="keycloak-${ENV}"
 PG_NS="postgres-${ENV}"
 ES_NS="elasticsearch-${ENV}"
 APP_NS="${ENV}"
@@ -27,26 +28,32 @@ echo " Syncing passwords for: ${ENV}"
 echo "============================================"
 
 # ──────────────────────────────────────────────
-# 1. POSTGRESQL
+# 1. POSTGRESQL — read credentials from K8s secret
 # ──────────────────────────────────────────────
 echo ""
-echo "[1/3] PostgreSQL — updating user $POSTGRES_USERNAME..."
+POSTGRES_USERNAME=$(kubectl get secret -n "${KEYCLOAK_NS}" postgresql-credentials -o jsonpath='{.data.username}' 2>/dev/null | base64 -d)
+POSTGRES_PASSWORD=$(kubectl get secret -n "${KEYCLOAK_NS}" postgresql-credentials -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
 
-PG_POD=$(kubectl get pods -n "${PG_NS}" -l application=spilo -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-if [ -z "$PG_POD" ]; then
-    echo "  WARNING: No PostgreSQL pod found in ${PG_NS}. Skipping."
+if [ -z "$POSTGRES_USERNAME" ] || [ -z "$POSTGRES_PASSWORD" ]; then
+    echo "  WARNING: postgresql-credentials not found in ${KEYCLOAK_NS}. Skipping."
 else
-    kubectl exec -n "${PG_NS}" pod/"$PG_POD" -- psql -U postgres \
-      -c "ALTER USER $POSTGRES_USERNAME WITH PASSWORD '$POSTGRES_PASSWORD';" 2>/dev/null && \
-    echo "  OK PostgreSQL password updated" || \
-    echo "  WARNING: PostgreSQL password update failed"
+    echo "[1/3] PostgreSQL — updating user $POSTGRES_USERNAME..."
+    PG_POD=$(kubectl get pods -n "${PG_NS}" -l application=spilo -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+    if [ -z "$PG_POD" ]; then
+        echo "  WARNING: No PostgreSQL pod found in ${PG_NS}. Skipping."
+    else
+        kubectl exec -n "${PG_NS}" pod/"$PG_POD" -- psql -U postgres \
+          -c "ALTER USER $POSTGRES_USERNAME WITH PASSWORD '$POSTGRES_PASSWORD';" 2>/dev/null && \
+        echo "  OK PostgreSQL password updated" || \
+        echo "  WARNING: PostgreSQL password update failed"
+    fi
 fi
 
 # ──────────────────────────────────────────────
 # 2. ELASTICSEARCH — file realm (search user)
 # ──────────────────────────────────────────────
 echo ""
-echo "[2/3] Elasticsearch — ensuring file realm user $ES_FILE_REALM_USER..."
+echo "[2/3] Elasticsearch — ensuring file realm user search..."
 
 # Generate bcrypt hash for password (using Python if available)
 BCRYPT_HASH="\$2b\$10\$LcQn2FhWIQFkmCSEbL8eKOP67z8m4wwin48jiP6EiM.pKkPsqMH1m"

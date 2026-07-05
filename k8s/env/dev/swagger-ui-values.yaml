@@ -1,0 +1,15 @@
+nameOverride: swagger-ui
+fullnameOverride: swagger-ui
+
+baseUrl: /swagger-ui
+urls: "[{ url: 'https://api-dev.tthong.dev/product/v3/api-docs', name: 'Product' }, { url: 'https://api-dev.tthong.dev/media/v3/api-docs', name: 'Media' }, { url: 'https://api-dev.tthong.dev/customer/v3/api-docs', name: 'Customer' }, { url: 'https://api-dev.tthong.dev/cart/v3/api-docs', name: 'Cart' }, { url: 'https://api-dev.tthong.dev/rating/v3/api-docs', name: 'Rating' }, { url: 'https://api-dev.tthong.dev/order/v3/api-docs', name: 'Order' }, { url: 'https://api-dev.tthong.dev/payment/v3/api-docs', name: 'Payment' }, { url: 'https://api-dev.tthong.dev/location/v3/api-docs', name: 'Location' }, { url: 'https://api-dev.tthong.dev/inventory/v3/api-docs', name: 'Inventory' }, { url: 'https://api-dev.tthong.dev/tax/v3/api-docs', name: 'Tax' }, { url: 'https://api-dev.tthong.dev/promotion/v3/api-docs', name: 'Promotion' }, { url: 'https://api-dev.tthong.dev/search/v3/api-docs', name: 'Search' }]"
+
+ingress:
+  enabled: true
+  className: traefik
+  host: swagger-dev.tthong.dev
+  hosts:
+    - host: swagger-dev.tthong.dev
+      paths:
+        - path: /swagger-ui
+          pathType: ImplementationSpecific

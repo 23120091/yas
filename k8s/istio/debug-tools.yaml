@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-debug
+  namespace: dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: istio-debug
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: istio-debug
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      containers:
+        - name: debug
+          image: curlimages/curl:latest
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "while true; do sleep 3600; done"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-debug
+  namespace: staging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: istio-debug
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: istio-debug
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      containers:
+        - name: debug
+          image: curlimages/curl:latest
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "while true; do sleep 3600; done"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-debug
+  namespace: production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: istio-debug
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: istio-debug
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      containers:
+        - name: debug
+          image: curlimages/curl:latest
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "while true; do sleep 3600; done"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi

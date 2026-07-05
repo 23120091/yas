@@ -125,6 +125,20 @@ public class CustomerController {
             customerService.getCustomerProfile(SecurityContextHolder.getContext().getAuthentication().getName()));
     }
 
+    @PutMapping("/storefront/customer/profile")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "204", description = "No content"),
+        @ApiResponse(responseCode = "400", description = "Bad request",
+            content = @Content(schema = @Schema(implementation = ErrorVm.class))),
+        @ApiResponse(responseCode = "403", description = "Access Denied",
+            content = @Content(schema = @Schema(implementation = ErrorVm.class))),
+        @ApiResponse(responseCode = "404", description = "Not found",
+            content = @Content(schema = @Schema(implementation = ErrorVm.class)))})
+    public ResponseEntity<Void> updateCustomerProfile(@RequestBody CustomerProfileRequestVm requestVm) {
+        customerService.updateCustomer(SecurityContextHolder.getContext().getAuthentication().getName(), requestVm);
+        return ResponseEntity.noContent().build();
+    }
+
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "Created",
             content = @Content(schema = @Schema(implementation = GuestUserVm.class))),
