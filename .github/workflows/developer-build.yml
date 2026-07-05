@@ -1,12 +1,12 @@
 name: Developer Build (Sandbox Deploy)
 
 # ============================================================================
-# Deploy a single service to sandbox namespace for isolated testing.
+# Deploy one or more services to sandbox namespace for isolated testing.
 # All other services are ExternalName CNAMEs pointing back to the source env.
 #
 # Actions:
-#   deploy  — Build image, deploy to sandbox, create ExternalName routes
-#   destroy — Delete the entire sandbox namespace
+#   deploy  — Build image (if not exists), deploy to sandbox, create ExternalName
+#   destroy — Delete only real pods/services, keep ExternalName routes + namespace
 # ============================================================================
 
 on:
@@ -20,33 +20,12 @@ on:
         options:
           - deploy
           - destroy
-      service_name:
-        description: "Service cần test (chỉ dùng cho deploy)"
+      service_names:
+        description: "Service(s) cần test, cách nhau bằng dấu phẩy (vd: payment,storefront-ui)"
         required: false
-        type: choice
-        options:
-          - backoffice-bff
-          - backoffice-ui
-          - cart
-          - customer
-          - inventory
-          - location
-          - media
-          - order
-          - payment
-          - payment-paypal
-          - product
-          - promotion
-          - rating
-          - recommendation
-          - sampledata
-          - search
-          - storefront-bff
-          - storefront-ui
-          - tax
-          - webhook
+        type: string
       branch_name:
-        description: "Nhánh (branch) chứa mã nguồn mới (ví dụ: dev_tax_service)"
+        description: "Nhánh (branch) chứa mã nguồn mới (để trống nếu dùng image có sẵn)"
         required: false
         type: string
       environment:
@@ -82,50 +61,25 @@ jobs:
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
-      - name: Delete only real pods/services (keep ExternalName + namespace)
+      - name: Delete only real pods/services/ingressroutes
         run: |
           kubectl delete deployment -n sandbox --all --ignore-not-found
           kubectl delete replicaset -n sandbox --all --ignore-not-found
           kubectl delete pod -n sandbox --all --ignore-not-found
           kubectl delete ingressroute -n sandbox --all --ignore-not-found
-          echo "## ✅ Sandbox cleaned — real pods/services deleted, ExternalName routes kept" >> "$GITHUB_STEP_SUMMARY"
+          echo "## ✅ Sandbox cleaned — ExternalName routes & namespace kept" >> "$GITHUB_STEP_SUMMARY"
 
   build-and-deploy:
-    name: Build & Deploy ${{ github.event.inputs.service_name }}
+    name: Build & Deploy
     if: ${{ inputs.action == 'deploy' }}
     runs-on: ubuntu-latest
     steps:
       - name: Validate inputs
         run: |
-          if [ -z "${{ inputs.service_name }}" ]; then
-            echo "ERROR: service_name is required for deploy action"
+          if [ -z "${{ inputs.service_names }}" ]; then
+            echo "ERROR: service_names is required"
             exit 1
           fi
-          if [ -z "${{ inputs.branch_name }}" ]; then
-            echo "ERROR: branch_name is required for deploy action"
-            exit 1
-          fi
-
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.branch_name }}
-
-      - name: Resolve Tag
-        id: resolve
-        shell: bash
-        run: |
-          SERVICE="${{ inputs.service_name }}"
-          BRANCH="${{ inputs.branch_name }}"
-          
-          SHA=$(git rev-parse --short=7 HEAD)
-          SAFE_BRANCH=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9._-]/-/g')
-          TAG="${SAFE_BRANCH}-${SHA}"
-          
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "service=$SERVICE" >> "$GITHUB_OUTPUT"
-          
-          echo "Build tag resolved: $TAG for service $SERVICE"
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -133,38 +87,6 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up JDK 25
-        if: ${{ inputs.service_name != 'storefront-ui' && inputs.service_name != 'backoffice-ui' }}
-        uses: actions/setup-java@v4
-        with:
-          java-version: '25'
-          distribution: 'temurin'
-          cache: 'maven'
-
-      - name: Build Java JAR
-        if: ${{ inputs.service_name != 'storefront-ui' && inputs.service_name != 'backoffice-ui' }}
-        run: |
-          chmod +x mvnw
-          ./mvnw clean package -pl ${{ inputs.service_name }} -am -DskipTests
-
-      - name: Set Docker Context Path
-        id: context
-        run: |
-          if [ "${{ inputs.service_name }}" = "storefront-ui" ]; then
-            echo "path=storefront" >> "$GITHUB_OUTPUT"
-          elif [ "${{ inputs.service_name }}" = "backoffice-ui" ]; then
-            echo "path=backoffice" >> "$GITHUB_OUTPUT"
-          else
-            echo "path=${{ inputs.service_name }}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Build and Push Docker Image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./${{ steps.context.outputs.path }}
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ inputs.service_name }}:${{ steps.resolve.outputs.tag }}
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
@@ -176,91 +98,162 @@ jobs:
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
+      - name: Checkout Code (full history for multi-branch)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Setup Helm
         uses: azure/setup-helm@v4
 
-      - name: Deploy via Helm to Sandbox Namespace
+      - name: Process & Deploy All Services
         shell: bash
         run: |
-          SERVICE="${{ steps.resolve.outputs.service }}"
+          SERVICES="${{ inputs.service_names }}"
           ENV="${{ inputs.environment }}"
-          TAG="${{ steps.resolve.outputs.tag }}"
+          BRANCH_RAW="${{ inputs.branch_name }}"
           NAMESPACE="sandbox"
-          
-          if [ "$SERVICE" = "backoffice-ui" ] || [ "$SERVICE" = "storefront-ui" ]; then
-            VALUE_KEY="ui"
-          else
-            VALUE_KEY="backend"
-          fi
-          
-          # 1. Tạo namespace sandbox nếu chưa tồn tại
-          echo "Khởi tạo namespace $NAMESPACE..."
+
+          IFS=',' read -ra SVC_LIST <<< "$SERVICES"
+          # Parse branch list — nếu chỉ 1 branch thì dùng cho tất cả
+          IFS=',' read -ra BRANCH_LIST <<< "$BRANCH_RAW"
+
+          # 1. Tạo namespace + copy config (chỉ làm 1 lần)
           kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
-          
-          # 2. Copy cấu hình và credentials từ namespace gốc sang sandbox
-          echo "Đang đồng bộ cấu hình (configmaps/secrets) từ namespace $ENV sang $NAMESPACE..."
+          echo "Đồng bộ cấu hình từ $ENV..."
           for cm in $(kubectl get configmaps -n "$ENV" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null | tr ' ' '\n' | grep '^yas-'); do
             kubectl get configmap "$cm" -n "$ENV" -o json | jq 'del(.metadata.namespace,.metadata.resourceVersion,.metadata.uid,.metadata.creationTimestamp,.metadata.ownerReferences)' | kubectl apply -n "$NAMESPACE" -f -
           done
-
           for secret in $(kubectl get secrets -n "$ENV" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null | tr ' ' '\n' | grep '^yas-'); do
             kubectl get secret "$secret" -n "$ENV" -o json | jq 'del(.metadata.namespace,.metadata.resourceVersion,.metadata.uid,.metadata.creationTimestamp,.metadata.ownerReferences)' | kubectl apply -n "$NAMESPACE" -f -
           done
-          
-          kubectl get configmap "${SERVICE}-application-configmap" -n "$ENV" -o json 2>/dev/null | jq 'del(.metadata.namespace,.metadata.resourceVersion,.metadata.uid,.metadata.creationTimestamp,.metadata.ownerReferences)' | kubectl apply -n "$NAMESPACE" -f - || true
-          
-          # 3. Xoá service cũ của service đang deploy (nếu có) để Helm tạo mới
-          kubectl delete service "$SERVICE" -n "$NAMESPACE" --ignore-not-found
 
-          # 4. Tạo ExternalName cho tất cả service không có real pod
-          echo "Đang thiết lập định tuyến ExternalName liên namespace sang $ENV..."
-          ALL_SERVICES="backoffice-bff backoffice-ui cart customer inventory location media order payment payment-paypal product promotion rating recommendation sampledata search storefront-bff storefront-ui tax webhook"
-          for svc in $ALL_SERVICES; do
-            if [ "$svc" = "$SERVICE" ]; then
-              continue
-            fi
-            # Chỉ tạo ExternalName nếu chưa tồn tại (dù là ExternalName hay real service)
-            EXISTING=$(kubectl get service "$svc" -n "$NAMESPACE" -o name 2>/dev/null)
-            if [ -z "$EXISTING" ]; then
-              kubectl create service externalname "$svc" -n "$NAMESPACE" --external-name="$svc.$ENV.svc.cluster.local"
-            fi
-          done
-          
-          # 5. Deploy service lên Sandbox bằng Helm (tạo real pod + service)
-          echo "Đang build Helm dependencies cho $SERVICE..."
-          helm dependency build "k8s/charts/$SERVICE" || true
-          
-          echo "Đang thực hiện helm upgrade cho $SERVICE..."
-          helm upgrade --install "$SERVICE" "k8s/charts/$SERVICE" \
-            --namespace "$NAMESPACE" \
-            -f "k8s/env/${ENV}/common-values.yaml" \
-            -f "k8s/env/${ENV}/${SERVICE}-values.yaml" \
-            --set "${VALUE_KEY}.image.repository=${REGISTRY}/${OWNER}/${SERVICE}" \
-            --set "${VALUE_KEY}.image.tag=${TAG}" \
-            --set "${VALUE_KEY}.image.pullPolicy=Always" \
-            --set "${VALUE_KEY}.service.type=ClusterIP" \
-            --set "${VALUE_KEY}.nodeSelector=null" \
-            --set "${VALUE_KEY}.ingress.enabled=false" \
-            --wait --timeout 5m
-          
-          # 5. Tạo IngressRoute cho frontend sandbox service
-          if [ "$SERVICE" = "storefront-ui" ] || [ "$SERVICE" = "backoffice-ui" ]; then
-            HOST="${SERVICE}-sandbox.tthong.dev"
-            echo "Tạo IngressRoute với host $HOST..."
-            kubectl delete ingressroute "$SERVICE-sandbox" -n "$NAMESPACE" --ignore-not-found
-            printf 'apiVersion: traefik.io/v1alpha1\nkind: IngressRoute\nmetadata:\n  name: %s-sandbox\nspec:\n  entryPoints:\n    - web\n  routes:\n    - match: Host(\`%s\`)\n      kind: Rule\n      services:\n        - name: %s\n          port: 3000\n' "$SERVICE" "$HOST" "$SERVICE" | kubectl apply -n "$NAMESPACE" -f -
-          else
-            HOST=""
-          fi
+          # 2. Xử lý từng service
+          IDX=0
+          for SERVICE in "${SVC_LIST[@]}"; do
+            SERVICE=$(echo "$SERVICE" | xargs)  # trim whitespace
+            echo ""
+            echo "========================================"
+            echo " Processing: $SERVICE (index $IDX)"
+            echo "========================================"
             
-          # 6. In thông tin truy cập
-          echo "## ✅ Đã deploy thành công $SERVICE lên namespace $NAMESPACE!" >> "$GITHUB_STEP_SUMMARY"
-          echo "* **Môi trường gốc:** \`$ENV\` (các service liên quan được tự động trỏ chéo sang namespace này)" >> "$GITHUB_STEP_SUMMARY"
-          echo "* **Image Tag:** \`$TAG\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          if [ -n "$HOST" ]; then
-            echo "### 🌐 Cách truy cập test:" >> "$GITHUB_STEP_SUMMARY"
-            echo "1. Thêm dòng sau vào file \`hosts\`:" >> "$GITHUB_STEP_SUMMARY"
-            echo "   \`<IP_K3S>    $HOST\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "2. Truy cập: \`http://$HOST\`" >> "$GITHUB_STEP_SUMMARY"
-          fi
+            # Xác định branch cho service này
+            if [ ${#BRANCH_LIST[@]} -gt 0 ] && [ -n "${BRANCH_LIST[0]}" ]; then
+              if [ ${#BRANCH_LIST[@]} -gt $IDX ] && [ -n "${BRANCH_LIST[$IDX]}" ]; then
+                THIS_BRANCH="${BRANCH_LIST[$IDX]}"
+              else
+                THIS_BRANCH="${BRANCH_LIST[0]}"
+              fi
+            else
+              THIS_BRANCH=""
+            fi
+            THIS_BRANCH=$(echo "$THIS_BRANCH" | xargs)
+
+            # Xác định TAG
+            if [ -n "$THIS_BRANCH" ]; then
+              # Checkout branch này để lấy SHA
+              git fetch origin "$THIS_BRANCH" 2>/dev/null || true
+              git checkout "$THIS_BRANCH" 2>/dev/null || git checkout -b "$THIS_BRANCH" origin/"$THIS_BRANCH" 2>/dev/null || true
+              SHA=$(git rev-parse --short=7 HEAD)
+              SAFE_BRANCH=$(echo "$THIS_BRANCH" | sed 's/[^a-zA-Z0-9._-]/-/g')
+              TAG="${SAFE_BRANCH}-${SHA}"
+            else
+              TAG="latest"
+            fi
+            
+            IMAGE="${REGISTRY}/${OWNER}/${SERVICE}:${TAG}"
+            
+            # Kiểm tra image đã tồn tại chưa
+            echo "Kiểm tra image $IMAGE..."
+            if docker manifest inspect "$IMAGE" > /dev/null 2>&1; then
+              echo "✅ Image đã tồn tại, bỏ qua build."
+              NEED_BUILD=false
+            else
+              echo "⏳ Image chưa có, cần build."
+              NEED_BUILD=true
+            fi
+
+            if [ "$NEED_BUILD" = true ]; then
+              if [ -z "$BRANCH" ]; then
+                echo "ERROR: branch_name required to build new image for $SERVICE"
+                exit 1
+              fi
+              
+              # Build Java
+              if [ "$SERVICE" != "storefront-ui" ] && [ "$SERVICE" != "backoffice-ui" ]; then
+                echo "Building Java JAR..."
+                chmod +x mvnw
+                ./mvnw clean package -pl "$SERVICE" -am -DskipTests
+              fi
+              
+              # Docker context path
+              if [ "$SERVICE" = "storefront-ui" ]; then
+                CTX="storefront"
+              elif [ "$SERVICE" = "backoffice-ui" ]; then
+                CTX="backoffice"
+              else
+                CTX="$SERVICE"
+              fi
+              
+              echo "Building & pushing Docker image..."
+              docker build -t "$IMAGE" "./$CTX"
+              docker push "$IMAGE"
+            fi
+
+            # Copy configmap riêng của service
+            kubectl get configmap "${SERVICE}-application-configmap" -n "$ENV" -o json 2>/dev/null | \
+              jq 'del(.metadata.namespace,.metadata.resourceVersion,.metadata.uid,.metadata.creationTimestamp,.metadata.ownerReferences)' | \
+              kubectl apply -n "$NAMESPACE" -f - || true
+
+            # Xoá service cũ, Helm sẽ tạo mới
+            kubectl delete service "$SERVICE" -n "$NAMESPACE" --ignore-not-found
+            
+            # Tạo ExternalName cho tất cả service khác (nếu chưa có)
+            ALL_SERVICES="backoffice-bff backoffice-ui cart customer inventory location media order payment payment-paypal product promotion rating recommendation sampledata search storefront-bff storefront-ui tax webhook"
+            for svc in $ALL_SERVICES; do
+              if [ "$svc" = "$SERVICE" ]; then continue; fi
+              EXISTING=$(kubectl get service "$svc" -n "$NAMESPACE" -o name 2>/dev/null)
+              if [ -z "$EXISTING" ]; then
+                kubectl create service externalname "$svc" -n "$NAMESPACE" --external-name="$svc.$ENV.svc.cluster.local"
+              fi
+            done
+
+            # Deploy bằng Helm
+            if [ "$SERVICE" = "backoffice-ui" ] || [ "$SERVICE" = "storefront-ui" ]; then
+              VALUE_KEY="ui"
+            else
+              VALUE_KEY="backend"
+            fi
+
+            helm dependency build "k8s/charts/$SERVICE" || true
+            
+            EXTRA_ARGS=""
+            if [ "$SERVICE" = "storefront-ui" ]; then
+              EXTRA_ARGS="--set ui.extraEnvs[0].name=API_BASE_PATH --set ui.extraEnvs[0].value=http://storefront-bff/api"
+            elif [ "$SERVICE" = "backoffice-ui" ]; then
+              EXTRA_ARGS="--set ui.extraEnvs[0].name=API_BASE_PATH --set ui.extraEnvs[0].value=http://backoffice-bff/api"
+            fi
+
+            helm upgrade --install "$SERVICE" "k8s/charts/$SERVICE" \
+              --namespace "$NAMESPACE" \
+              -f "k8s/env/${ENV}/common-values.yaml" \
+              -f "k8s/env/${ENV}/${SERVICE}-values.yaml" \
+              --set "${VALUE_KEY}.image.repository=${REGISTRY}/${OWNER}/${SERVICE}" \
+              --set "${VALUE_KEY}.image.tag=${TAG}" \
+              --set "${VALUE_KEY}.image.pullPolicy=Always" \
+              --set "${VALUE_KEY}.service.type=ClusterIP" \
+              --set "${VALUE_KEY}.nodeSelector=null" \
+              --set "${VALUE_KEY}.ingress.enabled=false" \
+              $EXTRA_ARGS \
+              --wait --timeout 5m
+
+            # Tạo IngressRoute cho frontend
+            if [ "$SERVICE" = "storefront-ui" ] || [ "$SERVICE" = "backoffice-ui" ]; then
+              HOST="${SERVICE}-sandbox.tthong.dev"
+              kubectl delete ingressroute "$SERVICE-sandbox" -n "$NAMESPACE" --ignore-not-found
+              printf 'apiVersion: traefik.io/v1alpha1\nkind: IngressRoute\nmetadata:\n  name: %s-sandbox\nspec:\n  entryPoints:\n    - web\n  routes:\n    - match: Host("%s")\n      kind: Rule\n      services:\n        - name: %s\n          port: 3000\n' "$SERVICE" "$HOST" "$SERVICE" | kubectl apply -n "$NAMESPACE" -f -
+              echo "🌐 http://$HOST" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            echo "✅ $SERVICE deployed (image: $IMAGE)"
+          done
