@@ -6,7 +6,7 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
     grafana_dashboard: "1"
 data:
-{{- range $path, $content := .Files.Glob "dashboards/*.json" }}
+{{- range $path := .Files.Glob "dashboards/*.json" }}
   {{ base $path }}: |
-{{ $content | indent 4 }}
+{{ $.Files.Get $path | indent 4 }}
 {{- end }}
