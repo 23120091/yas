@@ -61,45 +61,26 @@ grafana:
           access: proxy
           editable: false
 
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      searchNamespace: ALL
+      folderAnnotation: grafana_folder
+
   dashboardProviders:
     dashboardproviders.yaml:
       apiVersion: 1
       providers:
-        - name: default
+        - name: sidecarProvider
           orgId: 1
           folder: YAS
           type: file
           disableDeletion: false
           editable: true
           options:
-            path: /var/lib/grafana/dashboards/default
-
-  dashboards:
-    default:
-      infra-dev:
-        file: dashboards/infra-dev.json
-      infra-staging:
-        file: dashboards/infra-staging.json
-      infra-production:
-        file: dashboards/infra-production.json
-      red-dev:
-        file: dashboards/red-dev.json
-      red-staging:
-        file: dashboards/red-staging.json
-      red-production:
-        file: dashboards/red-production.json
-      jvm-dev:
-        file: dashboards/jvm-dev.json
-      jvm-staging:
-        file: dashboards/jvm-staging.json
-      jvm-production:
-        file: dashboards/jvm-production.json
-      app-dev:
-        file: dashboards/app-dev.json
-      app-staging:
-        file: dashboards/app-staging.json
-      app-production:
-        file: dashboards/app-production.json
+            path: /var/lib/grafana/dashboards/grafana
 
   ingress:
     enabled: true

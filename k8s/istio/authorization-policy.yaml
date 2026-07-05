@@ -1,0 +1,50 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: product-allow-callers
+  namespace: dev
+spec:
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/dev/sa/storefront-bff
+              - cluster.local/ns/dev/sa/backoffice-bff
+              - cluster.local/ns/dev/sa/order
+              - cluster.local/ns/dev/sa/search
+              - cluster.local/ns/dev/sa/cart
+              - cluster.local/ns/dev/sa/rating
+              - cluster.local/ns/dev/sa/recommendation
+              - cluster.local/ns/dev/sa/sampledata
+              - cluster.local/ns/istio-system/sa/istiod
+      to:
+        - operation:
+            methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+            paths: ["/*"]
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: product
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: search-allow-callers
+  namespace: dev
+spec:
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/dev/sa/product
+              - cluster.local/ns/dev/sa/storefront-bff
+              - cluster.local/ns/dev/sa/backoffice-bff
+              - cluster.local/ns/istio-system/sa/istiod
+      to:
+        - operation:
+            methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+            paths: ["/*"]
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: search-dev
