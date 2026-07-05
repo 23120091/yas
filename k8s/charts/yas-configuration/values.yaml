@@ -14,9 +14,12 @@ applicationConfig:
       sampling:
         probability: 1.0
 
-    otlp:
+    opentelemetry:
       tracing:
-        endpoint: ""
+        export:
+          otlp:
+            endpoint: ""
+
     server:
       port: 8090
     health:
