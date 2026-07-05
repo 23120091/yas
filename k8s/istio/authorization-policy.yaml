@@ -2,6 +2,100 @@
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
+  name: deny-all-by-default
+  namespace: dev
+spec:
+  {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-ingress-to-storefront-bff
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: storefront-bff
+  rules:
+    - to:
+        - operation:
+            ports: ["80"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-ingress-to-backoffice-bff
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backoffice-bff
+  rules:
+    - to:
+        - operation:
+            ports: ["80"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-storefront-ui
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: storefront-ui
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/dev/sa/storefront-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-backoffice-ui
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backoffice-ui
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/dev/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-business-services
+  namespace: dev
+spec:
+  selector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - product
+          - cart
+          - order
+          - customer
+          - inventory
+          - tax
+          - media
+          - search
+          - rating
+          - recommendation
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/dev/sa/storefront-bff
+              - cluster.local/ns/dev/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
   name: product-allow-callers
   namespace: dev
 spec:
