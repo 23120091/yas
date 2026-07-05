@@ -82,10 +82,13 @@ jobs:
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
-      - name: Delete sandbox namespace
+      - name: Delete only real pods/services (keep ExternalName + namespace)
         run: |
-          kubectl delete namespace sandbox --ignore-not-found
-          echo "## ✅ Sandbox namespace deleted" >> "$GITHUB_STEP_SUMMARY"
+          kubectl delete deployment -n sandbox --all --ignore-not-found
+          kubectl delete replicaset -n sandbox --all --ignore-not-found
+          kubectl delete pod -n sandbox --all --ignore-not-found
+          kubectl delete ingressroute -n sandbox --all --ignore-not-found
+          echo "## ✅ Sandbox cleaned — real pods/services deleted, ExternalName routes kept" >> "$GITHUB_STEP_SUMMARY"
 
   build-and-deploy:
     name: Build & Deploy ${{ github.event.inputs.service_name }}
@@ -211,11 +214,18 @@ jobs:
           echo "Đang thiết lập định tuyến ExternalName liên namespace sang $ENV..."
           ALL_SERVICES="backoffice-bff backoffice-ui cart customer inventory location media order payment payment-paypal product promotion rating recommendation sampledata search storefront-bff storefront-ui tax webhook"
           for svc in $ALL_SERVICES; do
-            kubectl delete service "$svc" -n "$NAMESPACE" --ignore-not-found
-            kubectl create service externalname "$svc" -n "$NAMESPACE" --external-name="$svc.$ENV.svc.cluster.local"
+            if [ "$svc" = "$SERVICE" ]; then
+              continue
+            fi
+            # Chỉ tạo ExternalName nếu service chưa có real pod
+            REAL_POD=$(kubectl get pod -n "$NAMESPACE" -l app.kubernetes.io/instance="$svc" -o name 2>/dev/null | head -1)
+            if [ -z "$REAL_POD" ]; then
+              kubectl delete service "$svc" -n "$NAMESPACE" --ignore-not-found
+              kubectl create service externalname "$svc" -n "$NAMESPACE" --external-name="$svc.$ENV.svc.cluster.local"
+            fi
           done
           
-          # 4. Deploy service lên Sandbox bằng Helm (ghi đè real pod + service lên ExternalName)
+          # 4. Deploy service lên Sandbox bằng Helm (tạo real pod + service)
           echo "Đang build Helm dependencies cho $SERVICE..."
           helm dependency build "k8s/charts/$SERVICE" || true
           
