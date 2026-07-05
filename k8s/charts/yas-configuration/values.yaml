@@ -20,6 +20,11 @@ applicationConfig:
           otlp:
             endpoint: ""
 
+    otlp:
+      metrics:
+        export:
+          enabled: false
+
     server:
       port: 8090
     health:
