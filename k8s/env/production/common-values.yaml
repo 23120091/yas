@@ -67,14 +67,22 @@ backend:
     enabled: true
 
   # --------------------------------------------------------------------------
-  # PROBES — Stricter than dev/staging in terms of FAILURE detection.
-  # Production cannot tolerate 120 seconds of unhealthiness before restart.
-  # Reduced to 60 seconds (periodSeconds=10, failureThreshold=6).
-  # successThreshold stays at 1: one success means the pod is healthy.
+  # PROBES
+  # startupProbe: allows 180s for slow starts (Liquibase migrations, cold DB).
+  # livenessProbe: aggressive runtime detection (60s).
+  # readinessProbe: 60s before removing from service.
   # --------------------------------------------------------------------------
+  startupProbe:
+    periodSeconds: 10
+    failureThreshold: 18    # 180 seconds for slow startup
+    successThreshold: 1
+    httpGet:
+      path: /actuator/health/liveness
+      port: metric
+
   livenessProbe:
     periodSeconds: 10
-    failureThreshold: 6     # 60 seconds to declare dead (vs 120s in dev)
+    failureThreshold: 6     # 60 seconds to declare dead
     successThreshold: 1
     httpGet:
       path: /actuator/health/liveness
@@ -82,7 +90,7 @@ backend:
 
   readinessProbe:
     periodSeconds: 10
-    failureThreshold: 6     # 60 seconds of failing readiness → removed from service
+    failureThreshold: 6     # 60 seconds of failing readiness
     successThreshold: 1
     httpGet:
       path: /actuator/health/readiness

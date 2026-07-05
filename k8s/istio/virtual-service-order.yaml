@@ -1,0 +1,137 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: order-to-tax-retry
+  namespace: dev
+spec:
+  hosts:
+    - tax
+  http:
+    - match:
+        - sourceLabels:
+            app.kubernetes.io/instance: order-dev
+      route:
+        - destination:
+            host: tax
+            port:
+              number: 80
+      retries:
+        attempts: 3
+        perTryTimeout: 2s
+        retryOn: connect-failure,refused-stream,unavailable,503
+      timeout: 10s
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: order-to-tax-retry
+  namespace: staging
+spec:
+  hosts:
+    - tax
+  http:
+    - match:
+        - sourceLabels:
+            app.kubernetes.io/instance: order-staging
+      route:
+        - destination:
+            host: tax
+            port:
+              number: 80
+      retries:
+        attempts: 3
+        perTryTimeout: 2s
+        retryOn: connect-failure,refused-stream,unavailable,503
+      timeout: 10s
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: order-to-tax-retry
+  namespace: production
+spec:
+  hosts:
+    - tax
+  http:
+    - match:
+        - sourceLabels:
+            app.kubernetes.io/instance: order-production
+      route:
+        - destination:
+            host: tax
+            port:
+              number: 80
+      retries:
+        attempts: 3
+        perTryTimeout: 2s
+        retryOn: connect-failure,refused-stream,unavailable,503
+      timeout: 10s
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: order-to-cart-retry
+  namespace: dev
+spec:
+  hosts:
+    - cart
+  http:
+    - match:
+        - sourceLabels:
+            app.kubernetes.io/instance: order-dev
+      route:
+        - destination:
+            host: cart
+            port:
+              number: 80
+      retries:
+        attempts: 2
+        perTryTimeout: 2s
+        retryOn: connect-failure,refused-stream,unavailable,503
+      timeout: 10s
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: order-to-cart-retry
+  namespace: staging
+spec:
+  hosts:
+    - cart
+  http:
+    - match:
+        - sourceLabels:
+            app.kubernetes.io/instance: order-staging
+      route:
+        - destination:
+            host: cart
+            port:
+              number: 80
+      retries:
+        attempts: 2
+        perTryTimeout: 2s
+        retryOn: connect-failure,refused-stream,unavailable,503
+      timeout: 10s
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: order-to-cart-retry
+  namespace: production
+spec:
+  hosts:
+    - cart
+  http:
+    - match:
+        - sourceLabels:
+            app.kubernetes.io/instance: order-production
+      route:
+        - destination:
+            host: cart
+            port:
+              number: 80
+      retries:
+        attempts: 2
+        perTryTimeout: 2s
+        retryOn: connect-failure,refused-stream,unavailable,503
+      timeout: 10s

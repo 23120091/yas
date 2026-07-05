@@ -115,24 +115,26 @@ backend:
     value: "true"
 
   # --------------------------------------------------------------------------
-  # PROBES — Health check configuration.
-  # These are standard Spring Boot Actuator endpoints.
-  #
-  # livenessProbe:  Kubernetes restarts the pod if this fails.
-  #   periodSeconds=10, failureThreshold=12 → pod must be unhealthy for
-  #   120 seconds (10s * 12) before restart. Generous threshold to avoid
-  #   flapping during startup spikes.
-  #
-  # readinessProbe: Kubernetes stops sending traffic if this fails.
-  #   Same generous threshold — pod has 120s to become ready.
+  # PROBES
+  # startupProbe: 360s for slow starts (Liquibase migrations, cold DB).
+  # livenessProbe: 360s before restart.
+  # readinessProbe: 360s before removing from service.
   # --------------------------------------------------------------------------
+  startupProbe:
+    periodSeconds: 10
+    failureThreshold: 36
+    successThreshold: 1
+    httpGet:
+      path: /actuator/health/liveness
+      port: metric
+
   livenessProbe:
     periodSeconds: 10
     failureThreshold: 36
     successThreshold: 1
     httpGet:
       path: /actuator/health/liveness
-      port: metric   # port 8090 — the management/metrics port
+      port: metric
 
   readinessProbe:
     periodSeconds: 10

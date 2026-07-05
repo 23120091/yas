@@ -10,12 +10,15 @@ spec:
       chart: kiali-server
       targetRevision: 1.85.x
       helm:
-        values: |
-          auth:
-            strategy: anonymous
-          deployment:
-            accessible_namespaces:
-              - "**"
+          values: |
+            auth:
+              strategy: anonymous
+            deployment:
+              accessible_namespaces:
+                - "**"
+            external_services:
+              prometheus:
+                url: http://prometheus-dev-server.observability-dev:80
     - repoURL: https://github.com/23120091/yas
       targetRevision: main
       path: k8s/istio

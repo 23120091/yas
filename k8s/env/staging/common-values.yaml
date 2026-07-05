@@ -72,9 +72,19 @@ backend:
     enabled: true
 
   # --------------------------------------------------------------------------
-  # PROBES — Same generous thresholds as dev to survive transient spikes
-  # during load tests.
+  # PROBES
+  # startupProbe: 180s for slow starts (Liquibase migrations, cold DB).
+  # livenessProbe: 120s before restart.
+  # readinessProbe: 120s before removing from service.
   # --------------------------------------------------------------------------
+  startupProbe:
+    periodSeconds: 10
+    failureThreshold: 18
+    successThreshold: 1
+    httpGet:
+      path: /actuator/health/liveness
+      port: metric
+
   livenessProbe:
     periodSeconds: 10
     failureThreshold: 12
