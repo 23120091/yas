@@ -27,13 +27,15 @@ YAS sử dụng **Istio** làm service mesh với các tính năng:
          └─────────┘   └─────────┘
 ```
 
-Tất cả pod trong namespace `dev` đều có **Istio sidecar (Envoy proxy)** injected (2/2 containers).
+Tất cả pod trong namespace `dev`, `staging`, `production` đều có **Istio sidecar (Envoy proxy)** injected (2/2 containers).
 
 ## Cấu hình đã triển khai
 
 ### 1. mTLS STRICT
 
 **File**: `k8s/istio/peer-authentication.yaml`
+
+Áp dụng cho cả 3 môi trường:
 
 ```yaml
 apiVersion: security.istio.io/v1beta1
@@ -44,9 +46,27 @@ metadata:
 spec:
   mtls:
     mode: STRICT
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-strict-staging
+  namespace: staging
+spec:
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-strict-production
+  namespace: production
+spec:
+  mtls:
+    mode: STRICT
 ```
 
-Bắt buộc mọi traffic trong namespace `dev` phải dùng mutual TLS.
+Bắt buộc mọi traffic trong namespace `dev`, `staging`, `production` phải dùng mutual TLS.
 
 ### 2. AuthorizationPolicy
 
@@ -59,6 +79,8 @@ Bắt buộc mọi traffic trong namespace `dev` phải dùng mutual TLS.
 
 **File**: `k8s/istio/virtual-service-order.yaml`
 
+Áp dụng cho cả 3 môi trường (dev/staging/production). Mỗi môi trường có rule riêng với `sourceLabels` tương ứng (`order-dev`, `order-staging`, `order-production`).
+
 | Rule | Host | Retry | PerTryTimeout | Timeout |
 |------|------|-------|---------------|---------|
 | order→tax | tax | 3 lần | 2s | 10s |
@@ -70,7 +92,7 @@ Retry on: `connect-failure, refused-stream, unavailable, 503`
 
 **File**: `k8s/argocd/applicationsets/kiali.yaml`
 
-Đã thêm `external_services.prometheus.url` vào Helm values để Kiali kết nối đến Prometheus dev.
+Đã thêm `external_services.prometheus.url` vào Helm values để Kiali kết nối đến Prometheus (`prometheus-dev-server.observability-dev:80`).
 
 ## Triển khai
 
@@ -118,6 +140,8 @@ Truy cập: https://kiali.tthong.dev
 # search → product (ALLOWED — trong danh sách)
 kubectl exec -n dev deploy/search -- wget -q -O- --timeout=5 "http://product/product?pageNo=0&pageSize=1"
 # Kết quả: HTTP 401 (đến được product, cần JWT)
+
+# Tương tự cho staging và production (thay -n staging/production)
 ```
 
 ### Test 2: AuthorizationPolicy — service KHÔNG được phép
@@ -126,13 +150,17 @@ kubectl exec -n dev deploy/search -- wget -q -O- --timeout=5 "http://product/pro
 # payment → product (DENIED — không trong danh sách)
 kubectl exec -n dev deploy/payment -- wget -q -O- --timeout=5 "http://product/product?pageNo=0&pageSize=1"
 # Kết quả: HTTP 403 (Istio RBAC từ chối)
+
+# Tương tự cho staging và production
 ```
 
 ### Test 3: mTLS STRICT
 
 ```bash
-# Kiểm tra tất cả pod có sidecar (2/2 ready)
+# Kiểm tra tất cả pod có sidecar (2/2 ready) trên cả 3 env
 kubectl get pods -n dev
+kubectl get pods -n staging
+kubectl get pods -n production
 # Kết quả: tất cả 2/2 Running
 ```
 
@@ -141,7 +169,7 @@ kubectl get pods -n dev
 Kiểm tra Envoy config:
 
 ```bash
-# Xem retry policy trên order pod
+# Xem retry policy trên order pod (thay dev bằng staging/production)
 kubectl exec -n dev deploy/order -c istio-proxy -- curl -s "http://localhost:15000/config_dump" | grep -A10 "tax.dev.svc"
 # Kết quả: num_retries: 3, per_try_timeout: 2s, timeout: 10s
 ```
@@ -193,8 +221,8 @@ Truy cập https://kiali.tthong.dev để xem:
 
 | File | Mô tả |
 |------|-------|
-| `k8s/istio/peer-authentication.yaml` | mTLS STRICT cho dev namespace |
-| `k8s/istio/authorization-policy.yaml` | Authorization rules cho product/search |
-| `k8s/istio/virtual-service-order.yaml` | Retry/timeout cho order→tax/cart |
+| `k8s/istio/peer-authentication.yaml` | mTLS STRICT cho dev/staging/production |
+| `k8s/istio/authorization-policy.yaml` | Authorization rules cho product/search (3 env) |
+| `k8s/istio/virtual-service-order.yaml` | Retry/timeout cho order→tax/cart (3 env) |
 | `k8s/istio/kiali-ingress.yaml` | Ingress cho kiali.tthong.dev |
 | `k8s/argocd/applicationsets/kiali.yaml` | ArgoCD ApplicationSet cho Kiali |
