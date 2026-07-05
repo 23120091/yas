@@ -82,10 +82,13 @@ jobs:
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
-      - name: Delete sandbox namespace
+      - name: Delete only real pods/services (keep ExternalName + namespace)
         run: |
-          kubectl delete namespace sandbox --ignore-not-found
-          echo "## ✅ Sandbox namespace deleted" >> "$GITHUB_STEP_SUMMARY"
+          kubectl delete deployment -n sandbox --all --ignore-not-found
+          kubectl delete replicaset -n sandbox --all --ignore-not-found
+          kubectl delete pod -n sandbox --all --ignore-not-found
+          kubectl delete ingressroute -n sandbox --all --ignore-not-found
+          echo "## ✅ Sandbox cleaned — real pods/services deleted, ExternalName routes kept" >> "$GITHUB_STEP_SUMMARY"
 
   build-and-deploy:
     name: Build & Deploy ${{ github.event.inputs.service_name }}
