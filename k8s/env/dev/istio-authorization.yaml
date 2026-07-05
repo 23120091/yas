@@ -7,36 +7,72 @@ spec:
   {} # Bật Zero-Trust: Mặc định khóa toàn bộ kết nối nội bộ namespace dev
 
 ---
-# TẦNG 1: Bảo vệ Storefront BFF (Chỉ cho phép duy nhất Storefront UI kết nối)
+# TẦNG 1: Mở inbound cho edge BFF từ Traefik/browser path
+# Browser traffic does not come from the storefront-ui/backoffice-ui service accounts.
+# With namespace-wide deny-all enabled, the BFFs must explicitly allow public ingress.
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: allow-storefront-ui-to-bff
+  name: allow-ingress-to-storefront-bff
   namespace: dev
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: storefront-bff 
+      app.kubernetes.io/name: storefront-bff
   rules:
-  - from:
-    - source:
-        principals: ["cluster.local/ns/dev/sa/storefront-ui"]
+  - to:
+    - operation:
+        ports: ["80"]
 
 ---
-# TẦNG 1 (Tiếp theo): Bảo vệ Backoffice BFF (Chỉ cho phép Backoffice UI kết nối)
+# TẦNG 1 (Tiếp theo): Mở inbound cho edge BFF từ Traefik/browser path
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: allow-backoffice-ui-to-bff
+  name: allow-ingress-to-backoffice-bff
   namespace: dev
 spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: backoffice-bff
   rules:
+  - to:
+    - operation:
+        ports: ["80"]
+
+---
+# TẦNG 1b: Frontend UI services accept traffic from their respective BFF (mesh)
+# deny-all-by-default blocks all, so we need explicit allow for the BFF -> UI direction
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-storefront-ui
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: storefront-ui
+  rules:
   - from:
     - source:
-        principals: ["cluster.local/ns/dev/sa/backoffice-ui"]
+        principals:
+          - "cluster.local/ns/dev/sa/storefront-bff"
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-backoffice-ui
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backoffice-ui
+  rules:
+  - from:
+    - source:
+        principals:
+          - "cluster.local/ns/dev/sa/backoffice-bff"
 
 ---
 # TẦNG 2: Bảo vệ 10 Business Services (Chỉ cho phép 2 ông BFF gọi xuống)
@@ -48,19 +84,20 @@ metadata:
   namespace: dev
 spec:
   selector:
-    matchLabels:
-      # Sử dụng danh sách liệt kê để bọc toàn bộ 10 business services cốt lõi
-      # Cách này giúp ta không bị phụ thuộc vào một nhãn chung nào cả
-      app.kubernetes.io/name: product
-      app.kubernetes.io/name: cart
-      app.kubernetes.io/name: order
-      app.kubernetes.io/name: customer
-      app.kubernetes.io/name: inventory
-      app.kubernetes.io/name: tax
-      app.kubernetes.io/name: media
-      app.kubernetes.io/name: search
-      app.kubernetes.io/name: rating
-      app.kubernetes.io/name: recommendation
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - product
+          - cart
+          - order
+          - customer
+          - inventory
+          - tax
+          - media
+          - search
+          - rating
+          - recommendation
   rules:
   - from:
     - source:
