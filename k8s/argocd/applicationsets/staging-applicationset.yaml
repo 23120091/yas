@@ -10,6 +10,13 @@
 #
 # NO Image Updater annotations — tag is managed by CI in git.
 # Auto-sync is ON: every CI commit to staging values files triggers deploy.
+#
+# SYNC WAVES (sequential deployment to avoid CPU thrashing):
+#   Wave 1: Core backend services (product, customer, cart)
+#   Wave 2: Secondary backend services (inventory, location, media, tax, etc.)
+#   Wave 3: Payment & integration services
+#   Wave 4: Edge/BFF services
+#   Wave 5: UI services
 # ============================================================================
 
 apiVersion: argoproj.io/v1alpha1
@@ -24,29 +31,36 @@ spec:
   generators:
     - list:
         elements:
-          # --- BACKEND SERVICES ---
-          - {service: "product",        directory: "k8s/charts/product"}
-          - {service: "cart",           directory: "k8s/charts/cart"}
-          - {service: "order",          directory: "k8s/charts/order"}
-          - {service: "payment",        directory: "k8s/charts/payment"}
-          - {service: "payment-paypal", directory: "k8s/charts/payment-paypal"}
-          - {service: "customer",       directory: "k8s/charts/customer"}
-          - {service: "inventory",      directory: "k8s/charts/inventory"}
-          - {service: "location",       directory: "k8s/charts/location"}
-          - {service: "media",          directory: "k8s/charts/media"}
-          - {service: "tax",            directory: "k8s/charts/tax"}
-          - {service: "promotion",      directory: "k8s/charts/promotion"}
-          - {service: "rating",         directory: "k8s/charts/rating"}
-          - {service: "search",         directory: "k8s/charts/search"}
-          - {service: "recommendation", directory: "k8s/charts/recommendation"}
-          - {service: "sampledata",     directory: "k8s/charts/sampledata"}
-          - {service: "webhook",        directory: "k8s/charts/webhook"}
-          - {service: "storefront-bff", directory: "k8s/charts/storefront-bff"}
-          - {service: "backoffice-bff", directory: "k8s/charts/backoffice-bff"}
+          # --- WAVE 1: Core backend services (start first, others depend on them) ---
+          - {service: "product",        directory: "k8s/charts/product",        wave: "1"}
+          - {service: "customer",       directory: "k8s/charts/customer",       wave: "1"}
+          - {service: "cart",           directory: "k8s/charts/cart",           wave: "1"}
 
-          # --- UI SERVICES ---
-          - {service: "storefront-ui",  directory: "k8s/charts/storefront-ui"}
-          - {service: "backoffice-ui",  directory: "k8s/charts/backoffice-ui"}
+          # --- WAVE 2: Secondary backend services ---
+          - {service: "inventory",      directory: "k8s/charts/inventory",      wave: "2"}
+          - {service: "location",       directory: "k8s/charts/location",       wave: "2"}
+          - {service: "media",          directory: "k8s/charts/media",          wave: "2"}
+          - {service: "tax",            directory: "k8s/charts/tax",            wave: "2"}
+          - {service: "promotion",      directory: "k8s/charts/promotion",      wave: "2"}
+          - {service: "rating",         directory: "k8s/charts/rating",         wave: "2"}
+          - {service: "search",         directory: "k8s/charts/search",         wave: "2"}
+          - {service: "recommendation", directory: "k8s/charts/recommendation", wave: "2"}
+          - {service: "sampledata",     directory: "k8s/charts/sampledata",     wave: "2"}
+          - {service: "order",          directory: "k8s/charts/order",          wave: "2"}
+
+          # --- WAVE 3: Payment & integration services ---
+          - {service: "payment",        directory: "k8s/charts/payment",        wave: "3"}
+          - {service: "payment-paypal", directory: "k8s/charts/payment-paypal", wave: "3"}
+          - {service: "webhook",        directory: "k8s/charts/webhook",        wave: "3"}
+
+          # --- WAVE 4: Edge/BFF services (gateway, depends on backend) ---
+          - {service: "storefront-bff", directory: "k8s/charts/storefront-bff", wave: "4"}
+          - {service: "backoffice-bff", directory: "k8s/charts/backoffice-bff", wave: "4"}
+
+          # --- WAVE 5: UI services (start last, depend on BFF) ---
+          - {service: "storefront-ui",  directory: "k8s/charts/storefront-ui",  wave: "5"}
+          - {service: "backoffice-ui",  directory: "k8s/charts/backoffice-ui",  wave: "5"}
+          - {service: "swagger-ui",     directory: "k8s/charts/swagger-ui",     wave: "5"}
 
   template:
     metadata:
@@ -55,6 +69,8 @@ spec:
         env: staging
         service: "{{service}}"
         team: yas
+      annotations:
+        argocd.argoproj.io/sync-wave: "{{wave}}"
       finalizers:
         - resources-finalizer.argocd.argoproj.io
 

@@ -145,6 +145,22 @@ class CustomerControllerTest {
     }
 
     @Test
+    void testUpdateStorefrontProfile_whenNormalCase_methodSuccess() throws Exception {
+        SecurityContextUtils.setUpSecurityContext("test");
+        CustomerProfileRequestVm customerProfileRequestVm = new CustomerProfileRequestVm(
+            "John",
+            "Doe",
+            "john.doe@example.com"
+        );
+        doNothing().when(customerService).updateCustomer(anyString(), any());
+
+        mockMvc.perform(MockMvcRequestBuilders.put(STORE_FRONT_CUSTOMER_BASE_URL + "/profile")
+                .contentType("application/json")
+                .content(objectWriter.writeValueAsString(customerProfileRequestVm)))
+            .andExpect(MockMvcResultMatchers.status().isNoContent());
+    }
+
+    @Test
     void testCreateCustomer_whenNormalCase_methodSuccess() throws Exception {
         CustomerPostVm customerPostVm = new CustomerPostVm("user1", "test@gmail.com", "John",
             "Doe", "123", "ADMIN");

@@ -71,6 +71,7 @@ spec:
           # --- WAVE 5: UI services (start last, depend on BFF) ---
           - {service: "storefront-ui",  directory: "k8s/charts/storefront-ui",  helmPrefix: "ui", imageName: "storefront",  wave: "5"}
           - {service: "backoffice-ui",  directory: "k8s/charts/backoffice-ui",  helmPrefix: "ui", imageName: "backoffice",  wave: "5"}
+          - {service: "swagger-ui",     directory: "k8s/charts/swagger-ui",     helmPrefix: "image", wave: "5"}
 
   template:
     metadata:

@@ -138,14 +138,41 @@ The `yas-configuration` Helm chart (shared ConfigMaps + Secrets) is deployed by 
 
 **No manual deploy needed.** The old `./deploy-yas-configuration.sh` script is kept for emergency use only (e.g., if ArgoCD is down).
 
-### Infrastructure NOT managed by ArgoCD (run scripts once per env)
+### `keycloak` IS managed by ArgoCD
 
-These are deployed via scripts because they use custom CRDs and need one-time setup:
+Keycloak is deployed by the `keycloak` ApplicationSet (`k8s/argocd/applicationsets/keycloak-applicationset.yaml`) and manages the Keycloak CR + realm import via the Helm chart at `k8s/deploy/keycloak/keycloak/`.
+
+**Credentials are SealedSecrets** (one-time apply via `setup-keycloak.sh`, then ArgoCD-managed):
+- `k8s/sealed-secrets/{env}/keycloak-db-credentials.yaml` — PostgreSQL credentials (`postgresql-credentials`)
+- `k8s/sealed-secrets/{env}/keycloak-admin-credentials.yaml` — Keycloak admin credentials (`keycloak-credentials`)
+
+**To change a password:**
+1. Re-encrypt the SealedSecret with the new password:
+   ```bash
+   kubectl create secret generic postgresql-credentials -n keycloak-{env} \
+     --dry-run=client -o yaml \
+     --from-literal=username=yasadminuser \
+     --from-literal=password=<new-password> | \
+     kubeseal --format=yaml > k8s/sealed-secrets/{env}/keycloak-db-credentials.yaml
+   ```
+2. Commit and push → ArgoCD applies the updated SealedSecret
+3. Restart Keycloak: `kubectl rollout restart statefulset keycloak -n keycloak-{env}`
+4. Sync the password to the actual PostgreSQL DB:
+   ```bash
+   source k8s/deploy/.env && ./k8s/deploy/sync-password.sh {env}
+   ```
+
+**One-time setup still needed (cluster-scoped CRDs + CoreDNS):**
+```bash
+./setup-keycloak.sh <env>
+```
+After that, day-to-day changes only need `git push`.
+
+### Infrastructure NOT managed by ArgoCD (run scripts once per env)
 
 ```bash
 ./setup-cluster.sh <env>     # PostgreSQL, Kafka, ES, Loki, Tempo, Promtail, OTel, Zookeeper
 ./setup-redis.sh <env>       # Redis
-./setup-keycloak.sh <env>    # Keycloak
 ```
 
 After initial setup, infrastructure rarely changes. Day-to-day changes only need `git push`.
