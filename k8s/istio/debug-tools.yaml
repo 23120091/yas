@@ -15,6 +15,8 @@ spec:
       annotations:
         sidecar.istio.io/inject: "true"
     spec:
+      nodeSelector:
+        env: dev
       containers:
         - name: debug
           image: curlimages/curl:latest
@@ -45,6 +47,8 @@ spec:
       annotations:
         sidecar.istio.io/inject: "true"
     spec:
+      nodeSelector:
+        env: staging
       containers:
         - name: debug
           image: curlimages/curl:latest
@@ -75,6 +79,8 @@ spec:
       annotations:
         sidecar.istio.io/inject: "true"
     spec:
+      nodeSelector:
+        env: production
       containers:
         - name: debug
           image: curlimages/curl:latest

@@ -40,5 +40,10 @@ keycloak:
     - http://storefront-staging.tthong.dev
     - http://storefront.staging.yas.local.com
 
+# Pin yas-reloader to staging node
+reloader:
+  nodeSelector:
+    env: staging
+
 # Grafana and Prometheus are NOT deployed (project does not use them).
 # Observability stack: Loki + Tempo + Promtail + OpenTelemetry Collector only.

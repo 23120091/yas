@@ -42,5 +42,10 @@ keycloak:
     - http://storefront.tthong.dev
     - http://storefront.yas.local.com
 
+# Pin yas-reloader to production node
+reloader:
+  nodeSelector:
+    env: production
+
 # Grafana and Prometheus are NOT deployed (project does not use them).
 # Observability stack: Loki + Tempo + Promtail + OpenTelemetry Collector only.
