@@ -3,7 +3,7 @@ ui:
     env: staging
   image:
     repository: ghcr.io/23120091/backoffice-ui
-    tag: 0.4.0
+    tag: 0.4.1
   nameOverride: backoffice-ui
   fullnameOverride: backoffice-ui
   ingress:

@@ -1,7 +1,7 @@
 backend:
   image:
     repository: ghcr.io/23120091/sampledata
-    tag: 0.5.0
+    tag: 0.5.1
 
   nameOverride: sampledata
   fullnameOverride: sampledata
