@@ -77,7 +77,7 @@ class CheckoutServiceTest {
 
         checkoutPostVm = Instancio.of(CheckoutPostVm.class)
                 .supply(field(CheckoutPostVm.class, "shippingAddressId"), gen -> Long.toString(gen.longRange(1, 10000)))
-                .generate(field(CheckoutItemPostVm.class, "productId"), gen -> gen.longSeq().start(1))
+                .generate(field(CheckoutItemPostVm.class, "productId"), gen -> gen.longSeq().start(1L))
                 .create();
         checkoutCreated = Checkout.builder()
                 .id(checkoutId)
