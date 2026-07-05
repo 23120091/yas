@@ -1,7 +1,7 @@
 backend:
   image:
     repository: ghcr.io/23120091/order
-    tag: 0.5.0
+    tag: 0.5.2
   nameOverride: order
   fullnameOverride: order
   databaseName: order
