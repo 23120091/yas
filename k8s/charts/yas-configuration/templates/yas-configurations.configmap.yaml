@@ -8,10 +8,29 @@ metadata:
 data:
   application.yaml: |
     {{- $appConfig := deepCopy .Values.applicationConfig -}}
-    {{- if not $appConfig.management.otlp.tracing -}}
-    {{- $_ := set $appConfig.management.otlp "tracing" dict -}}
+
+    {{- if not $appConfig.management }}
+    {{- $_ := set $appConfig "management" dict -}}
     {{- end -}}
-    {{- $_ := set $appConfig.management.otlp.tracing "endpoint" (printf "http://opentelemetry-collector.observability-%s.svc.cluster.local:4318/v1/traces" .Release.Namespace) -}}
+
+    {{- if not $appConfig.management.opentelemetry }}
+    {{- $_ := set $appConfig.management "opentelemetry" dict -}}
+    {{- end -}}
+
+    {{- if not $appConfig.management.opentelemetry.tracing }}
+    {{- $_ := set $appConfig.management.opentelemetry "tracing" dict -}}
+    {{- end -}}
+
+    {{- if not $appConfig.management.opentelemetry.tracing.export }}
+    {{- $_ := set $appConfig.management.opentelemetry.tracing "export" dict -}}
+    {{- end -}}
+
+    {{- if not $appConfig.management.opentelemetry.tracing.export.otlp }}
+    {{- $_ := set $appConfig.management.opentelemetry.tracing.export "otlp" dict -}}
+    {{- end -}}
+
+    {{- $_ := set $appConfig.management.opentelemetry.tracing.export.otlp "endpoint" (printf "http://opentelemetry-collector.observability-%s.svc.cluster.local:4318/v1/traces" .Release.Namespace) -}}
+
     {{- toYaml $appConfig | nindent 4 }}
   logback.xml: |
     {{- .Values.logbackConfig | nindent 4 }}
