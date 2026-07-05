@@ -7,7 +7,9 @@ metadata:
     reloader.stakater.com/match: "true"
 data:
   application.yaml: |
-    {{- toYaml .Values.applicationConfig | nindent 4 }}
+    {{- $appConfig := deepCopy .Values.applicationConfig -}}
+    {{- $_ := set $appConfig.management.otlp.tracing "endpoint" (printf "http://opentelemetry-collector.observability-%s.svc.cluster.local:4318/v1/traces" .Release.Namespace) -}}
+    {{- toYaml $appConfig | nindent 4 }}
   logback.xml: |
     {{- .Values.logbackConfig | nindent 4 }}
 ---

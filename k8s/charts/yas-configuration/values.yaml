@@ -11,7 +11,7 @@ applicationConfig:
   management:
     otlp:
       tracing:
-        endpoint: http://opentelemetry-collector.observability:4318/v1/traces
+        endpoint: ""
     server:
       port: 8090
     health:
