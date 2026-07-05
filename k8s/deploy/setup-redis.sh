@@ -11,33 +11,27 @@
 # ============================================================================
 
 set -x
+DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# --------------------------------------------------------------------------
+# Load common passwords from .env
+# --------------------------------------------------------------------------
+source "$DIR/.env"
 
 # --------------------------------------------------------------------------
 # Environment selection
 # --------------------------------------------------------------------------
 ENV=${1:-dev}
-CONFIG_FILE="cluster-config-${ENV}.yaml"
 
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo "ERROR: Config file '$CONFIG_FILE' not found."
-    exit 1
-fi
+REDIS_NS="redis-${ENV}"
 
 echo "============================================"
 echo " Deploying Redis for: ${ENV}"
 echo "============================================"
-
-# --------------------------------------------------------------------------
-# Read configuration
-# --------------------------------------------------------------------------
-read -rd '' REDIS_PASSWORD < <(yq -r '.redis.password' "$CONFIG_FILE")
-
-REDIS_NS="redis-${ENV}"
-
 echo "Redis namespace: ${REDIS_NS}"
 
 # --------------------------------------------------------------------------
-# Install Redis (Bitnami chart)
+# Install Redis (Bitnami chart) — password from .env.txt
 # --------------------------------------------------------------------------
 helm upgrade --install "redis-${ENV}" \
   --set auth.password="$REDIS_PASSWORD" \

@@ -48,8 +48,5 @@ keycloak:
     - http://storefront-dev.tthong.dev
     - http://storefront.dev.yas.local.com
 
-redis:
-  # password is managed by SealedSecret
-
 # Grafana and Prometheus are NOT deployed (project does not use them).
 # Observability stack: Loki + Tempo + Promtail + OpenTelemetry Collector only.
