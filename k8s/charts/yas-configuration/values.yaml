@@ -93,6 +93,16 @@ applicationConfig:
 
 # Gateway config for bff microservices
 gatewayRoutesConfig:
+  globalcors:
+    cors-configurations:
+      '[/**]':
+        allowedOrigins:
+          - "https://swagger-dev.tthong.dev"
+          - "https://swagger-staging.tthong.dev"
+          - "https://swagger.tthong.dev"
+        allowedMethods: "*"
+        allowedHeaders: "*"
+        allowCredentials: false
   default-filters:
     - SaveSession
   routes:

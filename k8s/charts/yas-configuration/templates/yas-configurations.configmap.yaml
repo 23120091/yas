@@ -47,9 +47,13 @@ data:
     spring:
       cloud:
         gateway:
+    {{- if .Values.gatewayRoutesConfig.globalcors }}
+          globalcors:
+    {{- toYaml .Values.gatewayRoutesConfig.globalcors | nindent 12 }}
+    {{- end }}
           server:
             webflux:
-    {{- toYaml .Values.gatewayRoutesConfig | nindent 14 }}
+    {{- toYaml (omit .Values.gatewayRoutesConfig "globalcors") | nindent 14 }}
 ---
 #Configmap for backoffice-bff extra
 apiVersion: v1
