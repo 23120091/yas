@@ -37,14 +37,17 @@ const Reviews: NextPage = () => {
       .then((res) => {
         setRatingList(res.ratingList);
         setTotalPage(res.totalPages);
+        setLoading(false);
       })
-      .catch((error) => console.log(error));
+      .catch((error) => {
+        console.log(error);
+        setLoading(false);
+      });
   };
 
   useEffect(() => {
     setLoading(true);
     handleGetRating();
-    setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageNo, isDelete]);
 

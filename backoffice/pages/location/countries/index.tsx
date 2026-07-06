@@ -41,7 +41,10 @@ const CountryList: NextPage = () => {
         setCountries(data.countryContent);
         setLoading(false);
       })
-      .catch((error) => console.log(error));
+      .catch((error) => {
+        console.log(error);
+        setLoading(false);
+      });
   };
 
   useEffect(() => {

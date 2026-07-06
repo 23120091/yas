@@ -20,19 +20,22 @@ import '../styles/productDetail.css';
 import '../styles/util.css';
 
 import Layout from '@/common/components/Layout';
+import ErrorBoundary from '@/common/components/ErrorBoundary';
 import { AppProvider } from '@/context/AppContext';
 
 function MyApp({ Component, pageProps }: AppProps) {
   return (
-    <AppProvider>
-      <Head>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-      </Head>
-      <Layout>
-        <Component {...pageProps} />
-      </Layout>
-      <ToastContainer style={{ marginTop: '70px' }} />
-    </AppProvider>
+    <ErrorBoundary>
+      <AppProvider>
+        <Head>
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+        </Head>
+        <Layout>
+          <Component {...pageProps} />
+        </Layout>
+        <ToastContainer style={{ marginTop: '70px' }} />
+      </AppProvider>
+    </ErrorBoundary>
   );
 }
 

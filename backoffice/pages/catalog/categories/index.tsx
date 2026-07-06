@@ -22,10 +22,15 @@ const CategoryList: NextPage = () => {
     });
   };
   function getListCategory(): void {
-    getCategories().then((data) => {
-      setCategories(data);
-      setLoading(false);
-    });
+    getCategories()
+      .then((data) => {
+        setCategories(data);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error('Failed to fetch categories:', error);
+        setLoading(false);
+      });
   }
   useEffect(() => {
     setLoading(true);

@@ -27,10 +27,12 @@ const EditOrder: NextPage = () => {
         })
         .catch((err) => {
           toastError(err.message);
+          setLoading(false);
         });
     }
   }, [id]);
   if (isLoading) return <p>Loading...</p>;
+  if (!order) return <p>Order not found</p>;
   return (
     <>
       <div className="row mt-3">
@@ -53,10 +55,10 @@ const EditOrder: NextPage = () => {
         </div>
       </div>
 
-      <OrderBriefInfo order={order!} />
-      <BillingNShippingInfo order={order!} />
-      <OrderProductInfo order={order!} />
-      <OrderHistory order={order!} />
+      <OrderBriefInfo order={order} />
+      <BillingNShippingInfo order={order} />
+      <OrderProductInfo order={order} />
+      <OrderHistory order={order} />
     </>
   );
 };

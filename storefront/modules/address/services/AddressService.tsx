@@ -6,12 +6,18 @@ const baseUrl = '/api/location/storefront/addresses';
 
 export async function createAddress(address: Address) {
   const response = await apiClientService.post(baseUrl, JSON.stringify(address));
-  return response.json();
+  if (response.status >= 200 && response.status < 300) {
+    return response.json();
+  }
+  throw new Error(response.statusText);
 }
 
 export async function updateAddress(id: string, address: Address) {
   const response = await apiClientService.put(`${baseUrl}/${id}`, JSON.stringify(address));
-  return response;
+  if (response.status >= 200 && response.status < 300) {
+    return response;
+  }
+  throw new Error(response.statusText);
 }
 
 export async function getAddress(id: string) {
@@ -25,5 +31,8 @@ export async function getAddress(id: string) {
 
 export async function deleteAddress(id: number) {
   const response = await apiClientService.delete(`${baseUrl}/${id}`);
-  return response;
+  if (response.status >= 200 && response.status < 300) {
+    return response;
+  }
+  throw new Error(response.statusText);
 }

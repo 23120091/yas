@@ -50,27 +50,38 @@ const StateOrProvinceList: NextPage = () => {
       })
       .catch((err) => {
         console.log(err);
+        setLoading(false);
       });
   };
 
   useEffect(() => {
     setLoading(true);
 
-    getPageableStateOrProvinces(pageNo, DEFAULT_PAGE_SIZE, countryId).then((data) => {
-      console.log(data.stateOrProvinceContent);
-      setTotalPage(data.totalPages);
-      setStateOrProvinces(data.stateOrProvinceContent);
-      setLoading(false);
-    });
+    getPageableStateOrProvinces(pageNo, DEFAULT_PAGE_SIZE, countryId)
+      .then((data) => {
+        console.log(data.stateOrProvinceContent);
+        setTotalPage(data.totalPages);
+        setStateOrProvinces(data.stateOrProvinceContent);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.log(err);
+        setLoading(false);
+      });
   }, [pageNo, countryId]);
 
   useEffect(() => {
     setLoading(true);
-    getCountries().then((data) => {
-      setCountryId(data[0].id);
-      setCountries(data);
-      setLoading(false);
-    });
+    getCountries()
+      .then((data) => {
+        setCountryId(data[0].id);
+        setCountries(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.log(err);
+        setLoading(false);
+      });
   }, []);
 
   const changePage = ({ selected }: any) => {

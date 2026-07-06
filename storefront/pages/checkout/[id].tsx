@@ -118,7 +118,7 @@ const Checkout = () => {
             setOrderItems(newItems);
           })
           .catch((err) => {
-            if (err == 404) {
+            if (err instanceof Error && err.message === 'Not Found') {
               toastError('Page not found');
               router.push({ pathname: `/404` }); //NOSONAR
             } else {
@@ -273,9 +273,16 @@ const Checkout = () => {
       checkoutId: order.checkoutId,
       totalPrice: order.totalPrice,
     };
-    const initPaymentResponse = await initPaymentPaypal(initPaymentPaypalRequest);
-    const redirectUrl = initPaymentResponse.redirectUrl;
-    window.location.replace(redirectUrl);
+    try {
+      const initPaymentResponse = await initPaymentPaypal(initPaymentPaypalRequest);
+      const redirectUrl = initPaymentResponse.redirectUrl;
+      window.location.replace(redirectUrl);
+    } catch (error) {
+      console.error('Failed to init PayPal payment:', error);
+      setIsShowSpinner(false);
+      setDisableProcessPayment(false);
+      toast.error('Failed to process PayPal payment');
+    }
   };
 
   const handleSameAddressCheckboxChanged = () => {

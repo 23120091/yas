@@ -3,5 +3,8 @@ import apiClientService from '@/common/services/ApiClientService';
 
 export const getEnabledPaymentProviders = async (): Promise<PaymentProvider[]> => {
   const response = await apiClientService.get('/api/payment/storefront/payment-providers');
-  return response.json();
+  if (response.status >= 200 && response.status < 300) {
+    return response.json();
+  }
+  return [];
 };

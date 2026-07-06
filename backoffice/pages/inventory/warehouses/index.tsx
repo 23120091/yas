@@ -40,7 +40,10 @@ const WarehouseList: NextPage = () => {
         setWarehouses(data.warehouseContent);
         setLoading(false);
       })
-      .catch((error) => console.log(error));
+      .catch((error) => {
+        console.log(error);
+        setLoading(false);
+      });
   };
 
   useEffect(() => {

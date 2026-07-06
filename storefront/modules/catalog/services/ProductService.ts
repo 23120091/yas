@@ -14,12 +14,26 @@ const serverSideRenderUrl = `${process.env.API_BASE_PATH}/product/storefront`;
 
 export async function getFeaturedProducts(pageNo: number): Promise<ProductFeature> {
   const response = await apiClientService.get(`${baseUrl}/products/featured?pageNo=${pageNo}`);
-  return response.json();
+  const jsonResponse = await response.json();
+  if (!response.ok) {
+    return {
+      productList: [],
+      totalPage: 0,
+    } as ProductFeature;
+  }
+  return {
+    ...jsonResponse,
+    productList: Array.isArray(jsonResponse?.productList) ? jsonResponse.productList : [],
+    totalPage: typeof jsonResponse?.totalPage === 'number' ? jsonResponse.totalPage : 0,
+  };
 }
 
 export async function getProductDetail(slug: string): Promise<ProductDetail> {
   const response = await apiClientService.get(`${serverSideRenderUrl}/product/${slug}`);
-  return response.json();
+  if (response.status >= 200 && response.status < 300) {
+    return response.json();
+  }
+  throw new Error(response.statusText);
 }
 
 export async function getProductOptionValues(productId: number): Promise<ProductOptionValueGet[]> {
@@ -32,7 +46,10 @@ export async function getProductOptionValues(productId: number): Promise<Product
 
 export async function getProductByMultiParams(queryString: string): Promise<ProductAll> {
   const res = await apiClientService.get(`${baseUrl}/products?${queryString}`);
-  return res.json();
+  if (res.status >= 200 && res.status < 300) {
+    return res.json();
+  }
+  throw new Error(res.statusText);
 }
 
 export async function getProductVariationsByParentId(

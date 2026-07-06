@@ -40,11 +40,16 @@ const PromotionCreate: NextPage = () => {
       isActive: event.isActive,
     };
 
-    createPromotion(promotion).then((response) => {
-      if (response.status === 201) {
-        router.replace('/promotion/manager-promotion');
-      }
-    });
+    createPromotion(promotion)
+      .then((response) => {
+        if (response.status === 201) {
+          router.replace('/promotion/manager-promotion');
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to create promotion:', error);
+        setIsSubmitting(false);
+      });
   };
 
   const submitForm = () => {

@@ -41,7 +41,10 @@ const WebhookList: NextPage = () => {
         setWebhooks(data.webhooks);
         setLoading(false);
       })
-      .catch((error) => console.log(error));
+      .catch((error) => {
+        console.log(error);
+        setLoading(false);
+      });
   };
 
   useEffect(() => {

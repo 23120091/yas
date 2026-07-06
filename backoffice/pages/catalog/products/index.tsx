@@ -47,25 +47,36 @@ const ProductList: NextPage = () => {
       })
       .catch((err) => {
         console.log(err);
+        setLoading(false);
       });
   };
 
   useEffect(() => {
     setLoading(true);
 
-    getProducts(pageNo, productName, brandName).then((data) => {
-      setTotalPage(data.totalPages);
-      setProducts(data.productContent);
-      setLoading(false);
-    });
+    getProducts(pageNo, productName, brandName)
+      .then((data) => {
+        setTotalPage(data.totalPages);
+        setProducts(data.productContent);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.log(err);
+        setLoading(false);
+      });
   }, [pageNo, brandName, productName]);
 
   useEffect(() => {
     setLoading(true);
-    getBrands().then((data) => {
-      setBrands(data);
-      setLoading(false);
-    });
+    getBrands()
+      .then((data) => {
+        setBrands(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.log(err);
+        setLoading(false);
+      });
   }, []);
 
   //searching handler

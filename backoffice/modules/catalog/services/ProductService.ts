@@ -43,14 +43,22 @@ export async function updateProduct(id: number, product: ProductPayload) {
   const url = `${baseUrl}/products/${id}`;
   const response = await apiClientService.put(url, JSON.stringify(product));
   if (response.status === 204) return response;
-  else return await response.json();
+  else if (response.status >= 200 && response.status < 300) {
+    return await response.json();
+  } else {
+    throw new Error(response.statusText);
+  }
 }
 
 export async function deleteProduct(id: number) {
   const url = `${baseUrl}/products/${id}`;
   const response = await apiClientService.delete(url);
   if (response.status === 204) return response;
-  else return await response.json();
+  else if (response.status >= 200 && response.status < 300) {
+    return await response.json();
+  } else {
+    throw new Error(response.statusText);
+  }
 }
 
 export async function getVariationsByProductId(productId: number): Promise<Variantion[]> {

@@ -4,10 +4,12 @@ import { PromotionVerifyRequest, PromotionVerifyResult } from '../model/Promotio
 export async function verifyPromotion(
   request: PromotionVerifyRequest
 ): Promise<PromotionVerifyResult> {
-  return (
-    await apiClientService.post(
-      '/api/promotion/storefront/promotions/verify',
-      JSON.stringify(request)
-    )
-  ).json();
+  const response = await apiClientService.post(
+    '/api/promotion/storefront/promotions/verify',
+    JSON.stringify(request)
+  );
+  if (response.status >= 200 && response.status < 300) {
+    return response.json();
+  }
+  throw new Error(response.statusText);
 }

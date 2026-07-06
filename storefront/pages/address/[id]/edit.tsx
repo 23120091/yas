@@ -40,10 +40,14 @@ const EditAddress: NextPage = () => {
 
   useEffect(() => {
     if (id) {
-      getAddress(id as string).then((res) => {
-        if (res.title && res.title == 'Not Found') return;
-        setAddress(res);
-      });
+      getAddress(id as string)
+        .then((res) => {
+          if (res.title && res.title == 'Not Found') return;
+          setAddress(res);
+        })
+        .catch((error) => {
+          console.error('Failed to fetch address:', error);
+        });
     }
   }, [id]);
 

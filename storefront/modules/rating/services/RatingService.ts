@@ -21,7 +21,10 @@ export async function getRatingsByProductId(
   const final_url = concatQueryString(queryString, url);
 
   const response = await apiClientService.get(final_url);
-  return await response.json();
+  if (response.status >= 200 && response.status < 300) {
+    return await response.json();
+  }
+  throw new Error(response.statusText);
 }
 
 export async function createRating(rating: RatingPost): Promise<Rating | null> {

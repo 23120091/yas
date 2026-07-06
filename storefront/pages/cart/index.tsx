@@ -213,7 +213,11 @@ const Cart = () => {
         router.push(`/checkout/${res?.id}`); //NOSONAR
       })
       .catch((err) => {
-        if (err == 403) toastError('Please login to checkout!');
+        if (err instanceof Error && err.message === 'Forbidden') {
+          toastError('Please login to checkout!');
+        } else {
+          toastError('Failed to create checkout');
+        }
       });
   };
 
@@ -228,16 +232,21 @@ const Cart = () => {
   };
 
   const applyCopounCode = () => {
-    console.log('Total Price:', totalPrice); // Log the totalPrice
+    console.log('Total Price:', totalPrice);
 
     verifyPromotion({
       couponCode: couponCode,
       orderPrice: totalPrice,
       productIds: Array.from(selectedProductIds.values()),
-    }).then((result) => {
-      console.log('Promotion Result:', result); // Log the result
-      setPromotionApply(result);
-    });
+    })
+      .then((result) => {
+        console.log('Promotion Result:', result);
+        setPromotionApply(result);
+      })
+      .catch((error) => {
+        console.error('Failed to verify promotion:', error);
+        toastError('Failed to apply coupon code');
+      });
   };
 
   const removeCouponCode = () => {

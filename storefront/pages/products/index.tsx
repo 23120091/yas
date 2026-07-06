@@ -46,9 +46,13 @@ const ProductList = () => {
       const categorySlugValue = router.query.categorySlug as string;
       handleFilter(CATEGORY_SLUG, categorySlugValue);
     }
-    getCategories().then((res) => {
-      setCates(res);
-    });
+    getCategories()
+      .then((res) => {
+        setCates(res);
+      })
+      .catch((error) => {
+        console.error('Failed to fetch categories:', error);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -64,10 +68,14 @@ const ProductList = () => {
       return;
     }
     let predicates = queryString.stringify({ ...filters, pageNo: pageNo });
-    getProductByMultiParams(predicates).then((res) => {
-      setProduct(res.productContent);
-      setTotalPage(res.totalPages);
-    });
+    getProductByMultiParams(predicates)
+      .then((res) => {
+        setProduct(res.productContent);
+        setTotalPage(res.totalPages);
+      })
+      .catch((error) => {
+        console.error('Failed to fetch products:', error);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 

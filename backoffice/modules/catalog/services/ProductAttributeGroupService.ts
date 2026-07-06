@@ -29,12 +29,20 @@ export async function updateProductAttributeGroup(
   const url = `${baseUrl}/${id}`;
   const response = await apiClientService.put(url, JSON.stringify(productAttributeGroup));
   if (response.status === 204) return response;
-  else return await response.json();
+  else if (response.status >= 200 && response.status < 300) {
+    return await response.json();
+  } else {
+    throw new Error(response.statusText);
+  }
 }
 
 export async function deleteProductAttributeGroup(id: number) {
   const url = `${baseUrl}/${id}`;
   const response = await apiClientService.delete(url);
   if (response.status === 204) return response;
-  else return await response.json();
+  else if (response.status >= 200 && response.status < 300) {
+    return await response.json();
+  } else {
+    throw new Error(response.statusText);
+  }
 }

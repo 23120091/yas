@@ -16,7 +16,10 @@ export async function createUserAddress(address: Address): Promise<UserAddresVm>
 
 export async function getUserAddress() {
   const response = await apiClientService.get(userAddressUrl);
-  return response.json();
+  if (response.status >= 200 && response.status < 300) {
+    return response.json();
+  }
+  return [];
 }
 
 export async function getUserAddressDefault(): Promise<Address> {
@@ -29,10 +32,16 @@ export async function getUserAddressDefault(): Promise<Address> {
 
 export async function deleteUserAddress(id: number) {
   const response = await apiClientService.delete(`${userAddressUrl}/${id}`);
-  return await response;
+  if (response.status >= 200 && response.status < 300) {
+    return response;
+  }
+  throw new Error(response.statusText);
 }
 
 export async function chooseDefaultAddress(id: number) {
   const response = await apiClientService.put(`${userAddressUrl}/${id}`, null);
-  return await response;
+  if (response.status >= 200 && response.status < 300) {
+    return response;
+  }
+  throw new Error(response.statusText);
 }

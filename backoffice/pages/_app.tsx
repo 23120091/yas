@@ -3,6 +3,7 @@ import Head from 'next/head';
 import Script from 'next/script';
 
 import Layout from '../common/components/Layout';
+import ErrorBoundary from '../common/components/ErrorBoundary';
 
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -14,7 +15,7 @@ import '../styles/TextEditor.css';
 
 function MyApp({ Component, pageProps }: AppProps) {
   return (
-    <>
+    <ErrorBoundary>
       <Head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
@@ -22,7 +23,7 @@ function MyApp({ Component, pageProps }: AppProps) {
       <Layout>
         <Component {...pageProps} />
       </Layout>
-    </>
+    </ErrorBoundary>
   );
 }
 

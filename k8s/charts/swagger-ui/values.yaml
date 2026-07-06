@@ -66,6 +66,7 @@ ingress:
       paths:
         - path: /swagger-ui
           pathType: ImplementationSpecific
+  extraPaths: []
   tls: []
   #  - secretName: chart-example-tls
   #    hosts:

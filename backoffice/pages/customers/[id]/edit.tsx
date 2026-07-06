@@ -31,7 +31,10 @@ const EditCustomer: NextPage = () => {
           setCustomer(data);
           setIsLoading(false);
         })
-        .catch((error) => console.log(error));
+        .catch((error) => {
+          console.log(error);
+          setIsLoading(false);
+        });
     }
   }, [id]);
 

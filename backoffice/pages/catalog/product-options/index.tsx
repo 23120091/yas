@@ -51,7 +51,10 @@ const ProductOptionList: NextPage = () => {
         setProductOptions(data.productOptionContent);
         setLoading(false);
       })
-      .catch((err) => console.log(err));
+      .catch((err) => {
+        console.log(err);
+        setLoading(false);
+      });
   };
 
   const changePage = ({ selected }: any) => {

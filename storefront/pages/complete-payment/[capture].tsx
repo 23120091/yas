@@ -33,11 +33,16 @@ const CompletePayment = () => {
     if (token) {
       const fetchCapturePaymentPaypal = async (capturePaymentRequestVM: CapturePaymentRequest) => {
         setIsShowSpinner(true);
-        const res = await capturePaymentPaypal(capturePaymentRequestVM);
-        if (res.paymentStatus == 'COMPLETED') {
-          setIsPaymentSuccess(true);
-        } else {
-          extractPaymentPaypalFailure(res);
+        try {
+          const res = await capturePaymentPaypal(capturePaymentRequestVM);
+          if (res.paymentStatus == 'COMPLETED') {
+            setIsPaymentSuccess(true);
+          } else {
+            extractPaymentPaypalFailure(res);
+          }
+        } catch (error) {
+          console.error('Failed to capture payment:', error);
+          setIsPaymentUnsuccessful(true);
         }
         setIsShowSpinner(false);
       };
@@ -51,18 +56,23 @@ const CompletePayment = () => {
   }, [router.query, token, paymentMethod]);
 
   const extractPaymentPaypalFailure = (res: CapturePaymentPaypalResponse) => {
-    const failureMessage: PaymentPaypalFailureMessage = JSON.parse(res.failureMessage!!);
-    const details = failureMessage.details;
-    const issue = details[0].issue;
-    switch (issue) {
-      case 'ORDER_NOT_APPROVED':
-        setIsCancelPayment(true);
-        break;
-      case 'ORDER_ALREADY_CAPTURED':
-        setIsAlreadyPaid(true);
-        break;
-      default:
-        setIsPaymentUnsuccessful(true);
+    try {
+      const failureMessage: PaymentPaypalFailureMessage = JSON.parse(res.failureMessage!!);
+      const details = failureMessage.details;
+      const issue = details[0].issue;
+      switch (issue) {
+        case 'ORDER_NOT_APPROVED':
+          setIsCancelPayment(true);
+          break;
+        case 'ORDER_ALREADY_CAPTURED':
+          setIsAlreadyPaid(true);
+          break;
+        default:
+          setIsPaymentUnsuccessful(true);
+      }
+    } catch (error) {
+      console.error('Failed to parse payment failure message:', error);
+      setIsPaymentUnsuccessful(true);
     }
   };
 
