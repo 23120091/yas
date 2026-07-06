@@ -6,7 +6,5 @@ postgresql:
   sealedSecret:
     enabled: true
 debeziumConnect:
-  image: debezium/connect:2.7.3.Final
+  image: thanhthong2005/debezium-connect-postgresql:2.7.3.Final
   buildImage: false
-  legacyLog4jCompatibility:
-    enabled: false
