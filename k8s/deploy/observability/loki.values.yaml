@@ -18,9 +18,9 @@ loki:
 
   storageConfig:
     filesystem:
-      chunks_directory: /var/loki/chunks
-      rules_directory: /var/loki/rules
-      admin_directory: /var/loki/admin
+      chunks_directory: /data/chunks
+      rules_directory: /data/rules
+      admin_directory: /data/admin
 
 persistence:
   enabled: true
