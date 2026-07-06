@@ -195,6 +195,22 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
+  name: allow-bff-to-payment
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payment
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/dev/sa/storefront-bff
+              - cluster.local/ns/dev/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
   name: allow-order-to-payment
   namespace: dev
 spec:
@@ -308,7 +324,7 @@ spec:
       to:
         - operation:
             methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
-            paths: ["/*"]
+            paths: ["/**"]
   selector:
     matchLabels:
       app.kubernetes.io/name: product
@@ -336,10 +352,171 @@ spec:
       to:
         - operation:
             methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
-            paths: ["/*"]
+            paths: ["/**"]
   selector:
     matchLabels:
       app.kubernetes.io/name: product
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all-by-default
+  namespace: staging
+spec:
+  {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-ingress-to-storefront-bff
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: storefront-bff
+  rules:
+    - to:
+        - operation:
+            ports: ["80"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-ingress-to-backoffice-bff
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backoffice-bff
+  rules:
+    - to:
+        - operation:
+            ports: ["80"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-storefront-ui
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: storefront-ui
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/staging/sa/storefront-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-backoffice-ui
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backoffice-ui
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/staging/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-cart
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cart
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/staging/sa/storefront-bff
+              - cluster.local/ns/staging/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-customer
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: customer
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/staging/sa/storefront-bff
+              - cluster.local/ns/staging/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-inventory
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: inventory
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/staging/sa/storefront-bff
+              - cluster.local/ns/staging/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-order-to-inventory
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: inventory
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/staging/sa/order
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-media
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: media
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/staging/sa/storefront-bff
+              - cluster.local/ns/staging/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-order
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: order
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/staging/sa/storefront-bff
+              - cluster.local/ns/staging/sa/backoffice-bff
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -356,6 +533,83 @@ spec:
             principals:
               - cluster.local/ns/staging/sa/storefront-bff
               - cluster.local/ns/staging/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-order-to-cart
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cart
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/staging/sa/order
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-tax
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tax
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/staging/sa/storefront-bff
+              - cluster.local/ns/staging/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-order-to-tax
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tax
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/staging/sa/order
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-payment
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payment
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/staging/sa/storefront-bff
+              - cluster.local/ns/staging/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-order-to-payment
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payment
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/staging/sa/order
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -380,10 +634,248 @@ spec:
       to:
         - operation:
             methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
-            paths: ["/*"]
+            paths: ["/**"]
   selector:
     matchLabels:
       app.kubernetes.io/name: product
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all-by-default
+  namespace: production
+spec:
+  {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-ingress-to-storefront-bff
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: storefront-bff
+  rules:
+    - to:
+        - operation:
+            ports: ["80"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-ingress-to-backoffice-bff
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backoffice-bff
+  rules:
+    - to:
+        - operation:
+            ports: ["80"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-storefront-ui
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: storefront-ui
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/production/sa/storefront-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-backoffice-ui
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backoffice-ui
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/production/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-cart
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cart
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/production/sa/storefront-bff
+              - cluster.local/ns/production/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-customer
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: customer
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/production/sa/storefront-bff
+              - cluster.local/ns/production/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-inventory
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: inventory
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/production/sa/storefront-bff
+              - cluster.local/ns/production/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-order-to-inventory
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: inventory
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/production/sa/order
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-media
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: media
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/production/sa/storefront-bff
+              - cluster.local/ns/production/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-order
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: order
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/production/sa/storefront-bff
+              - cluster.local/ns/production/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-payment
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payment
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/production/sa/storefront-bff
+              - cluster.local/ns/production/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-order-to-cart
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cart
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/production/sa/order
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-tax
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tax
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/production/sa/storefront-bff
+              - cluster.local/ns/production/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-order-to-tax
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tax
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/production/sa/order
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-order-to-payment
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payment
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/production/sa/order
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -419,7 +911,7 @@ spec:
       to:
         - operation:
             methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
-            paths: ["/*"]
+            paths: ["/**"]
   selector:
     matchLabels:
       app.kubernetes.io/instance: search-dev
@@ -442,7 +934,7 @@ spec:
       to:
         - operation:
             methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
-            paths: ["/*"]
+            paths: ["/**"]
   selector:
     matchLabels:
       app.kubernetes.io/instance: search-staging
@@ -465,7 +957,7 @@ spec:
       to:
         - operation:
             methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
-            paths: ["/*"]
+            paths: ["/**"]
   selector:
     matchLabels:
       app.kubernetes.io/instance: search-production

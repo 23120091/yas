@@ -14,7 +14,18 @@ const serverSideRenderUrl = `${process.env.API_BASE_PATH}/product/storefront`;
 
 export async function getFeaturedProducts(pageNo: number): Promise<ProductFeature> {
   const response = await apiClientService.get(`${baseUrl}/products/featured?pageNo=${pageNo}`);
-  return response.json();
+  const jsonResponse = await response.json();
+  if (!response.ok) {
+    return {
+      productList: [],
+      totalPage: 0,
+    } as ProductFeature;
+  }
+  return {
+    ...jsonResponse,
+    productList: Array.isArray(jsonResponse?.productList) ? jsonResponse.productList : [],
+    totalPage: typeof jsonResponse?.totalPage === 'number' ? jsonResponse.totalPage : 0,
+  };
 }
 
 export async function getProductDetail(slug: string): Promise<ProductDetail> {

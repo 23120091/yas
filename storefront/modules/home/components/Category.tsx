@@ -27,7 +27,7 @@ const Category = () => {
 
   useEffect(() => {
     getCategories().then((data) => {
-      setCategories([...data]);
+      setCategories(Array.isArray(data) ? data : []);
     });
   }, []);
 

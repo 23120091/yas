@@ -1,6 +1,8 @@
 {{- if .Values.ingress.enabled -}}
 {{- $fullName := include "swagger-ui.fullname" . -}}
 {{- $svcPort := .Values.service.port -}}
+{{- $defaultServiceName := $fullName -}}
+{{- $defaultServicePort := $svcPort -}}
 {{- if and .Values.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
   {{- if not (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class") }}
   {{- $_ := set .Values.ingress.annotations "kubernetes.io/ingress.class" .Values.ingress.className}}
@@ -49,12 +51,28 @@ spec:
             backend:
               {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
               service:
-                name: {{ $fullName }}
+                name: {{ default $defaultServiceName .service.name }}
                 port:
-                  number: {{ $svcPort }}
+                  number: {{ default $defaultServicePort .service.port }}
               {{- else }}
-              serviceName: {{ $fullName }}
-              servicePort: {{ $svcPort }}
+              serviceName: {{ default $defaultServiceName .service.name }}
+              servicePort: {{ default $defaultServicePort .service.port }}
+              {{- end }}
+          {{- end }}
+          {{- range $.Values.ingress.extraPaths }}
+          - path: {{ .path }}
+            {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+            pathType: {{ .pathType }}
+            {{- end }}
+            backend:
+              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+              service:
+                name: {{ .service.name }}
+                port:
+                  number: {{ .service.port }}
+              {{- else }}
+              serviceName: {{ .service.name }}
+              servicePort: {{ .service.port }}
               {{- end }}
           {{- end }}
     {{- end }}

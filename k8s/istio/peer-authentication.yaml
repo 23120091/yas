@@ -39,8 +39,23 @@ metadata:
   namespace: dev
 spec:
   selector:
-    matchLabels:
-      app.kubernetes.io/name: swagger-ui
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - swagger-ui
+          - product
+          - media
+          - customer
+          - cart
+          - rating
+          - order
+          - payment
+          - location
+          - inventory
+          - tax
+          - promotion
+          - search
   mtls:
     mode: PERMISSIVE
 ---
@@ -84,8 +99,23 @@ metadata:
   namespace: staging
 spec:
   selector:
-    matchLabels:
-      app.kubernetes.io/name: swagger-ui
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - swagger-ui
+          - product
+          - media
+          - customer
+          - cart
+          - rating
+          - order
+          - payment
+          - location
+          - inventory
+          - tax
+          - promotion
+          - search
   mtls:
     mode: PERMISSIVE
 ---
@@ -129,7 +159,22 @@ metadata:
   namespace: production
 spec:
   selector:
-    matchLabels:
-      app.kubernetes.io/name: swagger-ui
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - swagger-ui
+          - product
+          - media
+          - customer
+          - cart
+          - rating
+          - order
+          - payment
+          - location
+          - inventory
+          - tax
+          - promotion
+          - search
   mtls:
     mode: PERMISSIVE
