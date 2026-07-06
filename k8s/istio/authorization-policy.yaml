@@ -10,6 +10,18 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
+  name: allow-sandbox-to-dev
+  namespace: dev
+spec:
+  rules:
+    - from:
+        - source:
+            namespaces:
+              - sandbox
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
   name: allow-ingress-to-storefront-bff
   namespace: dev
 spec:

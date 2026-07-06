@@ -29,13 +29,12 @@ on:
         required: false
         type: string
       environment:
-        description: "Môi trường gốc để copy config và ExternalName"
+        description: "Môi trường gốc để copy config và ExternalName (chỉ hỗ trợ dev)"
         required: false
         type: choice
         default: "dev"
         options:
           - dev
-          - staging
 
 permissions:
   contents: read
@@ -124,8 +123,10 @@ jobs:
       - name: Process & Deploy All Services
         shell: bash
         run: |
+          set -euo pipefail
+
           SERVICES="${{ inputs.service_names }}"
-          ENV="${{ inputs.environment }}"
+          ENV="dev"
           BRANCH_RAW="${{ inputs.branch_name }}"
           NAMESPACE="sandbox"
 
@@ -135,6 +136,8 @@ jobs:
 
           # 1. Tạo namespace + copy config (chỉ làm 1 lần)
           kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+          kubectl label namespace "$NAMESPACE" istio-injection=enabled --overwrite
+          kubectl label namespace "$NAMESPACE" env=sandbox --overwrite
           echo "Đồng bộ cấu hình từ $ENV..."
           for cm in $(kubectl get configmaps -n "$ENV" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null | tr ' ' '\n' | grep -v '^kube-root-ca\\.' || true); do
             kubectl get configmap "$cm" -n "$ENV" -o json | jq 'del(.metadata.namespace,.metadata.resourceVersion,.metadata.uid,.metadata.creationTimestamp,.metadata.ownerReferences)' | kubectl apply -n "$NAMESPACE" -f - || true
@@ -175,8 +178,16 @@ jobs:
             else
               TAG="latest"
             fi
-            
-            IMAGE="${REGISTRY}/${OWNER}/${SERVICE}:${TAG}"
+
+            if [ "$SERVICE" = "storefront-ui" ]; then
+              IMAGE_NAME="storefront-ui"
+            elif [ "$SERVICE" = "backoffice-ui" ]; then
+              IMAGE_NAME="backoffice-ui"
+            else
+              IMAGE_NAME="$SERVICE"
+            fi
+
+            IMAGE="${REGISTRY}/${OWNER}/${IMAGE_NAME}:${TAG}"
             
             # Kiểm tra image đã tồn tại chưa
             echo "Kiểm tra image $IMAGE..."
@@ -256,7 +267,7 @@ jobs:
               --namespace "$NAMESPACE" \
               -f "k8s/env/${ENV}/common-values.yaml" \
               -f "k8s/env/${ENV}/${SERVICE}-values.yaml" \
-              --set "${VALUE_KEY}.image.repository=${REGISTRY}/${OWNER}/${SERVICE}" \
+              --set "${VALUE_KEY}.image.repository=${REGISTRY}/${OWNER}/${IMAGE_NAME}" \
               --set "${VALUE_KEY}.image.tag=${TAG}" \
               --set "${VALUE_KEY}.image.pullPolicy=Always" \
               --set "${VALUE_KEY}.service.type=ClusterIP" \
@@ -268,10 +279,16 @@ jobs:
             # Tạo IngressRoute cho frontend
             if [ "$SERVICE" = "storefront-ui" ] || [ "$SERVICE" = "backoffice-ui" ]; then
               HOST="${SERVICE}-sandbox.tthong.dev"
+              if [ "$SERVICE" = "storefront-ui" ]; then
+                BFF_SERVICE="storefront-bff"
+              else
+                BFF_SERVICE="backoffice-bff"
+              fi
               kubectl delete ingressroute "$SERVICE-sandbox" -n "$NAMESPACE" --ignore-not-found
-              printf 'apiVersion: traefik.io/v1alpha1\nkind: IngressRoute\nmetadata:\n  name: %s-sandbox\nspec:\n  entryPoints:\n    - web\n  routes:\n    - match: Host("%s")\n      kind: Rule\n      services:\n        - name: %s\n          port: 3000\n' "$SERVICE" "$HOST" "$SERVICE" | kubectl apply -n "$NAMESPACE" -f - || true
-              echo "🌐 http://$HOST" >> "$GITHUB_STEP_SUMMARY"
+              printf 'apiVersion: traefik.io/v1alpha1\nkind: IngressRoute\nmetadata:\n  name: %s-sandbox\nspec:\n  entryPoints:\n    - web\n    - websecure\n  routes:\n    - match: Host(`%s`) && (PathPrefix(`/api`) || PathPrefix(`/oauth2`) || PathPrefix(`/authentication`) || PathPrefix(`/logout`))\n      kind: Rule\n      services:\n        - name: %s\n          port: 80\n    - match: Host(`%s`)\n      kind: Rule\n      services:\n        - name: %s\n          port: 3000\n  tls: {}\n' "$SERVICE" "$HOST" "$BFF_SERVICE" "$HOST" "$SERVICE" | kubectl apply -n "$NAMESPACE" -f - || true
+              echo "🌐 https://$HOST" >> "$GITHUB_STEP_SUMMARY"
             fi
 
             echo "✅ $SERVICE deployed (image: $IMAGE)"
+            IDX=$((IDX + 1))
           done

@@ -39,23 +39,152 @@ metadata:
   namespace: dev
 spec:
   selector:
-    matchExpressions:
-      - key: app.kubernetes.io/name
-        operator: In
-        values:
-          - swagger-ui
-          - product
-          - media
-          - customer
-          - cart
-          - rating
-          - order
-          - payment
-          - location
-          - inventory
-          - tax
-          - promotion
-          - search
+    matchLabels:
+      app.kubernetes.io/name: swagger-ui
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-product-dev
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: product
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-media-dev
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: media
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-customer-dev
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: customer
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-cart-dev
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cart
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-rating-dev
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rating
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-order-dev
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: order
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-payment-dev
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payment
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-location-dev
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: location
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-inventory-dev
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: inventory
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-tax-dev
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tax
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-promotion-dev
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: promotion
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-search-dev
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: search
   mtls:
     mode: PERMISSIVE
 ---
@@ -99,23 +228,152 @@ metadata:
   namespace: staging
 spec:
   selector:
-    matchExpressions:
-      - key: app.kubernetes.io/name
-        operator: In
-        values:
-          - swagger-ui
-          - product
-          - media
-          - customer
-          - cart
-          - rating
-          - order
-          - payment
-          - location
-          - inventory
-          - tax
-          - promotion
-          - search
+    matchLabels:
+      app.kubernetes.io/name: swagger-ui
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-product-staging
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: product
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-media-staging
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: media
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-customer-staging
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: customer
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-cart-staging
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cart
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-rating-staging
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rating
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-order-staging
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: order
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-payment-staging
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payment
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-location-staging
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: location
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-inventory-staging
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: inventory
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-tax-staging
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tax
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-promotion-staging
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: promotion
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-search-staging
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: search
   mtls:
     mode: PERMISSIVE
 ---
@@ -159,22 +417,151 @@ metadata:
   namespace: production
 spec:
   selector:
-    matchExpressions:
-      - key: app.kubernetes.io/name
-        operator: In
-        values:
-          - swagger-ui
-          - product
-          - media
-          - customer
-          - cart
-          - rating
-          - order
-          - payment
-          - location
-          - inventory
-          - tax
-          - promotion
-          - search
+    matchLabels:
+      app.kubernetes.io/name: swagger-ui
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-product-production
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: product
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-media-production
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: media
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-customer-production
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: customer
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-cart-production
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cart
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-rating-production
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rating
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-order-production
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: order
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-payment-production
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payment
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-location-production
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: location
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-inventory-production
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: inventory
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-tax-production
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tax
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-promotion-production
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: promotion
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-search-production
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: search
   mtls:
     mode: PERMISSIVE
