@@ -123,11 +123,31 @@ echo "[1.5] Waiting for Elasticsearch..."
 kubectl wait --for=condition=ready elasticsearch elasticsearch -n "elasticsearch-${ENV}" --timeout=300s 2>/dev/null || sleep 60
 echo "      Elasticsearch is ready."
 
-# 1.6 Keycloak (depends on PostgreSQL)
-echo "[1.6] Deploying Keycloak..."
-./setup-keycloak.sh "${ENV}"
+# 1.6 Keycloak CRDs + CoreDNS (cluster-scoped, one-time)
+echo "[1.6] Installing Keycloak CRDs (idempotent)..."
+kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.0.2/kubernetes/keycloaks.k8s.keycloak.org-v1.yml
+kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.0.2/kubernetes/keycloakrealmimports.k8s.keycloak.org-v1.yml
+kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.0.2/kubernetes/kubernetes.yml -n "keycloak-${ENV}" 2>/dev/null || kubectl create namespace "keycloak-${ENV}" && kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.0.2/kubernetes/kubernetes.yml -n "keycloak-${ENV}"
 
-# 1.7 Wait for Keycloak pod
+echo "[1.6] Patching CoreDNS for Keycloak hostname..."
+DOMAIN=$(yq -r '.domain' "cluster-config-${ENV}.yaml")
+ENV_SUBDOMAIN=$(yq -r '.envSubdomain // ""' "cluster-config-${ENV}.yaml")
+if [ -z "$ENV_SUBDOMAIN" ] || [ "$ENV_SUBDOMAIN" = "null" ]; then
+    KEYCLOAK_HOSTNAME="identity.${DOMAIN}"
+else
+    KEYCLOAK_HOSTNAME="identity-${ENV_SUBDOMAIN}.${DOMAIN}"
+fi
+kubectl get configmap -n kube-system coredns -o yaml > /tmp/coredns-${ENV}.yaml
+if ! grep -q "rewrite stop name ${KEYCLOAK_HOSTNAME} traefik" /tmp/coredns-${ENV}.yaml; then
+  sed -i "/^\s*kubernetes cluster.local/i\        rewrite stop name ${KEYCLOAK_HOSTNAME} traefik.kube-system.svc.cluster.local" /tmp/coredns-${ENV}.yaml
+  kubectl apply -f /tmp/coredns-${ENV}.yaml
+  kubectl rollout restart deployment -n kube-system coredns
+  echo "      CoreDNS patched. DNS will be active in ~30s."
+else
+  echo "      CoreDNS already patched."
+fi
+
+# 1.7 Wait for Keycloak pod (managed by ArgoCD)
 echo "[1.7] Waiting for Keycloak pod..."
 kubectl wait --for=condition=ready pod -l app=keycloak -n "keycloak-${ENV}" --timeout=300s
 echo "      Keycloak pod is ready."
@@ -139,8 +159,12 @@ kubectl wait --for=condition=complete job/yas-realm-kc -n "keycloak-${ENV}" --ti
     echo "      WARNING: Realm import job may still be running. Continuing anyway..."
 }
 
-# 1.9 Verify realm is accessible
-echo "[1.9] Verifying Keycloak realm..."
+# 1.9 Sync Keycloak admin password to PostgreSQL
+echo "[1.9] Syncing Keycloak admin password to PostgreSQL..."
+./sync-password.sh "${ENV}" 2>/dev/null || echo "      WARNING: sync-password failed. Run manually: ./sync-password.sh ${ENV}"
+
+# 1.10 Verify realm is accessible
+echo "[1.10] Verifying Keycloak realm..."
 REALM_STATUS=$(kubectl run -n "keycloak-${ENV}" debug --rm -i --restart=Never --image=curlimages/curl -- curl -s -o /dev/null -w "%{http_code}" http://keycloak-service:80/realms/Yas/ 2>/dev/null || echo "000")
 if [ "$REALM_STATUS" = "200" ]; then
     echo "      Realm 'Yas' is accessible."

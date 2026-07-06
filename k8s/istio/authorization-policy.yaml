@@ -179,6 +179,22 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
+  name: allow-bff-to-sampledata
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sampledata
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/dev/sa/storefront-bff
+              - cluster.local/ns/dev/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
   name: allow-order-to-payment
   namespace: dev
 spec:
@@ -328,6 +344,22 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
+  name: allow-bff-to-sampledata
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sampledata
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/staging/sa/storefront-bff
+              - cluster.local/ns/staging/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
   name: product-allow-callers
   namespace: production
 spec:
@@ -352,6 +384,22 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: product
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-bff-to-sampledata
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sampledata
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/production/sa/storefront-bff
+              - cluster.local/ns/production/sa/backoffice-bff
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy

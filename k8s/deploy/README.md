@@ -55,37 +55,30 @@ Each defines replica counts, volume sizes, passwords, and domain/redirect URLs f
 ### Deploy DEV environment (default)
 
 ```shell
-./setup-keycloak.sh dev
-./setup-redis.sh dev
-./setup-cluster.sh dev
+./setup-all.sh dev
 ```
+
+Or step-by-step:
+```shell
+./setup-cluster.sh dev
+./setup-redis.sh dev
+```
+
+Keycloak is deployed by ArgoCD via the `keycloak` ApplicationSet. The `setup-all.sh` script handles CRD installation and CoreDNS patching.
 
 - Verify all servers running in namespaces: `postgres-dev`, `elasticsearch-dev`, `kafka-dev`, `keycloak-dev`, `redis-dev`
-- Deploy YAS configuration and applications:
-
-```shell
-./deploy-yas-configuration.sh dev
-./deploy-yas-applications.sh dev
-```
+- ArgoCD auto-deploys YAS configuration and applications (sync-wave order).
 
 ### Deploy STAGING environment
 
 ```shell
-./setup-keycloak.sh staging
-./setup-redis.sh staging
-./setup-cluster.sh staging
-./deploy-yas-configuration.sh staging
-./deploy-yas-applications.sh staging
+./setup-all.sh staging
 ```
 
 ### Deploy PRODUCTION environment
 
 ```shell
-./setup-keycloak.sh production
-./setup-redis.sh production
-./setup-cluster.sh production
-./deploy-yas-configuration.sh production
-./deploy-yas-applications.sh production
+./setup-all.sh production
 ```
 
 ## Hosts file

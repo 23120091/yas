@@ -25,12 +25,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.yas.product.model.Product;
 import com.yas.product.model.Brand;
+import com.yas.product.model.enumeration.DimensionUnit;
 import com.yas.product.viewmodel.product.ProductGetDetailVm;
 import com.yas.product.viewmodel.NoFileMediaVm;
 import com.yas.product.viewmodel.product.ProductDetailGetVm;
 import com.yas.product.viewmodel.product.ProductDetailVm;
 import com.yas.product.viewmodel.product.ProductListGetVm;
 import com.yas.product.viewmodel.product.ProductFeatureGetVm;
+import com.yas.product.viewmodel.product.ProductPutVm;
 import com.yas.product.viewmodel.product.ProductQuantityPostVm;
 import com.yas.product.viewmodel.product.ProductQuantityPutVm;
 import com.yas.product.repository.BrandRepository;
@@ -604,5 +606,67 @@ class ProductServiceTest {
         var result = productService.getLatestProducts(1);
 
         assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void updateProduct_WithoutOptionsForSimpleProduct_ShouldNotThrow() {
+        Product product = Product.builder()
+                .id(1L)
+                .name("iPhone 15")
+                .slug("iphone-15")
+                .sku("IP15")
+                .gtin("IP15")
+                .width(1d)
+                .length(2d)
+                .products(new ArrayList<>())
+                .relatedProducts(new ArrayList<>())
+                .build();
+
+        ProductPutVm productPutVm = new ProductPutVm(
+                "iPhone 15",
+                "iphone-15",
+                799d,
+                true,
+                true,
+                true,
+                true,
+                false,
+                1L,
+                List.of(1L),
+                "short",
+                "description",
+                "specification",
+                "IP15",
+                "IP15",
+                1d,
+                DimensionUnit.CM,
+                2d,
+                1d,
+                1d,
+                "",
+                "",
+                "meta",
+                84L,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(3L),
+                1L
+        );
+
+        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+        when(productRepository.findBySlugAndIsPublishedTrue("iphone-15")).thenReturn(Optional.of(product));
+        when(productRepository.findByGtinAndIsPublishedTrue("IP15")).thenReturn(Optional.of(product));
+        when(productRepository.findBySkuAndIsPublishedTrue("IP15")).thenReturn(Optional.of(product));
+        when(productRepository.findAllById(any())).thenReturn(List.of());
+        when(brandRepository.findById(1L)).thenReturn(Optional.of(Brand.builder().id(1L).build()));
+        when(categoryRepository.findAllById(List.of(1L))).thenReturn(List.of());
+        when(productRelatedRepository.saveAll(any())).thenReturn(List.of());
+
+        productService.updateProduct(1L, productPutVm);
+
+        verify(productRepository, atLeastOnce()).save(product);
+        verify(productOptionRepository, never()).findAllByIdIn(any());
     }
 }

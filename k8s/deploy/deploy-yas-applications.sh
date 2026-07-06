@@ -8,7 +8,7 @@
 #   ./deploy-yas-applications.sh <env>     (dev|staging|production, default: dev)
 #
 # Prerequisites:
-#   - Infrastructure must be running (setup-cluster.sh, setup-keycloak.sh,
+#   - Infrastructure must be running (setup-cluster.sh,
 #     setup-redis.sh must have been executed for this env first)
 #   - yas-configuration must be deployed (deploy-yas-configuration.sh)
 #

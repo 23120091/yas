@@ -49,10 +49,10 @@ cd k8s/deploy
 # Step 1: Infrastructure (PostgreSQL, Kafka, Elasticsearch, Observability)
 ./setup-cluster.sh dev
 
-# Step 2: Keycloak (Identity & Access Management)
-./setup-keycloak.sh dev
+# Step 2: Redis (Session storage for BFFs)
+./setup-redis.sh dev
 
-# Step 3: Redis (Session storage for BFFs)
+# Step 3: Keycloak via ArgoCD (managed by keycloak ApplicationSet)
 ./setup-redis.sh dev
 
 # Step 4: Shared ConfigMaps & Secrets
@@ -82,15 +82,17 @@ Deploys cluster-wide operators and env-specific instances:
 | Observability stack | `observability-{env}` | Loki + Tempo + Promtail + OTel Collector |
 | ZooKeeper | `zookeeper-{env}` | Legacy dependency (not used by Kafka) |
 
-### Step 2: `setup-keycloak.sh <env>`
-
-- Deploys Keycloak operator CRDs and instance
-- Creates Keycloak realm with YAS client configuration
-- Patches CoreDNS to resolve Keycloak hostname from within the cluster
-
-### Step 3: `setup-redis.sh <env>`
+### Step 2: `setup-redis.sh <env>`
 
 - Deploys Redis (Bitnami chart) for BFF session management
+
+### Step 3: Keycloak via ArgoCD
+
+Keycloak is now managed by the `keycloak` ApplicationSet (`k8s/argocd/applicationsets/keycloak-applicationset.yaml`). After infrastructure is ready, ArgoCD deploys Keycloak automatically (sync-wave: 1).
+
+The `setup-all.sh` script handles one-time prerequisites:
+- Applies Keycloak CRDs (cluster-scoped, idempotent)
+- Patches CoreDNS to resolve Keycloak hostname from within the cluster
 
 ### Step 4: `deploy-yas-configuration.sh <env>`
 
@@ -163,10 +165,7 @@ Same scripts, different env argument:
 
 ```bash
 cd k8s/deploy
-./setup-cluster.sh staging       # or production
-./setup-keycloak.sh staging
-./setup-redis.sh staging
-./deploy-yas-configuration.sh staging
+./setup-all.sh staging       # or production
 
 # ArgoCD
 kubectl apply -f ../argocd/applicationsets/staging-applicationset.yaml  # auto-sync
@@ -194,7 +193,7 @@ kubectl describe pod -n dev <pod-name>
 Common causes: insufficient CPU/memory, cordoned nodes, node selector mismatch.
 
 ### DNS errors (`identity.dev.yas.local.com`)
-Re-run `./setup-keycloak.sh dev` — it patches CoreDNS automatically.
+Re-run `./setup-all.sh dev` — phase 1.6 patches CoreDNS automatically.
 
 ### Liquibase lock errors
 ```bash

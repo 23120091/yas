@@ -2,7 +2,7 @@
 # ============================================================================
 # TEARDOWN INFRASTRUCTURE — Multi-Environment
 # ============================================================================
-# Deletes everything created by setup-cluster.sh, setup-keycloak.sh, and
+# Deletes everything created by setup-cluster.sh and
 # setup-redis.sh for a specific environment.
 #
 # ⚠️  WARNING: This DESTROYS ALL DATA in:
@@ -132,7 +132,6 @@ echo ""
 echo "To redeploy infrastructure:"
 echo "  ./setup-cluster.sh <env>"
 echo "  ./setup-redis.sh <env>"
-echo "  ./setup-keycloak.sh <env>"
 echo ""
 echo "Then sync ArgoCD apps to pick up new URLs:"
 echo "  argocd app sync yas-configuration-<env>"
