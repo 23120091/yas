@@ -36,7 +36,7 @@ grafana:
         - name: Loki-Dev
           uid: Loki-Dev
           type: loki
-          url: http://loki-read.observability-dev:3100
+          url: http://loki-dev-read.observability-dev:3100
           access: proxy
           editable: false
         - name: Tempo-Dev
@@ -48,7 +48,7 @@ grafana:
         - name: Loki-Staging
           uid: Loki-Staging
           type: loki
-          url: http://loki-read.observability-staging:3100
+          url: http://loki-staging-read.observability-staging:3100
           access: proxy
           editable: false
         - name: Tempo-Staging
@@ -60,7 +60,7 @@ grafana:
         - name: Loki-Production
           uid: Loki-Production
           type: loki
-          url: http://loki-read.observability-production:3100
+          url: http://loki-production-read.observability-production:3100
           access: proxy
           editable: false
         - name: Tempo-Production

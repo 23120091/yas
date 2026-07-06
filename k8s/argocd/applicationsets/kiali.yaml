@@ -21,7 +21,7 @@ spec:
                 url: http://prometheus-dev-server.observability-dev:80
               grafana:
                 enabled: true
-                internal_url: http://grafana-grafana.observability:80/
+                internal_url: http://grafana.observability:80/
                 external_url: https://grafana.tthong.dev/
               tracing:
                 enabled: true
