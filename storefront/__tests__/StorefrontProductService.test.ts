@@ -14,12 +14,11 @@ describe('Storefront ProductService', () => {
   // ✅ 1. simple success case
   test('getFeaturedProducts returns data', async () => {
     (apiClient.get as jest.Mock).mockResolvedValue({
-      ok: true,
-      json: async () => ({ productList: [], totalPage: 0 }),
+      json: async () => ({ data: [] }),
     });
 
     const res = await service.getFeaturedProducts(1);
-    expect(res).toEqual({ productList: [], totalPage: 0 });
+    expect(res).toEqual({ data: [] });
   });
 
   // ✅ 2. branch: success vs error (status check)
