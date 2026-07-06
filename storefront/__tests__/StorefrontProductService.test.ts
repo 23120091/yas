@@ -14,11 +14,22 @@ describe('Storefront ProductService', () => {
   // ✅ 1. simple success case
   test('getFeaturedProducts returns data', async () => {
     (apiClient.get as jest.Mock).mockResolvedValue({
-      json: async () => ({ data: [] }),
+      ok: true,
+      json: async () => ({ productList: [], totalPage: 0 }),
     });
 
     const res = await service.getFeaturedProducts(1);
-    expect(res).toEqual({ data: [] });
+    expect(res).toEqual({ productList: [], totalPage: 0 });
+  });
+
+  test('getFeaturedProducts returns fallback when request fails', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({
+      ok: false,
+      json: async () => ({ detail: 'RBAC: access denied' }),
+    });
+
+    const res = await service.getFeaturedProducts(1);
+    expect(res).toEqual({ productList: [], totalPage: 0 });
   });
 
   // ✅ 2. branch: success vs error (status check)
