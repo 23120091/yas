@@ -36,7 +36,7 @@ securityContext: {}
   # runAsNonRoot: true
   # runAsUser: 1000
 
-baseUrl: /swagger-ui
+baseUrl: /
 urls: "[{ url: 'http://api.yas.local.com/product/v3/api-docs', name: 'Product' },
       { url: 'http://api.yas.local.com/media/v3/api-docs', name: 'Media' },
       { url: 'http://api.yas.local.com/customer/v3/api-docs', name: 'Customer' }, 
@@ -64,8 +64,8 @@ ingress:
   hosts:
     - host: api.yas.local.com
       paths:
-        - path: /swagger-ui
-          pathType: ImplementationSpecific
+        - path: /
+          pathType: Prefix
   extraPaths: []
   tls: []
   #  - secretName: chart-example-tls
