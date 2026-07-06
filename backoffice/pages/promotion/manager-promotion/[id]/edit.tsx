@@ -28,23 +28,7 @@ const PromotionUpdate: NextPage = () => {
       getPromotion(+id)
         .then((data) => {
           setPromotion(data);
-          setValue('slug', data.slug);
-          setValue('couponCode', data.couponCode);
-          setValue('name', data.name);
-          setValue('applyTo', data.applyTo);
-          setValue('startDate', removeTime(data.startDate));
-          setValue('endDate', removeTime(data.endDate));
-          setValue('discountAmount', data.discountAmount);
-          setValue('discountPercentage', data.discountPercentage);
-          setValue('usageLimit', data.usageLimit);
-          setValue('usageType', data.usageType);
-          setValue('discountType', data.discountType);
-          setValue('minimumOrderPurchaseAmount', data.minimumOrderPurchaseAmount);
-          setValue('description', data.description);
-          setValue('brandIds', data.brands?.map((brand) => brand.id) ?? []);
-          setValue('categoryIds', data.categories?.map((category) => category.id) ?? []);
-          setValue('productIds', data.products?.map((product) => product.id) ?? []);
-          setValue('isActive', data.isActive);
+          setDefaultValues(data);
         })
         .catch((error) => {
           console.error('Failed to fetch promotion:', error);
@@ -53,6 +37,26 @@ const PromotionUpdate: NextPage = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const setDefaultValues = (promotion: PromotionDetail) => {
+    setValue('slug', promotion.slug);
+    setValue('couponCode', promotion.couponCode);
+    setValue('name', promotion.name);
+    setValue('applyTo', promotion.applyTo);
+    setValue('startDate', removeTime(promotion.startDate));
+    setValue('endDate', removeTime(promotion.endDate));
+    setValue('discountAmount', promotion.discountAmount);
+    setValue('discountPercentage', promotion.discountPercentage);
+    setValue('usageLimit', promotion.usageLimit);
+    setValue('usageType', promotion.usageType);
+    setValue('discountType', promotion.discountType);
+    setValue('minimumOrderPurchaseAmount', promotion.minimumOrderPurchaseAmount);
+    setValue('description', promotion.description);
+    setValue('brandIds', promotion.brands?.map((brand) => brand.id) ?? []);
+    setValue('categoryIds', promotion.categories?.map((category) => category.id) ?? []);
+    setValue('productIds', promotion.products?.map((product) => product.id) ?? []);
+    setValue('isActive', promotion.isActive);
+  };
 
   const removeTime = (date: string) => {
     const DATE_PATTERN = /\d{4}-\d{2}-\d{2}/g;
