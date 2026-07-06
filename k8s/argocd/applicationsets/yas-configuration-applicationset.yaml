@@ -94,6 +94,8 @@ spec:
 
             - name: searchApplicationConfig.elasticsearch.url
               value: "elasticsearch-es-http.{{esNs}}:9200"
+            - name: paymentApplicationConfig.yas.public.url
+              value: "http://{{storefrontHost}}/complete-payment"
             - name: paymentPaypalApplicationConfig.yas.public.url
               value: "http://{{storefrontHost}}/complete-payment"
             - name: sampledataApplicationConfig.spring.datasource.product.url

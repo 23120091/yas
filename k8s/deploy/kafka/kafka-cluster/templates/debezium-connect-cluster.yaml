@@ -51,6 +51,23 @@ spec:
           configMap:
             name: debezium-connect-legacy-log4j
     connectContainer:
+      env:
+        - name: KAFKA_CONNECT_BOOTSTRAP_SERVERS
+          value: {{ .Values.debeziumConnect.bootstrapServers | default "kafka-cluster-kafka-bootstrap:9092" }}
+        - name: KAFKA_CONNECT_GROUP_ID
+          value: {{ .Values.debeziumConnect.groupId | default "connect-cluster" }}
+        - name: KAFKA_CONNECT_CONFIG_STORAGE_TOPIC
+          value: {{ .Values.debeziumConnect.configStorageTopic | default "kafka_connect_configs" }}
+        - name: KAFKA_CONNECT_OFFSET_STORAGE_TOPIC
+          value: {{ .Values.debeziumConnect.offsetStorageTopic | default "kafka_connect_offsets" }}
+        - name: KAFKA_CONNECT_STATUS_STORAGE_TOPIC
+          value: {{ .Values.debeziumConnect.statusStorageTopic | default "kafka_connect_status" }}
+        - name: KAFKA_CONNECT_KEY_CONVERTER
+          value: "org.apache.kafka.connect.json.JsonConverter"
+        - name: KAFKA_CONNECT_VALUE_CONVERTER
+          value: "org.apache.kafka.connect.json.JsonConverter"
+        - name: KAFKA_CONNECT_PLUGIN_PATH
+          value: /opt/kafka/plugins
       volumeMounts:
         - name: legacy-log4j-config
           mountPath: /opt/kafka/custom-config/log4j.properties

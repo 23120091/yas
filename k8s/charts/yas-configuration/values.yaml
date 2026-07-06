@@ -288,6 +288,12 @@ searchApplicationConfig:
     username: ${ELASTICSEARCH_USERNAME}
     password: ${ELASTICSEARCH_PASSWORD}
 
+# Payment application config custom
+paymentApplicationConfig:
+  yas:
+    public:
+      url: http://storefront.yas.local.com/complete-payment
+
 # Payment-paypal application config custom
 paymentPaypalApplicationConfig:
   yas:
