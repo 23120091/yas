@@ -49,13 +49,20 @@ spec:
 
           # --- WAVE 2: Secondary backend services ---
           - {service: "inventory",      directory: "k8s/charts/inventory",      helmPrefix: "backend", wave: "2"}
+          - {service: "location",       directory: "k8s/charts/location",       helmPrefix: "backend", wave: "2"}
           - {service: "media",          directory: "k8s/charts/media",          helmPrefix: "backend", wave: "2"}
           - {service: "tax",            directory: "k8s/charts/tax",            helmPrefix: "backend", wave: "2"}
+          - {service: "promotion",      directory: "k8s/charts/promotion",      helmPrefix: "backend", wave: "2"}
+          - {service: "rating",         directory: "k8s/charts/rating",         helmPrefix: "backend", wave: "2"}
           - {service: "search",         directory: "k8s/charts/search",         helmPrefix: "backend", wave: "2"}
+          - {service: "recommendation", directory: "k8s/charts/recommendation", helmPrefix: "backend", wave: "2"}
+          - {service: "sampledata",     directory: "k8s/charts/sampledata",     helmPrefix: "backend", wave: "2"}
           - {service: "order",          directory: "k8s/charts/order",          helmPrefix: "backend", wave: "2"}
 
           # --- WAVE 3: Payment & integration services ---
           - {service: "payment",        directory: "k8s/charts/payment",        helmPrefix: "backend", wave: "3"}
+          - {service: "payment-paypal", directory: "k8s/charts/payment-paypal", helmPrefix: "backend", wave: "3"}
+          - {service: "webhook",        directory: "k8s/charts/webhook",        helmPrefix: "backend", wave: "3"}
 
           # --- WAVE 4: Edge/BFF services (gateway, depends on backend) ---
           - {service: "storefront-bff", directory: "k8s/charts/storefront-bff", helmPrefix: "backend", wave: "4"}

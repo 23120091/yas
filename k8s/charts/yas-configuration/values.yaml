@@ -103,6 +103,13 @@ gatewayRoutesConfig:
             filters:
               - RewritePath=/api/(?<segment>.*), /$\{segment}
               - TokenRelay=
+          - id: location_api
+            uri: http://location
+            predicates:
+              - Path=/api/location/**
+            filters:
+              - RewritePath=/api/(?<segment>.*), /$\{segment}
+              - TokenRelay=
           - id: inventory_api
             uri: http://inventory
             predicates:
@@ -131,6 +138,13 @@ gatewayRoutesConfig:
             filters:
               - RewritePath=/api/(?<segment>.*), /$\{segment}
               - TokenRelay=
+          - id: rating_api
+            uri: http://rating
+            predicates:
+              - Path=/api/rating/**
+            filters:
+              - RewritePath=/api/(?<segment>.*), /$\{segment}
+              - TokenRelay=
           - id: payment_api
             uri: http://payment
             predicates:
@@ -145,6 +159,13 @@ gatewayRoutesConfig:
             filters:
               - RewritePath=/api/(?<segment>.*), /$\{segment}
               - TokenRelay=
+          - id: promotion_api
+            uri: http://promotion
+            predicates:
+              - Path=/api/promotion/**
+            filters:
+              - RewritePath=/api/(?<segment>.*), /$\{segment}
+              - TokenRelay=
           - id: search_api
             uri: http://search
             predicates:
@@ -156,6 +177,27 @@ gatewayRoutesConfig:
             uri: http://order
             predicates:
               - Path=/api/order/**
+            filters:
+              - RewritePath=/api/(?<segment>.*), /$\{segment}
+              - TokenRelay=
+          - id: recommendation_api
+            uri: http://recommendation
+            predicates:
+              - Path=/api/recommendation/**
+            filters:
+              - RewritePath=/api/(?<segment>.*), /$\{segment}
+              - TokenRelay=
+          - id: webhook_api
+            uri: http://webhook
+            predicates:
+              - Path=/api/webhook/**
+            filters:
+              - RewritePath=/api/(?<segment>.*), /$\{segment}
+              - TokenRelay=
+          - id: sampledata_api
+            uri: http://sampledata
+            predicates:
+              - Path=/api/sampledata/**
             filters:
               - RewritePath=/api/(?<segment>.*), /$\{segment}
               - TokenRelay=
