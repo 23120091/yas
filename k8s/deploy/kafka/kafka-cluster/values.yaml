@@ -6,11 +6,7 @@ postgresql:
   sealedSecret:
     enabled: true
 debeziumConnect:
-  image: ghcr.io/nashtech-garage/debezium-connect-postgresql:latest
-  buildImage: false # Enabled when building a Strimzi-compatible Kafka Connect image
-  build:
-    pushSecret: docker-registry.secret
-    pluginUrl: https://repo1.maven.org/maven2/io/debezium/debezium-connector-postgres/2.3.0.Final/debezium-connector-postgres-2.3.0.Final-plugin.tar.gz
+  image: debezium/connect:2.7.3.Final
+  buildImage: false
   legacyLog4jCompatibility:
-    enabled: true
-    rootLogLevel: INFO
+    enabled: false
