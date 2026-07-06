@@ -25,6 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.yas.product.model.Product;
 import com.yas.product.model.Brand;
+import com.yas.product.model.Category;
 import com.yas.product.model.enumeration.DimensionUnit;
 import com.yas.product.viewmodel.product.ProductGetDetailVm;
 import com.yas.product.viewmodel.NoFileMediaVm;
@@ -663,7 +664,9 @@ class ProductServiceTest {
         Brand brand = new Brand();
         brand.setId(1L);
         when(brandRepository.findById(1L)).thenReturn(Optional.of(brand));
-        when(categoryRepository.findAllById(List.of(1L))).thenReturn(List.of());
+        Category category = new Category();
+        category.setId(1L);
+        when(categoryRepository.findAllById(List.of(1L))).thenReturn(List.of(category));
         when(productRelatedRepository.saveAll(any())).thenReturn(List.of());
 
         productService.updateProduct(1L, productPutVm);
