@@ -660,7 +660,9 @@ class ProductServiceTest {
         when(productRepository.findByGtinAndIsPublishedTrue("IP15")).thenReturn(Optional.of(product));
         when(productRepository.findBySkuAndIsPublishedTrue("IP15")).thenReturn(Optional.of(product));
         when(productRepository.findAllById(any())).thenReturn(List.of());
-        when(brandRepository.findById(1L)).thenReturn(Optional.of(Brand.builder().id(1L).build()));
+        Brand brand = new Brand();
+        brand.setId(1L);
+        when(brandRepository.findById(1L)).thenReturn(Optional.of(brand));
         when(categoryRepository.findAllById(List.of(1L))).thenReturn(List.of());
         when(productRelatedRepository.saveAll(any())).thenReturn(List.of());
 
