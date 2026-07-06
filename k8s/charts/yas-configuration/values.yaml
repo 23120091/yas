@@ -69,6 +69,8 @@ applicationConfig:
         bootstrap-servers: kafka-cluster-kafka-brokers.kafka:9092
 
   springdoc:
+    api-docs:
+      version: openapi_3_0
     oauthflow:
       authorization-url: http://identity.yas.local.com/realms/Yas/protocol/openid-connect/auth
       token-url: http://identity.yas.local.com/realms/Yas/protocol/openid-connect/token
@@ -93,6 +95,16 @@ applicationConfig:
 
 # Gateway config for bff microservices
 gatewayRoutesConfig:
+  globalcors:
+    cors-configurations:
+      '[/**]':
+        allowedOrigins:
+          - "https://swagger-dev.tthong.dev"
+          - "https://swagger-staging.tthong.dev"
+          - "https://swagger.tthong.dev"
+        allowedMethods: "*"
+        allowedHeaders: "*"
+        allowCredentials: false
   default-filters:
     - SaveSession
   routes:

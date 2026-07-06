@@ -51,12 +51,12 @@ spec:
             backend:
               {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
               service:
-                name: {{ default $defaultServiceName .service.name }}
+                name: {{ if .service }}{{ .service.name }}{{ else }}{{ $defaultServiceName }}{{ end }}
                 port:
-                  number: {{ default $defaultServicePort .service.port }}
+                  number: {{ if .service }}{{ .service.port }}{{ else }}{{ $defaultServicePort }}{{ end }}
               {{- else }}
-              serviceName: {{ default $defaultServiceName .service.name }}
-              servicePort: {{ default $defaultServicePort .service.port }}
+              serviceName: {{ if .service }}{{ .service.name }}{{ else }}{{ $defaultServiceName }}{{ end }}
+              servicePort: {{ if .service }}{{ .service.port }}{{ else }}{{ $defaultServicePort }}{{ end }}
               {{- end }}
           {{- end }}
           {{- range $.Values.ingress.extraPaths }}
@@ -67,12 +67,12 @@ spec:
             backend:
               {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
               service:
-                name: {{ .service.name }}
+                name: {{ required "extraPaths[].service.name is required" .service.name }}
                 port:
-                  number: {{ .service.port }}
+                  number: {{ required "extraPaths[].service.port is required" .service.port }}
               {{- else }}
-              serviceName: {{ .service.name }}
-              servicePort: {{ .service.port }}
+              serviceName: {{ required "extraPaths[].service.name is required" .service.name }}
+              servicePort: {{ required "extraPaths[].service.port is required" .service.port }}
               {{- end }}
           {{- end }}
     {{- end }}
