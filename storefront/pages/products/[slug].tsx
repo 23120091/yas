@@ -131,22 +131,14 @@ const ProductDetailsPage = ({ product, productOptions, productVariations, pvid }
   }, []);
 
   useEffect(() => {
-    getRatingsByProductId(product.id, pageNo, pageSize)
-      .then((res) => {
-        setRatingList(res.ratingList);
-        setTotalPages(res.totalPages);
-        setTotalElements(res.totalElements);
-      })
-      .catch((error) => {
-        console.error('Failed to fetch ratings:', error);
-      });
-    getProductOptionValueByProductId(product.id)
-      .then((res) => {
-        setProductOptionValueGet(res);
-      })
-      .catch((error) => {
-        console.error('Failed to fetch product option values:', error);
-      });
+    getRatingsByProductId(product.id, pageNo, pageSize).then((res) => {
+      setRatingList(res.ratingList);
+      setTotalPages(res.totalPages);
+      setTotalElements(res.totalElements);
+    });
+    getProductOptionValueByProductId(product.id).then((res) => {
+      setProductOptionValueGet(res);
+    });
   }, [pageNo, pageSize, product.id, isPost]);
 
   const handlePageChange = ({ selected }: any) => {
@@ -171,11 +163,11 @@ const ProductDetailsPage = ({ product, productOptions, productVariations, pvid }
         toastSuccess('Post a review succesfully');
       })
       .catch((err) => {
-        if (err instanceof Error && err.message === 'Forbidden')
+        if (err == 403)
           toastError(
             'You are not authorized to rate this product since you are not logged in or have not purchased it'
           );
-        else if (err instanceof Error && err.message === 'Conflict') {
+        else if (err == 409) {
           toastError('You have rated this product before');
         } else {
           toastError('Some thing went wrong. Try again after a few seconds');

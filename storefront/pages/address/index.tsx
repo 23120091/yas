@@ -78,14 +78,10 @@ const Address: NextPage = () => {
       .catch((e) => console.log(e));
   };
   useEffect(() => {
-    getUserAddress()
-      .then((res) => {
-        setAddresses(res);
-        setCurrentDefaultAddress(res.find((address: any) => address.isActive == true)?.id);
-      })
-      .catch((error) => {
-        console.error('Failed to fetch user addresses:', error);
-      });
+    getUserAddress().then((res) => {
+      setAddresses(res);
+      setCurrentDefaultAddress(res.find((address: any) => address.isActive == true)?.id);
+    });
   }, []);
 
   return (

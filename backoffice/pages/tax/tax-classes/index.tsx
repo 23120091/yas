@@ -41,10 +41,7 @@ const TaxClassList: NextPage = () => {
         setTaxClasses(data.taxClassContent);
         setLoading(false);
       })
-      .catch((error) => {
-        console.log(error);
-        setLoading(false);
-      });
+      .catch((error) => console.log(error));
   };
 
   useEffect(() => {

@@ -5,10 +5,4 @@ postgresql:
   namespace: postgres
 debeziumConnect:
   image: ghcr.io/nashtech-garage/debezium-connect-postgresql:latest
-  buildImage: false # Enabled when building a Strimzi-compatible Kafka Connect image
-  build:
-    pushSecret: docker-registry.secret
-    pluginUrl: https://repo1.maven.org/maven2/io/debezium/debezium-connector-postgres/2.3.0.Final/debezium-connector-postgres-2.3.0.Final-plugin.tar.gz
-  legacyLog4jCompatibility:
-    enabled: true
-    rootLogLevel: INFO
+  buildImage: false #Enabled when build debezium-connect-postgresql image

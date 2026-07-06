@@ -30,7 +30,6 @@ const ProductTemplate: NextPage<ProductTemplatePageProps> = () => {
       })
       .catch((error) => {
         console.log(error);
-        setLoading(false);
       });
   };
 

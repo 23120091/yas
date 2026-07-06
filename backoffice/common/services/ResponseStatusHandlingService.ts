@@ -45,12 +45,8 @@ export const handleCreatingResponse = async (response: any) => {
   if (response.status === ResponseStatus.CREATED) {
     toastSuccess(CREATE_SUCCESSFULLY);
   } else if (response.status === ResponseStatus.BAD_REQUEST) {
-    try {
-      response = await response.json();
-      toastError(response.detail);
-    } catch (error) {
-      toastError(CREATE_FAILED);
-    }
+    response = await response.json();
+    toastError(response.detail);
   } else {
     toastError(CREATE_FAILED);
   }

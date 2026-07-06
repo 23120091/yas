@@ -16,13 +16,9 @@ export default function AuthenticationInfo() {
   }
 
   useEffect(() => {
-    getAuthenticatedUser()
-      .then((data) => {
-        setAuthenticatedUser(data);
-      })
-      .catch((error) => {
-        console.error('Failed to get authenticated user:', error);
-      });
+    getAuthenticatedUser().then((data) => {
+      setAuthenticatedUser(data);
+    });
   }, []);
 
   return (

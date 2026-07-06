@@ -52,10 +52,7 @@ const ProductAttributeList: NextPage = () => {
         setProductAttributes(data.productAttributeContent);
         setLoading(false);
       })
-      .catch((err) => {
-        console.log(err);
-        setLoading(false);
-      });
+      .catch((err) => console.log(err));
   };
 
   const changePage = ({ selected }: any) => {

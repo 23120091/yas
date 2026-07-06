@@ -23,13 +23,9 @@ export default function AuthenticationInfo() {
   }
 
   useEffect(() => {
-    getAuthenticationInfo()
-      .then((data) => {
-        setAuthenticatedInfoVm(data);
-      })
-      .catch((error) => {
-        console.error('Failed to get authentication info:', error);
-      });
+    getAuthenticationInfo().then((data) => {
+      setAuthenticatedInfoVm(data);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

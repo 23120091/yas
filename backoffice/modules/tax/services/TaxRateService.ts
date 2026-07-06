@@ -24,20 +24,12 @@ export async function deleteTaxRate(id: number) {
   const url = `${baseUrl}/${id}`;
   const response = await apiClientService.delete(url);
   if (response.status === 204) return response;
-  else if (response.status >= 200 && response.status < 300) {
-    return await response.json();
-  } else {
-    throw new Error(response.statusText);
-  }
+  else return await response.json();
 }
 
 export async function editTaxRate(id: number, taxRate: TaxRate) {
   const url = `${baseUrl}/${id}`;
   const response = await apiClientService.put(url, JSON.stringify(taxRate));
   if (response.status === 204) return response;
-  else if (response.status >= 200 && response.status < 300) {
-    return await response.json();
-  } else {
-    throw new Error(response.statusText);
-  }
+  else return await response.json();
 }

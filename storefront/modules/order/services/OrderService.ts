@@ -22,7 +22,7 @@ export async function getMyOrders(
     `${baseUrl}/orders/my-orders?productName=${productName}&orderStatus=${orderStatus ?? ''}`
   );
   if (res.status >= 200 && res.status < 300) return res.json();
-  throw new Error(res.statusText);
+  throw res;
 }
 
 export async function createCheckout(checkout: Checkout): Promise<Checkout | null> {

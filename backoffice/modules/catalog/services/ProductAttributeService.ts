@@ -24,11 +24,7 @@ export async function updateProductAttribute(id: number, productAttributeId: Pro
   const url = `${baseUrl}/${id}`;
   const response = await apiClientService.put(url, JSON.stringify(productAttributeId));
   if (response.status === 204) return response;
-  else if (response.status >= 200 && response.status < 300) {
-    return await response.json();
-  } else {
-    throw new Error(response.statusText);
-  }
+  else return await response.json();
 }
 
 export async function getProductAttribute(id: number): Promise<ProductAttribute> {
@@ -40,9 +36,5 @@ export async function deleteProductAttribute(id: number) {
   const url = `${baseUrl}/${id}`;
   const response = await apiClientService.delete(url);
   if (response.status === 204) return response;
-  else if (response.status >= 200 && response.status < 300) {
-    return await response.json();
-  } else {
-    throw new Error(response.statusText);
-  }
+  else return await response.json();
 }

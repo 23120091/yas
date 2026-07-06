@@ -4,8 +4,8 @@ fullnameOverride: swagger-ui
 nodeSelector:
   env: production
 
-baseUrl: /
-urls: "[{ url: 'https://swagger.tthong.dev/product/v3/api-docs', name: 'Product' }, { url: 'https://swagger.tthong.dev/media/v3/api-docs', name: 'Media' }, { url: 'https://swagger.tthong.dev/customer/v3/api-docs', name: 'Customer' }, { url: 'https://swagger.tthong.dev/cart/v3/api-docs', name: 'Cart' }, { url: 'https://swagger.tthong.dev/rating/v3/api-docs', name: 'Rating' }, { url: 'https://swagger.tthong.dev/order/v3/api-docs', name: 'Order' }, { url: 'https://swagger.tthong.dev/payment/v3/api-docs', name: 'Payment' }, { url: 'https://swagger.tthong.dev/location/v3/api-docs', name: 'Location' }, { url: 'https://swagger.tthong.dev/inventory/v3/api-docs', name: 'Inventory' }, { url: 'https://swagger.tthong.dev/tax/v3/api-docs', name: 'Tax' }, { url: 'https://swagger.tthong.dev/promotion/v3/api-docs', name: 'Promotion' }, { url: 'https://swagger.tthong.dev/search/v3/api-docs', name: 'Search' }]"
+baseUrl: /swagger-ui
+urls: "[{ url: 'http://api.yas.local/product/v3/api-docs', name: 'Product' }, { url: 'http://api.yas.local/media/v3/api-docs', name: 'Media' }, { url: 'http://api.yas.local/customer/v3/api-docs', name: 'Customer' }, { url: 'http://api.yas.local/cart/v3/api-docs', name: 'Cart' }, { url: 'http://api.yas.local/rating/v3/api-docs', name: 'Rating' }, { url: 'http://api.yas.local/order/v3/api-docs', name: 'Order' }, { url: 'http://api.yas.local/payment/v3/api-docs', name: 'Payment' }, { url: 'http://api.yas.local/location/v3/api-docs', name: 'Location' }, { url: 'http://api.yas.local/inventory/v3/api-docs', name: 'Inventory' }, { url: 'http://api.yas.local/tax/v3/api-docs', name: 'Tax' }, { url: 'http://api.yas.local/promotion/v3/api-docs', name: 'Promotion' }, { url: 'http://api.yas.local/search/v3/api-docs', name: 'Search' }]"
 
 ingress:
   enabled: true
@@ -14,66 +14,5 @@ ingress:
   hosts:
     - host: swagger.tthong.dev
       paths:
-        - path: /
-          pathType: Prefix
-  extraPaths:
-    - path: /product
-      pathType: Prefix
-      service:
-        name: product
-        port: 80
-    - path: /media
-      pathType: Prefix
-      service:
-        name: media
-        port: 80
-    - path: /customer
-      pathType: Prefix
-      service:
-        name: customer
-        port: 80
-    - path: /cart
-      pathType: Prefix
-      service:
-        name: cart
-        port: 80
-    - path: /rating
-      pathType: Prefix
-      service:
-        name: rating
-        port: 80
-    - path: /order
-      pathType: Prefix
-      service:
-        name: order
-        port: 80
-    - path: /payment
-      pathType: Prefix
-      service:
-        name: payment
-        port: 80
-    - path: /location
-      pathType: Prefix
-      service:
-        name: location
-        port: 80
-    - path: /inventory
-      pathType: Prefix
-      service:
-        name: inventory
-        port: 80
-    - path: /tax
-      pathType: Prefix
-      service:
-        name: tax
-        port: 80
-    - path: /promotion
-      pathType: Prefix
-      service:
-        name: promotion
-        port: 80
-    - path: /search
-      pathType: Prefix
-      service:
-        name: search
-        port: 80
+        - path: /swagger-ui
+          pathType: ImplementationSpecific

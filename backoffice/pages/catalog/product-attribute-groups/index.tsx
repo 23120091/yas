@@ -51,10 +51,7 @@ const ProductAttrbuteGroupList: NextPage = () => {
         setProductAttributeGroups(data.productAttributeGroupContent);
         setLoading(false);
       })
-      .catch((error) => {
-        console.log(error);
-        setLoading(false);
-      });
+      .catch((error) => console.log(error));
   };
 
   const changePage = ({ selected }: any) => {

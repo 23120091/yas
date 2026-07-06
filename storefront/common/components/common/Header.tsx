@@ -63,7 +63,7 @@ const Header = ({ children }: Props) => {
     const fetchTopCategories = async () => {
       try {
         const categories = await getCategoriesSuggestions();
-        setCategorySuggestions(Array.isArray(categories) ? categories : []);
+        setCategorySuggestions(categories);
       } catch (error) {
         console.error('Failed to fetch category suggestions', error);
       }

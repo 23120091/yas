@@ -38,23 +38,23 @@ const Orders: NextPage = () => {
       .then((res) => {
         setOrderList(res.orderList);
         setTotalPage(res.totalPages);
-        setLoading(false);
       })
       .catch((err) => {
         console.log(err);
-        setLoading(false);
       });
   };
 
   useEffect(() => {
     setLoading(true);
     handleGetOrders();
+    setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageNo, isDelete]);
 
   useEffect(() => {
     setLoading(true);
     handleGetOrders();
+    setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

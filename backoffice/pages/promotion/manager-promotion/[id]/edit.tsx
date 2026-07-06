@@ -25,18 +25,16 @@ const PromotionUpdate: NextPage = () => {
 
   useEffect(() => {
     if (id) {
-      getPromotion(+id)
-        .then((data) => {
-          setPromotion(data);
-          setDefaultValues(data);
-        })
-        .catch((error) => {
-          console.error('Failed to fetch promotion:', error);
-          toastError(`Failed to load promotion ${id}`);
-        });
+      getPromotion(+id).then((data) => {
+        setPromotion(data);
+        setDefaultValues(data);
+      });
+    } else {
+      toastError(`Promotion id ${id} not found`);
+      router.push({ pathname: `/404` }); //NOSONAR
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, []);
 
   const setDefaultValues = (promotion: PromotionDetail) => {
     setValue('slug', promotion.slug);

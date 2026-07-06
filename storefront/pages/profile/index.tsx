@@ -45,14 +45,9 @@ const Profile: NextPage = () => {
       lastName: event.target.lastName.value,
       email: event.target.email.value,
     };
-    updateCustomer(request)
-      .then(async (_res) => {
-        toast.success(UPDATE_SUCCESSFULLY);
-      })
-      .catch((error) => {
-        console.error('Failed to update customer:', error);
-        toast.error('Failed to update profile');
-      });
+    updateCustomer(request).then(async (_res) => {
+      toast.success(UPDATE_SUCCESSFULLY);
+    });
   };
 
   return (

@@ -26,17 +26,11 @@ const PromotionList: NextPage = () => {
   }, [pageNo]);
 
   const getPromotionList = () => {
-    getPromotions(createRequestParams())
-      .then((data) => {
-        setTotalPage(data.totalPage);
-        setPromotionPage(data);
-      })
-      .catch((error) => {
-        console.error('Failed to fetch promotions:', error);
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
+    getPromotions(createRequestParams()).then((data) => {
+      setIsLoading(false);
+      setTotalPage(data.totalPage);
+      setPromotionPage(data);
+    });
   };
 
   const createRequestParams = (): PromotionListRequest => {

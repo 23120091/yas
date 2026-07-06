@@ -49,7 +49,6 @@ const Customers: NextPage = () => {
       })
       .catch((err) => {
         toast.error('Something was wrong! Try later!');
-        setIsLoading(false);
       });
   };
 
