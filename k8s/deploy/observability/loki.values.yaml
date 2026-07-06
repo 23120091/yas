@@ -12,13 +12,31 @@ loki:
     ingestion_rate_mb: 50
     ingestion_burst_size_mb: 100
     reject_old_samples: false
+  
   storage:
-    bucketNames:
-      chunks: loki-chunks
-      ruler: loki-ruler
-      admin: loki-admin
-storage:
-  type: 'filesystem'
+    type: 'filesystem'
+
+  storageConfig:
+    filesystem:
+      chunks_directory: /data/loki/chunks
+      rules_directory: /data/loki/rules
+      admin_directory: /data/loki/admin
+
+persistence:
+  enabled: true
+  size: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  mountPath: /data
+
+extraInitContainers:
+  - name: fix-permissions
+    image: busybox
+    command: ["sh", "-c", "chown -R 10001:10001 /data"]
+    volumeMounts:
+      - name: storage
+        mountPath: /data
+
 minio:
   enabled: false
 
