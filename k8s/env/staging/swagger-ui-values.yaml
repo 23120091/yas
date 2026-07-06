@@ -4,8 +4,8 @@ fullnameOverride: swagger-ui
 nodeSelector:
   env: staging
 
-baseUrl: /swagger-ui
-urls: "[{ url: 'http://api.staging.yas.local/product/v3/api-docs', name: 'Product' }, { url: 'http://api.staging.yas.local/media/v3/api-docs', name: 'Media' }, { url: 'http://api.staging.yas.local/customer/v3/api-docs', name: 'Customer' }, { url: 'http://api.staging.yas.local/cart/v3/api-docs', name: 'Cart' }, { url: 'http://api.staging.yas.local/rating/v3/api-docs', name: 'Rating' }, { url: 'http://api.staging.yas.local/order/v3/api-docs', name: 'Order' }, { url: 'http://api.staging.yas.local/payment/v3/api-docs', name: 'Payment' }, { url: 'http://api.staging.yas.local/location/v3/api-docs', name: 'Location' }, { url: 'http://api.staging.yas.local/inventory/v3/api-docs', name: 'Inventory' }, { url: 'http://api.staging.yas.local/tax/v3/api-docs', name: 'Tax' }, { url: 'http://api.staging.yas.local/promotion/v3/api-docs', name: 'Promotion' }, { url: 'http://api.staging.yas.local/search/v3/api-docs', name: 'Search' }]"
+baseUrl: /
+urls: "[{ url: 'https://backoffice-staging.tthong.dev/api/product/v3/api-docs', name: 'Product' }, { url: 'https://backoffice-staging.tthong.dev/api/media/v3/api-docs', name: 'Media' }, { url: 'https://backoffice-staging.tthong.dev/api/customer/v3/api-docs', name: 'Customer' }, { url: 'https://backoffice-staging.tthong.dev/api/cart/v3/api-docs', name: 'Cart' }, { url: 'https://backoffice-staging.tthong.dev/api/rating/v3/api-docs', name: 'Rating' }, { url: 'https://backoffice-staging.tthong.dev/api/order/v3/api-docs', name: 'Order' }, { url: 'https://backoffice-staging.tthong.dev/api/payment/v3/api-docs', name: 'Payment' }, { url: 'https://backoffice-staging.tthong.dev/api/location/v3/api-docs', name: 'Location' }, { url: 'https://backoffice-staging.tthong.dev/api/inventory/v3/api-docs', name: 'Inventory' }, { url: 'https://backoffice-staging.tthong.dev/api/tax/v3/api-docs', name: 'Tax' }, { url: 'https://backoffice-staging.tthong.dev/api/promotion/v3/api-docs', name: 'Promotion' }, { url: 'https://backoffice-staging.tthong.dev/api/search/v3/api-docs', name: 'Search' }]"
 
 ingress:
   enabled: true
@@ -14,5 +14,5 @@ ingress:
   hosts:
     - host: swagger-staging.tthong.dev
       paths:
-        - path: /swagger-ui
+        - path: /
           pathType: ImplementationSpecific

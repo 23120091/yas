@@ -14,7 +14,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  INFRASTRUCTURE (setup-cluster.sh + setup-redis.sh + setup-keycloak.sh)    │
+│  INFRASTRUCTURE (setup-cluster.sh + setup-redis.sh)                         │
 │  ├── postgres-{env}      : PostgreSQL cluster (Zalando operator)           │
 │  ├── kafka-{env}         : Kafka cluster (Strimzi operator)                │
 │  ├── elasticsearch-{env} : Elasticsearch (ECK operator)                    │
@@ -140,7 +140,7 @@ kubectl get application -n argocd | wc -l   # ~25+ apps
 
 **What this does:**
 1. KHÔNG xóa ArgoCD
-2. Chạy setup-cluster.sh, setup-redis.sh, setup-keycloak.sh
+2. Chạy setup-cluster.sh, setup-redis.sh
 3. Đợi infrastructure sẵn sàng
 4. Resync ArgoCD apps
 
@@ -156,7 +156,8 @@ kubectl get application -n argocd | wc -l   # ~25+ apps
 # Phase 1: Infrastructure
 ./setup-cluster.sh dev      # PostgreSQL, Kafka, ES, Zookeeper, Observability
 ./setup-redis.sh dev        # Redis
-./setup-keycloak.sh dev     # Keycloak (đã có đợi PostgreSQL trong script)
+# Keycloak được ArgoCD deploy qua keycloak ApplicationSet (sync-wave: 1)
+# setup-all.sh đã tự handle CRD installation + CoreDNS patching
 
 # Phase 2: Đợi key dependencies
 kubectl wait --for=condition=ready pod -l application=spilo -n postgres-dev --timeout=300s
@@ -365,7 +366,7 @@ k8s/
 │   ├── teardown.sh                           # Destroy infrastructure
 │   ├── setup-cluster.sh                      # PostgreSQL, Kafka, ES, ...
 │   ├── setup-redis.sh                        # Redis
-│   ├── setup-keycloak.sh                     # Keycloak + realm import
+│   ├── check-connections.sh                  # Diagnostic: test infra connectivity
 │   ├── cluster-config-{dev,staging,prod}.yaml
 │   └── postgres/
 │       ├── postgresql/                       # Zalando PostgreSQL Helm chart

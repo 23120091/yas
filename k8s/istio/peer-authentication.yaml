@@ -35,6 +35,18 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
+  name: mtls-permissive-swagger-ui-dev
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: swagger-ui
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
   name: mtls-strict-staging
   namespace: staging
 spec:
@@ -68,6 +80,18 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
+  name: mtls-permissive-swagger-ui-staging
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: swagger-ui
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
   name: mtls-strict-production
   namespace: production
 spec:
@@ -95,5 +119,17 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: backoffice-bff
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: mtls-permissive-swagger-ui-production
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: swagger-ui
   mtls:
     mode: PERMISSIVE

@@ -81,10 +81,26 @@ kubectl get secrets -n "$ES_USERS_NS" user-credentials-secret -o jsonpath='{.dat
 }
 
 # ──────────────────────────────────────────────
-# 3. RESTART crashing pods
+# 3. RESTART KEYCLOAK — ALTER USER kills active connections
 # ──────────────────────────────────────────────
 echo ""
-echo "[3/3] Restarting crashing deployments in ${APP_NS}..."
+echo "[3/4] Restarting Keycloak (ALTER USER killed its connection)..."
+KEYCLOAK_STS=$(kubectl get statefulset -n "${KEYCLOAK_NS}" keycloak -o name 2>/dev/null || true)
+if [ -n "$KEYCLOAK_STS" ]; then
+    kubectl rollout restart statefulset -n "${KEYCLOAK_NS}" keycloak 2>/dev/null && \
+    echo "  OK Keycloak restarting" || \
+    echo "  WARNING: Could not restart Keycloak"
+    kubectl rollout status statefulset -n "${KEYCLOAK_NS}" keycloak --timeout=180s 2>/dev/null || \
+    echo "  WARNING: Keycloak not ready yet, check manually"
+else
+    echo "  No Keycloak statefulset found in ${KEYCLOAK_NS}"
+fi
+
+# ──────────────────────────────────────────────
+# 4. RESTART crashing pods
+# ──────────────────────────────────────────────
+echo ""
+echo "[4/4] Restarting crashing deployments in ${APP_NS}..."
 
 CRASHING=$(kubectl get pods -n "$APP_NS" --no-headers 2>/dev/null | \
   awk '/CrashLoop|Error/{print $1}' | \

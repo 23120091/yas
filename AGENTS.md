@@ -123,31 +123,45 @@ docker compose -f docker-compose.yml up  # core services only
 - If limited to 16GB RAM, set `COMPOSE_FILE=docker-compose.yml` and `OTEL_JAVAAGENT_ENABLED=false` in `.env`, and comment out unused services from `docker-compose.yml`.
 - Search service running locally outside Docker: change `spring.kafka.consumer.bootstrap-servers` from `kafka:9092` to `localhost:29092`.
 - BFFs use `TokenRelay=` filter for OAuth2 token propagation; do not remove it.
+- **Liquibase lock stuck?** Manually drop the lock:
+  ```sql
+  UPDATE <schema>.DATABASECHANGELOGLOCK SET LOCKED=false, LOCKEDBY=null, LOCKGRANTED=null;
+  ```
 
-## K8s Deployment Gotchas
+## K8s Deployment
 
-### `yas-configuration` IS managed by ArgoCD (sync-wave: -1)
+### ArgoCD-managed (GitOps model — PREFERRED)
 
-The `yas-configuration` Helm chart (shared ConfigMaps + Secrets) is deployed by the `yas-configuration` ApplicationSet, with **sync-wave: -1** so it deploys BEFORE all application services.
+Everything is deployed via ArgoCD ApplicationSets in sync-wave order. Push to `main` → ArgoCD auto-syncs.
 
-**How it works:**
+**Wave order:**
+1. **Wave -1**: `yas-configuration` (ConfigMaps + SealedSecrets)
+2. **Wave 0**: Infrastructure (via `setup-cluster.sh` + `setup-redis.sh` — run once per env)
+3. **Wave 1**: Keycloak (via `keycloak` ApplicationSet)
+4. **Wave 2**: Application services (via `yas-{env}` ApplicationSet)
+5. **Wave 3**: Monitoring (via `prometheus-{env}` + `grafana` ApplicationSets)
+
+All ApplicationSets have sync-wave annotations so ArgoCD deploys in order.
+
+### yas-configuration (sync-wave: -1)
+
+Helm chart at `k8s/charts/yas-configuration/` deployed by `yas-configuration` ApplicationSet.
 1. Edit `k8s/charts/yas-configuration/values.yaml`
-2. Push to git
-3. ArgoCD auto-syncs ConfigMaps in all environments
-4. **Stakater Reloader** auto-restarts pods that reference updated ConfigMaps
+2. Push to git → ArgoCD auto-syncs ConfigMaps in all environments
+3. **Stakater Reloader** auto-restarts pods that reference updated ConfigMaps
 
-**No manual deploy needed.** The old `./deploy-yas-configuration.sh` script is kept for emergency use only (e.g., if ArgoCD is down).
+**No manual deploy needed.** `deploy-yas-configuration.sh` kept for emergency only.
 
-### `keycloak` IS managed by ArgoCD
+### Keycloak (sync-wave: 1)
 
-Keycloak is deployed by the `keycloak` ApplicationSet (`k8s/argocd/applicationsets/keycloak-applicationset.yaml`) and manages the Keycloak CR + realm import via the Helm chart at `k8s/deploy/keycloak/keycloak/`.
+Deployed by `keycloak` ApplicationSet (`k8s/argocd/applicationsets/keycloak-applicationset.yaml`). Manages Keycloak CR + realm import via Helm chart at `k8s/deploy/keycloak/keycloak/`.
 
-**Credentials are SealedSecrets** (one-time apply via `setup-keycloak.sh`, then ArgoCD-managed):
-- `k8s/sealed-secrets/{env}/keycloak-db-credentials.yaml` — PostgreSQL credentials (`postgresql-credentials`)
-- `k8s/sealed-secrets/{env}/keycloak-admin-credentials.yaml` — Keycloak admin credentials (`keycloak-credentials`)
+**Credentials are SealedSecrets** (apply once, then ArgoCD-managed):
+- `k8s/sealed-secrets/{env}/keycloak-db-credentials.yaml` — PostgreSQL credentials
+- `k8s/sealed-secrets/{env}/keycloak-admin-credentials.yaml` — Keycloak admin credentials
 
 **To change a password:**
-1. Re-encrypt the SealedSecret with the new password:
+1. Re-encrypt the SealedSecret:
    ```bash
    kubectl create secret generic postgresql-credentials -n keycloak-{env} \
      --dry-run=client -o yaml \
@@ -155,18 +169,17 @@ Keycloak is deployed by the `keycloak` ApplicationSet (`k8s/argocd/applicationse
      --from-literal=password=<new-password> | \
      kubeseal --format=yaml > k8s/sealed-secrets/{env}/keycloak-db-credentials.yaml
    ```
-2. Commit and push → ArgoCD applies the updated SealedSecret
+2. Commit and push → ArgoCD applies
 3. Restart Keycloak: `kubectl rollout restart statefulset keycloak -n keycloak-{env}`
-4. Sync the password to the actual PostgreSQL DB:
+4. `setup-all.sh` handles sync-password automatically, or run manually:
    ```bash
-   source k8s/deploy/.env && ./k8s/deploy/sync-password.sh {env}
+   ./k8s/deploy/sync-password.sh {env}
    ```
 
-**One-time setup still needed (cluster-scoped CRDs + CoreDNS):**
-```bash
-./setup-keycloak.sh <env>
-```
-After that, day-to-day changes only need `git push`.
+**sync-password.sh** reads the new password from the K8s Secret (not `.env`) and auto-restarts the Keycloak pod after updating.
+
+**One-time cluster-scoped prerequisites** (Keycloak CRDs + CoreDNS rewrite):
+These are inlined in `setup-all.sh` phase 1.6 — no separate script needed.
 
 ### Infrastructure NOT managed by ArgoCD (run scripts once per env)
 
@@ -179,7 +192,7 @@ After initial setup, infrastructure rarely changes. Day-to-day changes only need
 
 ### Spring Cloud Gateway property path (Boot 4 / Gateway 5)
 
-BFF POM uses `spring-cloud-starter-gateway-server-webflux` (new path). Gateway routes must be under:
+BFF POM uses `spring-cloud-starter-gateway-server-webflux`. Routes must be under:
 
 ```yaml
 spring:
@@ -191,38 +204,48 @@ spring:
             - id: ...
 ```
 
-The old path `spring.cloud.gateway.routes` is **silently ignored** — routes will not load and every request returns 404.
+Old path `spring.cloud.gateway.routes` is **silently ignored** — 404s everything.
 
 **Where this lives:**
-- Values: `k8s/charts/yas-configuration/values.yaml` → key `gatewayRoutesConfig`
-- Template: `k8s/charts/yas-configuration/templates/yas-configurations.configmap.yaml` wraps the value in the correct property path
+- Values: `k8s/charts/yas-configuration/values.yaml` → `gatewayRoutesConfig`
+- Template: `k8s/charts/yas-configuration/templates/yas-configurations.configmap.yaml`
 
 ### BFF extra configs are for auth/redis only
 
-`backofficeBffExtraConfig` and `storefrontBffExtraConfig` should contain **only** OAuth2 client registration and Redis connection. Do **not** put gateway routes here — they go in `gatewayRoutesConfig` which renders to a separate ConfigMap mounted at `/opt/yas/gateway-routes-config`.
+`backofficeBffExtraConfig` / `storefrontBffExtraConfig` = OAuth2 + Redis only. Gateway routes go in `gatewayRoutesConfig`.
 
 ### Host predicate wildcard
 
-Spring Cloud Gateway `Host` predicate uses single `*` (matches characters within one dot-separated segment). `**` is a path-pattern wildcard (multi-segment, `/` separator) and does **not** work in `Host` predicates.
+`Host` predicate uses single `*` (dot-separated segment). `**` is a path-pattern wildcard, does NOT work in `Host`.
 
 ```yaml
 # Correct
 - Host=storefront*.tthong.dev
-
-# Wrong — route will never match
-- Host=storefront**.tthong.dev
 ```
 
-### Media `publicUrl` must be overridden per environment
+### Media `publicUrl` per environment
 
-`mediaApplicationConfig.yas.publicUrl` defaults to `http://api.yas.local.com/media` (docker-compose domain). In K8s this must be set per environment in `deploy-yas-configuration.sh`:
-
+`mediaApplicationConfig.yas.publicUrl` defaults to `http://api.yas.local.com/media` (docker-compose). In K8s override per env:
 ```bash
 --set "mediaApplicationConfig.yas.publicUrl=http://${STOREFRONT_HOST}/api/media"
 ```
 
-Without this, storefront product images will try to load from the non-resolvable docker-compose domain.
-
 ### Why backoffice "works" but storefront 404s
 
-Backoffice has Spring Security OAuth2 which intercepts unauthenticated requests **before** gateway routing (redirects to Keycloak login). Storefront allows anonymous access, so requests hit gateway routing immediately. If gateway routes are broken, storefront shows 404 while backoffice appears to work (shows login page).
+Backoffice intercepts unauthenticated requests **before** gateway routing (redirects to Keycloak login). Storefront allows anonymous access, so broken gateway routes produce 404 immediately.
+
+### Node selectors per environment
+
+`debug-tools`, `swagger-ui`, and `yas-reloader` use env-specific node selectors from `cluster-config-{env}.yaml` rather than a hardcoded one. The config files define:
+```yaml
+nodeSelector:
+  node.kubernetes.io/instance-type: ...
+```
+
+### check-connections.sh
+
+Diagnostic script at `k8s/deploy/check-connections.sh` that tests connectivity between services (PostgreSQL, Kafka, Elasticsearch, Keycloak) by running curl/psql from a temporary debug pod. Use it when pods can't connect to infrastructure.
+
+### Developer Build workflow
+
+`.github/workflows/developer-build.yml` — deploy one or more services to a sandbox namespace for isolated testing. Supports `deploy` and `destroy` actions. On `deploy`, builds image (if not exists), deploys to sandbox, creates ExternalName CNAMEs pointing back to the source env for non-deployed services. On `destroy`, removes only the deployed pods/services, keeps ExternalName routes + namespace.
