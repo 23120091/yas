@@ -3,7 +3,7 @@ ui:
     env: staging
   image:
     repository: ghcr.io/23120091/storefront-ui
-    tag: 0.4.2
+    tag: 0.4.3
   nameOverride: storefront-ui
   fullnameOverride: storefront-ui
   extraEnvs:
