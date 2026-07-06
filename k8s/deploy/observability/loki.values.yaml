@@ -4,49 +4,46 @@ read:
   replicas: 1
 backend:
   replicas: 1
+
 loki:
+  auth_enabled: false
   commonConfig:
     replication_factor: 1
-  auth_enabled: false
-  limits_config:
-    ingestion_rate_mb: 50
-    ingestion_burst_size_mb: 100
-    reject_old_samples: false
-  
+
   storage:
-    type: 'filesystem'
+    type: 's3'
+
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: s3
+        schema: v13
+        index:
+          prefix: index_
+          period: 24h
 
   storageConfig:
-    filesystem:
-      chunks_directory: /data/chunks
-      rules_directory: /data/rules
-      admin_directory: /data/admin
-
-persistence:
-  enabled: true
-  size: 10Gi
-  accessModes:
-    - ReadWriteOnce
-  mountPath: /data
-
-extraInitContainers:
-  - name: fix-permissions
-    image: busybox
-    command: ["sh", "-c", "chown -R 10001:10001 /data"]
-    volumeMounts:
-      - name: storage
-        mountPath: /data
+    aws:
+      s3: null
+      endpoint: http://loki-dev-minio:9000
+      bucketnames: loki-data
+      access_key_id: minio
+      secret_access_key: minio123
+      s3forcepathstyle: true
+      insecure: true
 
 minio:
-  enabled: false
+  enabled: true
+  persistence:
+    enabled: true
+    size: 10Gi
+    accessModes:
+      - ReadWriteOnce
 
-# ============================================================================
-# MEMCACHED — Loki chart 7.0.0 dùng chunksCache / resultsCache
-# Default allocatedMemory: 8192 MB (~9GB sau khi chart tính resources)
-# ============================================================================
 chunksCache:
   enabled: true
-  allocatedMemory: 512          # MB (default 8192)
+  allocatedMemory: 512
   allocatedCPU: 50m
   resources:
     requests:
@@ -57,7 +54,7 @@ chunksCache:
 
 resultsCache:
   enabled: true
-  allocatedMemory: 256          # MB (default 1024)
+  allocatedMemory: 256
   allocatedCPU: 50m
   resources:
     requests:
@@ -69,5 +66,3 @@ resultsCache:
 monitoring:
   selfMonitoring:
     enabled: false
-    grafanaAgent:
-      installOperator: false
