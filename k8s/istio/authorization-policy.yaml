@@ -196,6 +196,22 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
+  name: allow-bff-to-sampledata
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sampledata
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/production/sa/storefront-bff
+              - cluster.local/ns/production/sa/backoffice-bff
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
   name: product-allow-callers
   namespace: production
 spec:

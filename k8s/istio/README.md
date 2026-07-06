@@ -20,8 +20,9 @@ Service mesh chỉ áp dụng cho namespace `production`. `dev` và `staging` ch
 | `backoffice-bff` | BFF cho quản trị |
 | `backoffice-ui` | Giao diện quản trị |
 | `swagger-ui` | API documentation |
+| `sampledata` | Seed/demo data API dùng từ storefront |
 
-Các service ngoài danh sách này không còn nằm trong ApplicationSet chính và không được đưa vào allow-list service mesh.
+ApplicationSet vẫn giữ đầy đủ service theo GitOps. Danh sách này chỉ mô tả các service được mở trong service mesh production allow-list.
 
 ## Manifest
 
@@ -85,6 +86,14 @@ kubectl exec -n production deploy/istio-debug -c debug -- \
 ```
 
 Kỳ vọng: `403 Forbidden` từ Istio vì `istio-debug` không nằm trong allow-list của `product`.
+
+### Sampledata production
+
+```bash
+curl -i https://storefront.tthong.dev/api/sampledata/storefront/sampledata
+```
+
+Kỳ vọng: không còn Istio `403 RBAC: access denied`; nếu lỗi tiếp theo xuất hiện thì là lỗi ứng dụng của `sampledata`, không phải mesh policy.
 
 ### Retry policy
 
