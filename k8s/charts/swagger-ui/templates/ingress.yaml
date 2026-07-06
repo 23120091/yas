@@ -51,12 +51,12 @@ spec:
             backend:
               {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
               service:
-                name: {{ .service.name | default $defaultServiceName }}
+                name: {{ if .service }}{{ .service.name }}{{ else }}{{ $defaultServiceName }}{{ end }}
                 port:
-                  number: {{ .service.port | default $defaultServicePort }}
+                  number: {{ if .service }}{{ .service.port }}{{ else }}{{ $defaultServicePort }}{{ end }}
               {{- else }}
-              serviceName: {{ .service.name | default $defaultServiceName }}
-              servicePort: {{ .service.port | default $defaultServicePort }}
+              serviceName: {{ if .service }}{{ .service.name }}{{ else }}{{ $defaultServiceName }}{{ end }}
+              servicePort: {{ if .service }}{{ .service.port }}{{ else }}{{ $defaultServicePort }}{{ end }}
               {{- end }}
           {{- end }}
           {{- range $.Values.ingress.extraPaths }}
