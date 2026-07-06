@@ -6,5 +6,5 @@ postgresql:
   sealedSecret:
     enabled: true
 debeziumConnect:
-  image: thanhthong2005/debezium-connect-postgresql:2.7.3.Final
+  image: thanhthong2005/debezium-connect-postgresql:2.7.3.Final-5
   buildImage: false
