@@ -1,8 +1,8 @@
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
-  name: mtls-strict-dev
-  namespace: dev
+  name: mtls-strict-production
+  namespace: production
 spec:
   mtls:
     mode: STRICT
@@ -11,98 +11,7 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
-  name: mtls-permissive-bff-dev
-  namespace: dev
-spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: storefront-bff
-  mtls:
-    mode: PERMISSIVE
----
-apiVersion: security.istio.io/v1beta1
-kind: PeerAuthentication
-metadata:
-  name: mtls-permissive-backoffice-bff-dev
-  namespace: dev
-spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: backoffice-bff
-  mtls:
-    mode: PERMISSIVE
----
-# Swagger UI is browser-facing, must accept plain HTTP from Traefik
-apiVersion: security.istio.io/v1beta1
-kind: PeerAuthentication
-metadata:
-  name: mtls-permissive-swagger-ui-dev
-  namespace: dev
-spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: swagger-ui
-  mtls:
-    mode: PERMISSIVE
----
-apiVersion: security.istio.io/v1beta1
-kind: PeerAuthentication
-metadata:
-  name: mtls-strict-staging
-  namespace: staging
-spec:
-  mtls:
-    mode: STRICT
----
-apiVersion: security.istio.io/v1beta1
-kind: PeerAuthentication
-metadata:
-  name: mtls-permissive-bff-staging
-  namespace: staging
-spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: storefront-bff
-  mtls:
-    mode: PERMISSIVE
----
-apiVersion: security.istio.io/v1beta1
-kind: PeerAuthentication
-metadata:
-  name: mtls-permissive-backoffice-bff-staging
-  namespace: staging
-spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: backoffice-bff
-  mtls:
-    mode: PERMISSIVE
----
-apiVersion: security.istio.io/v1beta1
-kind: PeerAuthentication
-metadata:
-  name: mtls-permissive-swagger-ui-staging
-  namespace: staging
-spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: swagger-ui
-  mtls:
-    mode: PERMISSIVE
----
-apiVersion: security.istio.io/v1beta1
-kind: PeerAuthentication
-metadata:
-  name: mtls-strict-production
-  namespace: production
-spec:
-  mtls:
-    mode: STRICT
----
-apiVersion: security.istio.io/v1beta1
-kind: PeerAuthentication
-metadata:
-  name: mtls-permissive-bff-production
+  name: mtls-permissive-storefront-bff-production
   namespace: production
 spec:
   selector:
@@ -123,6 +32,7 @@ spec:
   mtls:
     mode: PERMISSIVE
 ---
+# Swagger UI is browser-facing, must accept plain HTTP from Traefik
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
