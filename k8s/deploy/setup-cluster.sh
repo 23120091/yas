@@ -298,7 +298,6 @@ helm upgrade --install "zookeeper-${ENV}" ./zookeeper \
 helm upgrade --install "loki-${ENV}" grafana/loki \
   --create-namespace --namespace "${OBS_NS}" \
   -f ./observability/loki.values.yaml \
-  --set loki.useTestSchema=true \
   --values "./infra-${ENV}-affinity.yaml"
 
 # --------------------------------------------------------------------------
