@@ -83,8 +83,11 @@ KAFKA_REPLICAS=$(yq -r '.kafka.replicas' "$CONFIG_FILE")
 ZK_REPLICAS=$(yq -r '.zookeeper.replicas' "$CONFIG_FILE")
 ES_REPLICAS=$(yq -r '.elasticsearch.replicas' "$CONFIG_FILE")
 
-# Passwords come from .env.txt (sourced above):
-#   POSTGRES_USERNAME, POSTGRES_PASSWORD, ES_PASSWORD, REDIS_PASSWORD, etc.
+# Passwords come from .env (sourced above):
+#   POSTGRES_PASSWORD_{ENV}, ES_PASSWORD, REDIS_PASSWORD, etc.
+# Resolve per-environment PostgreSQL password (e.g. POSTGRES_PASSWORD_DEV)
+PG_PASSWORD_VAR="POSTGRES_PASSWORD_$(echo ${ENV} | tr '[:lower:]' '[:upper:]')"
+PG_PASSWORD="${!PG_PASSWORD_VAR:-$POSTGRES_PASSWORD}"
 
 # --------------------------------------------------------------------------
 # Build env-specific namespaces and hostnames
@@ -205,7 +208,8 @@ helm upgrade --install "postgres-${ENV}" ./postgres/postgresql \
   --set replicas="$PG_REPLICAS" \
   --set username="$PG_USERNAME" \
   --set password="$PG_PASSWORD" \
-  --set volumeSize="$PG_VOLUME_SIZE"
+  --set volumeSize="$PG_VOLUME_SIZE" \
+  --values "./infra-${ENV}-affinity.yaml"
 
 # Wait for Zalando operator to create databases and users
 echo "Waiting for Postgres leader and databases..."
