@@ -203,6 +203,15 @@ sleep 10
 kubectl patch pvc -n "${PG_NS}" --all --type merge -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
 kubectl delete pvc -n "${PG_NS}" --all --ignore-not-found --timeout=60s 2>/dev/null || true
 
+# Pre-create user credential secret so Zalando operator uses our fixed password
+# instead of generating a random one. Secret name convention: {username}.{team}.credentials
+echo "Pre-creating PostgreSQL user credential secret..."
+kubectl create secret generic "yasadminuser.postgresql.credentials.postgresql.acid.zalan.do" \
+  -n "${PG_NS}" \
+  --from-literal=username="${PG_USERNAME}" \
+  --from-literal=password="${PG_PASSWORD}" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
 helm upgrade --install "postgres-${ENV}" ./postgres/postgresql \
   --create-namespace --namespace "${PG_NS}" \
   --set replicas="$PG_REPLICAS" \
