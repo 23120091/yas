@@ -142,6 +142,7 @@ spec:
             principals:
               - cluster.local/ns/production/sa/storefront-bff
               - cluster.local/ns/production/sa/backoffice-bff
+              - cluster.local/ns/production/sa/product
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy

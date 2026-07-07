@@ -1,7 +1,7 @@
 backend: 
   image: 
     repository: ghcr.io/23120091/storefront-bff
-    tag: 0.4.1
+    tag: 0.4.2
 
   nameOverride: storefront-bff
   fullnameOverride: storefront-bff
