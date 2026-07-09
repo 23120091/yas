@@ -107,7 +107,6 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/${{ needs.parse-tag.outputs.service }}:${{ needs.parse-tag.outputs.version }}
-            ghcr.io/${{ github.repository_owner }}/${{ needs.parse-tag.outputs.service }}:latest
 
   node-build:
     name: Node — ${{ needs.parse-tag.outputs.service }}
@@ -148,4 +147,3 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/${{ needs.parse-tag.outputs.service }}:${{ needs.parse-tag.outputs.version }}
-            ghcr.io/${{ github.repository_owner }}/${{ needs.parse-tag.outputs.service }}:latest

@@ -1,5 +1,6 @@
 # Staging environment node affinity
 # Pins staging infrastructure to staging worker node (spot instance, acceptable to crash)
+env: staging
 affinity:
   nodeAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:

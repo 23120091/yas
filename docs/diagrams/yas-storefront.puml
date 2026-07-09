@@ -1,0 +1,85 @@
+@startuml
+!theme plain
+title YAS — Storefront Architecture
+
+skinparam backgroundColor #FAFAFA
+skinparam fontSize 10
+
+actor "Customer" as cust
+
+rectangle "Storefront UI\n(Next.js 14)" as sf_ui #FF6B6B
+
+rectangle "Storefront BFF\n(OAuth2 TokenRelay)" as sf_bff #4169E1
+
+rectangle "Keycloak (Auth)" as kc #DDA0DD
+
+rectangle "Services" as svc #90EE90 {
+  [product] as product
+  [customer] as customer
+  [cart] as cart
+  [order] as order
+  [search] as search
+  [location] as loc
+  [media] as media
+  [tax] as tax
+  [promotion] as promo
+  [rating] as rating
+  [recommendation] as rec
+  [payment] as pay
+  [payment-paypal] as pp
+}
+
+rectangle "Infrastructure" as infra #E6E6FA {
+  database "PostgreSQL" as pg
+  [Kafka] as kafka
+  database "Redis" as redis
+  database "Elasticsearch" as es
+}
+
+rectangle "Observability" as obs #D3D3D3 {
+  [Loki / Tempo] as lt
+  database "Prometheus" as prom_obs
+  [Grafana] as grafana
+}
+
+rectangle "K3s Cluster (4 nodes)" as k8s #F5F5DC {
+  node "master" as m
+  node "dev1 / stg1 / prod1" as workers
+}
+
+' ----- FLOW -----
+cust --> sf_ui
+sf_ui --> sf_bff
+sf_bff --> kc : OAuth2
+sf_bff --> product
+sf_bff --> customer
+sf_bff --> cart
+sf_bff --> order
+sf_bff --> search
+sf_bff --> loc
+sf_bff --> media
+sf_bff --> tax
+sf_bff --> promo
+sf_bff --> rating
+sf_bff --> rec
+sf_bff --> pay
+sf_bff --> pp
+sf_bff --> redis : session
+
+' ----- SERVICE → INFRA -----
+svc --> pg
+cart --> redis
+order --> kafka : events
+search --> es
+kafka --> es : CDC
+
+' ----- OBSERVABILITY -----
+svc ..> lt
+svc ..> prom_obs
+
+note bottom of infra
+  3 env: dev / staging / production
+  infra identical, different PVC sizes
+end note
+
+@enduml
