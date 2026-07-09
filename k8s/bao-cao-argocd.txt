@@ -1,0 +1,715 @@
+============================================================
+BÁO CÁO: CÁCH THỨC TRIỂN KHAI ARGOCD TRONG PROJECT YAS
+============================================================
+Ngày: 09/07/2026
+
+============================================================
+1. CẤU TRÚC THƯ MỤC ARGOCD TRONG k8s/
+============================================================
+
+k8s/argocd/
+  bootstrap-app.yaml                        -- Root "App of Apps", điểm vào duy nhất
+  projects/
+    yas-project.yaml                        -- AppProject, phạm vi bảo mật cho tất cả app
+  applications/
+    grafana.yaml                            -- Application độc lập cho Grafana
+  applicationsets/
+    sealed-secrets-applicationset.yaml      -- SealedSecrets, sync-wave: -3
+    monitoring-applicationset.yaml          -- Prometheus theo môi trường, sync-wave: -2
+    yas-configuration-applicationset.yaml   -- ConfigMaps/Secrets dùng chung, sync-wave: -1
+    keycloak-applicationset.yaml            -- Keycloak theo môi trường, sync-wave: 1
+    dev-applicationset.yaml                 -- Microservices môi trường dev, sync-wave: 1-5
+    staging-applicationset.yaml             -- Microservices môi trường staging, sync-wave: 1-5
+    production-applicationset.yaml          -- Microservices production, sync-wave: 1-5, MANUAL SYNC
+    istio-system.yaml                       -- Istio base + istiod
+    kiali.yaml                              -- Kiali server
+
+k8s/setup_server/
+  master-node-startup.sh                    -- Cài đặt K3s + ArgoCD trên master node
+  agent-node-startup.sh                     -- Cài đặt K3s agent trên worker node
+  argocd-ingress.yaml                       -- Traefik IngressRoute cho ArgoCD UI (argocd.tthong.dev)
+  setup-argocd-users.sh                     -- Tạo 4 user admin local cho ArgoCD
+
+
+
+============================================================
+2. CÀI ĐẶT ARGOCD BAN ĐẦU (ONE-TIME SETUP)
+============================================================
+
+2.1. Cài đặt ArgoCD core (từ master-node-startup.sh):
+
+    kubectl create namespace argocd
+    kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+    Sau đó expose ArgoCD server qua NodePort (port 30443):
+
+    kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "NodePort", "ports": [{"name": "https", "nodePort": 30443, "port": 443, "targetPort": 8080}]}}'
+
+2.2. Tạo Ingress cho ArgoCD UI (argocd-ingress.yaml):
+
+    Traefik IngressRoute expose ArgoCD tại http://argocd.tthong.dev
+    Sử dụng Insecure để bỏ qua self-signed cert của ArgoCD server.
+
+2.3. Tạo người dùng admin (setup-argocd-users.sh):
+
+    Tạo 4 user admin: thong, thuan, dang, phuoc (password: Password123)
+    Sử dụng bcrypt hash password + patch ConfigMap argocd-cm và argocd-rbac-cm.
+    Sau đó khởi động lại argocd-server.
+
+2.4. Cài đặt ArgoCD Image Updater (cho môi trường dev):
+
+    kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/stable/manifests/install.yaml
+
+    Thêm registry credentials (ghcr-credentials) để Image Updater có thể poll GHCR.
+
+2.5. Bootstrap "App of Apps" (chỉ cần chạy 1 lần):
+
+    kubectl apply -f k8s/argocd/projects/yas-project.yaml
+    kubectl apply -f k8s/argocd/bootstrap-app.yaml
+
+    Sau khi bootstrap, ArgoCD tự động:
+    - Đọc tất cả ApplicationSets từ k8s/argocd/applicationsets/
+    - Sinh ra các Application con cho từng service
+    - Deploy lần lượt theo sync-wave
+
+
+
+============================================================
+3. MÔ HÌNH "APP OF APPS" VÀ THỨ TỰ TRIỂN KHAI (SYNC-WAVE)
+============================================================
+
+3.1. Cấu trúc App of Apps:
+
+    yas-bootstrap (root Application, quan sát k8s/argocd/applicationsets/*.yaml)
+      -> ApplicationSet: sealed-secrets-config    (wave -3)
+      -> ApplicationSet: monitoring               (wave -2)
+      -> ApplicationSet: yas-configuration        (wave -1)
+      -> ApplicationSet: keycloak                 (wave 1)
+      -> ApplicationSet: yas-dev                  (wave 1-5)
+      -> ApplicationSet: yas-staging              (wave 1-5)
+      -> ApplicationSet: yas-production           (wave 1-5, manual sync)
+      -> Application độc lập: istio-base, istiod, kiali-server, grafana
+
+3.2. Thứ tự triển khai (sync-wave — số càng thấp càng triển khai trước):
+
+    Wave -3: sealed-secrets-config
+      -> Các SealedSecret được giải mã thành K8s Secret
+
+    Wave -2: monitoring
+      -> Prometheus cho từng môi trường
+
+    Wave -1: yas-configuration
+      -> ConfigMaps + Secrets dùng chung (application.yaml, gateway-routes, per-service configs)
+
+    Wave 1: keycloak
+      -> Identity provider cho từng môi trường
+
+    Wave 1: yas-dev/staging/production (core backend)
+      -> product, customer, cart
+
+    Wave 2: yas-dev/staging/production (secondary backend)
+      -> inventory, location, media, tax, promotion, rating, search, recommendation, sampledata, order
+
+    Wave 3: yas-dev/staging/production (payment)
+      -> payment, payment-paypal, webhook
+
+    Wave 4: yas-dev/staging/production (BFF/Edge)
+      -> storefront-bff, backoffice-bff
+
+    Wave 5: yas-dev/staging/production (UI)
+      -> storefront-ui, backoffice-ui, swagger-ui
+
+    Tổng cộng ~90 Application được sinh ra (23 services x 3 môi trường + infrastructure).
+
+
+
+============================================================
+4. CHIẾN LƯỢC GITOPS CHO TỪNG MÔI TRƯỜNG
+============================================================
+
+4.1. Môi trường DEV — ArgoCD Image Updater (tự động hoàn toàn):
+
+    Flow:
+    1. Developer push code lên nhánh main
+    2. CI build Docker image, tag :latest, push lên ghcr.io/23120091/<service>
+    3. CI KHÔNG sửa file git (tránh loop)
+    4. ArgoCD Image Updater poll GHCR mỗi ~2 phút
+    5. Khi phát hiện digest mới của tag :latest -> override Helm parameter trong ArgoCD internal state
+    6. ArgoCD detect thay đổi -> auto-sync -> deploy pod mới
+
+    Cài đặt Image Updater annotations trên mỗi Application:
+      argocd-image-updater.argoproj.io/image-list: <service>=ghcr.io/23120091/<imageName>
+      argocd-image-updater.argoproj.io/update-strategy: digest
+      argocd-image-updater.argoproj.io/write-back-method: argocd
+
+    Sync Policy: auto-sync + selfHeal + prune (tự động, tự phục hồi)
+
+4.2. Môi trường STAGING — CI commit-driven (tự động nhưng có audit trail):
+
+    Flow:
+    1. Release manager push git tag (vd: v1.2.3)
+    2. CI build Docker image tag :v1.2.3, push lên ghcr.io
+    3. CI dùng yq để cập nhật image tag trong k8s/env/staging/{service}-values.yaml
+    4. CI commit + push với [skip-ci] trong commit message (tránh loop)
+    5. ArgoCD phát hiện thay đổi git -> auto-sync -> deploy
+
+    Sync Policy: auto-sync + selfHeal + prune
+
+4.3. Môi trường PRODUCTION — Manual Sync (cần phê duyệt):
+
+    Flow:
+    1. Người phê duyệt trigger workflow_dispatch với version tag
+    2. CI cập nhật k8s/env/production/{service}-values.yaml
+    3. CI commit + push với [skip-ci]
+    4. ArgoCD phát hiện thay đổi git -> Application chuyển trạng thái "OutOfSync"
+    5. Người phê duyệt mở ArgoCD Web UI -> click "Sync" -> deploy production
+
+    Sync Policy: syncPolicy: {} (KHÔNG tự động sync, KHÔNG self-heal, KHÔNG prune)
+
+
+
+============================================================
+5. CẤU HÌNH ARGOCD QUAN TRỌNG
+============================================================
+
+5.1. AppProject (yas-project.yaml) — Ranh giới bảo mật:
+
+    - Source repos được phép: chỉ github.com/23120091/yas + Istio/Kiali chart repos
+    - Destination namespaces được phép: chỉ các namespace đã định nghĩa (dev, staging, production, infrastructure)
+    - Cluster-scoped resources: group '*' kind '*' (permissive)
+    - Namespace-scoped resources: group '*' kind '*' (permissive)
+
+5.2. Bootstrap App (bootstrap-app.yaml):
+
+    - Tên: yas-bootstrap
+    - Source: git repo github.com/23120091/yas, path k8s/argocd/applicationsets
+    - Destination: in-cluster (https://kubernetes.default.svc)
+    - Sync: auto-sync + prune + selfHeal
+    - Khi thay đổi bất kỳ ApplicationSet trong git -> ArgoCD tự động cập nhật các Application con
+
+5.3. ApplicationSet — Phân loại chi tiết:
+
+    Mỗi môi trường Dev/Staging/Production sử dụng "list generator" với danh sách 22 services:
+    - Từng service có: name, chartDirectory, wave, helmPrefix
+    - helmPrefix mapping:
+      + backend: product, customer, cart, inventory, location, media, tax, promotion, rating,
+                 search, recommendation, sampledata, order, payment, payment-paypal, webhook,
+                 storefront-bff, backoffice-bff
+      + ui: storefront-ui, backoffice-ui
+      + image: swagger-ui
+    - Value file: k8s/env/{env}/common-values.yaml + k8s/env/{env}/{service}-values.yaml
+
+5.4. Stakater Reloader:
+
+    yas-configuration Helm chart phụ thuộc vào stakater/reloader.
+    Khi ArgoCD cập nhật ConfigMap -> Reloader tự động rolling restart pods đã mount ConfigMap đó.
+
+
+
+============================================================
+6. CÁC SCRIPT LIÊN QUAN ĐẾN ARGOCD
+============================================================
+
+    master-node-startup.sh
+      -> Cài đặt K3s + ArgoCD trên master node
+
+    setup-argocd-users.sh
+      -> Tạo 4 user admin local + bcrypt password + config RBAC
+
+    setup-all.sh
+      -> Bootstrap ArgoCD (Project + bootstrap-app), resync app
+
+    teardown.sh
+      -> Xóa infrastructure (KHÔNG xóa ArgoCD hay application pods)
+
+    deploy-yas-configuration.sh
+      -> DEPRECATED, chỉ dùng emergency khi ArgoCD down
+
+    deploy-yas-applications.sh
+      -> DEPRECATED, thay thế hoàn toàn bằng ArgoCD ApplicationSets
+
+    Các lệnh ArgoCD CLI thường dùng:
+
+    argocd app sync yas-bootstrap
+      -> Force sync App of Apps
+
+    argocd app sync -l env=dev
+      -> Sync tất cả app môi trường dev
+
+    kubectl get applications -n argocd
+      -> Kiểm tra trạng thái tất cả Application
+
+    kubectl get applicationsets -n argocd
+      -> Kiểm tra ApplicationSets
+
+
+
+============================================================
+7. KIẾN TRÚC TỔNG QUAN
+============================================================
+
+    GitHub Repo (git push)
+         |
+         v
+    ArgoCD (namespace: argocd)
+      - yas-bootstrap (App of Apps, điểm vào duy nhất)
+      - 8 ApplicationSets
+      - ~90 Applications được sinh tự động
+         |
+         | deploy Helm charts theo sync-wave
+         v
+    Kubernetes Cluster
+      - Namespaces ứng dụng: dev, staging, production (mỗi cái 22 deployments)
+      - Namespaces infrastructure: postgres-{env}, kafka-{env}, elasticsearch-{env},
+        redis-{env}, keycloak-{env}, zookeeper-{env}, observability-{env}
+      - istio-system, argocd
+
+    Infrastructure (KHÔNG do ArgoCD quản lý, deploy bằng setup-all.sh):
+      - PostgreSQL (Zalando operator)
+      - Kafka (Strimzi operator)
+      - Elasticsearch (ECK operator)
+      - Redis (Bitnami Helm)
+      - Zookeeper, Cert Manager
+      - OTel Operator
+      - Sealed Secrets controller
+
+
+
+============================================================
+8. NHỮNG ĐIỂM KIẾN TRÚC QUAN TRỌNG
+============================================================
+
+8.1. "App of Apps" là điểm vào duy nhất:
+    Chỉ cần 2 lệnh kubectl apply (Project + bootstrap) là triển khai được toàn bộ hệ thống.
+    Tất cả các Application con đều được sinh ra từ ApplicationSets trong git.
+
+8.2. Sync-wave đảm bảo thứ tự khởi động chính xác:
+    Infrastructure (-3, -2, -1) -> Identity (1) -> Backend (1-3) -> BFF (4) -> UI (5).
+    ArgoCD chờ tất cả resource trong một wave Healthy mới tiếp tục wave tiếp theo.
+    Điều này ngăn 20+ Spring Boot app cùng khởi động làm quá tải cluster nhỏ.
+
+8.3. Ba chiến lược deploy khác nhau:
+    DEV:      Image Updater (tốc độ cao, không gây nhiễu git)
+    STAGING:  CI commit tag (đầy đủ audit trail)
+    PROD:     Manual sync (có phê duyệt trước khi deploy)
+
+8.4. Infrastructure KHÔNG được ArgoCD quản lý:
+    PostgreSQL, Kafka, Elasticsearch, Redis, Zookeeper được cài đặt bằng script setup-all.sh
+    sử dụng Helm trực tiếp. Chúng nằm trong namespace riêng biệt theo môi trường.
+    Điều này đảm bảo infrastructure có thể được quản lý độc lập với application.
+
+8.5. Stakater Reloader tự động rolling restart:
+    Khi ArgoCD cập nhật ConfigMaps (qua yas-configuration Helm chart), Stakater Reloader
+    tự động phát hiện và rolling restart các pod đã mount ConfigMap mới.
+
+8.6. Istio service mesh chỉ áp dụng cho môi trường production:
+    Istio base, istiod, và Kiali được triển khai như ArgoCD Application độc lập.
+    Mesh chỉ ảnh hưởng đến namespace production.
+    Môi trường dev và staging chạy không có Istio sidecars để đơn giản hóa development.
+
+8.7. SealedSecrets được triển khai đầu tiên (wave -3):
+    Đảm bảo các Secret mã hóa được giải mã bởi Sealed Secrets controller trước khi
+    bất kỳ config hoặc application wave nào tham chiếu đến chúng.
+
+
+
+============================================================
+9. CÁCH TRUYỀN GIÁ TRỊ (VALUES) VÀO HELM CHART
+============================================================
+
+Mỗi ApplicationSet sử dụng một chiến lược truyền giá trị khác nhau vào Helm chart.
+Helm merge các nguồn giá trị theo thứ tự ưu tiên: file đầu tiên bị ghi đè bởi file
+thứ hai, và inline parameters có mức ưu tiên cao nhất.
+
+9.1. Sealed Secrets ApplicationSet (wave -3):
+
+    KHÔNG sử dụng Helm — deploy raw Kubernetes manifest từ thư mục
+    k8s/sealed-secrets/{env}/. Mỗi file YAML trong thư mục là một SealedSecret CR.
+
+9.2. Monitoring ApplicationSet (wave -2):
+
+    Chart: k8s/charts/monitoring
+    Value files (merge theo thứ tự):
+      1. values.yaml              (base config: global.domain, environments, grafana)
+      2. values-{env}.yaml        (env-specific: prometheus server name, retention, nodeSelector)
+    Ví dụ: dev retention 7d, staging 14d, production 30d
+    KHÔNG có inline parameters.
+
+9.3. yas-configuration ApplicationSet (wave -1):
+
+    Chart: k8s/charts/yas-configuration (phụ thuộc stakater/reloader)
+    Value files:
+      1. ../../deploy/cluster-config-{env}.yaml  (domain, postgresql, kafka, ES, keycloak)
+
+    Inline parameters (14 tham số):
+      spring.kafka.bootstrap-servers                       = kafka-cluster-kafka-brokers.{kafkaNs}:9092
+      spring.kafka.consumer.bootstrap-servers              = kafka-cluster-kafka-brokers.{kafkaNs}:9092
+      spring.security.oauth2.resourceserver.jwt.issuer-uri = http://{identityHost}/realms/Yas
+      springdoc.oauthflow.authorization-url                = http://{identityHost}/realms/Yas/protocol/openid-connect/auth
+      springdoc.oauthflow.token-url                        = http://{identityHost}/realms/Yas/protocol/openid-connect/token
+      backofficeBffExtraConfig.redis.host                  = {redisNs}-master.{redisNs}
+      storefrontBffExtraConfig.redis.host                  = {redisNs}-master.{redisNs}
+      backofficeBffExtraConfig.oauth2.issuer-uri           = http://{identityHost}/realms/Yas
+      storefrontBffExtraConfig.oauth2.issuer-uri           = http://{identityHost}/realms/Yas
+      customerApplicationConfig.keycloak.auth-server-url   = http://{identityHost}
+      searchApplicationConfig.elasticsearch.url            = elasticsearch-es-http.{esNs}:9200
+      paymentApplicationConfig.yas.public.url              = http://{storefrontHost}/complete-payment
+      paymentPaypalApplicationConfig.yas.public.url        = http://{storefrontHost}/complete-payment
+      sampledataApplicationConfig.datasource.product.url   = jdbc:postgresql://postgresql.{pgNs}:5432/product
+      sampledataApplicationConfig.datasource.media.url     = jdbc:postgresql://postgresql.{pgNs}:5432/media
+      mediaApplicationConfig.yas.publicUrl                 = http://{storefrontHost}/api/media
+
+    -> Render ra 13 ConfigMaps + Reloader deployment trong namespace {env}
+    -> Stakater Reloader tự động rolling restart pod khi ConfigMap thay đổi
+
+9.4. Keycloak ApplicationSet (wave 1):
+
+    Chart: k8s/deploy/keycloak/keycloak (local chart, không nằm trong k8s/charts/)
+    Value files:
+      1. ../../infra-{env}-affinity.yaml  (nodeSelector và affinity)
+
+    Inline parameters (6 tham số):
+      hostname                   = identity-{env}.tthong.dev
+      postgresql.host            = postgresql.{pgNs}.svc.cluster.local
+      backofficeRedirectUrls[0]  = https://backoffice-{env}.tthong.dev
+      backofficeRedirectUrls[1]  = https://backoffice-{env}.tthong.dev
+      storefrontRedirectUrls[0]  = https://storefront-{env}.tthong.dev
+      storefrontRedirectUrls[1]  = https://storefront-{env}.tthong.dev
+
+9.5. Application Services (dev/staging/production) — wave 1-5:
+
+    Mỗi service dùng chart riêng trong k8s/charts/{service}/
+    Tất cả backend service dùng chart "backend" làm dependency (qua file://../backend)
+    UI service dùng chart "ui" làm dependency
+    Swagger-ui dùng chart độc lập
+
+    Value files (2 file merge theo thứ tự):
+      1. ../../env/{env}/common-values.yaml        (cấu hình chung toàn bộ môi trường)
+      2. ../../env/{env}/{service}-values.yaml     (ghi đè riêng cho từng service)
+
+    Cách Helm merge:
+      - File thứ 2 ghi đè key trùng trong file thứ 1
+      - Array bị thay thế hoàn toàn (không merge từng phần tử)
+      - Tất cả value nằm dưới namespace backend.* hoặc ui.* hoặc image.*
+
+    Ví dụ cho product trong môi trường dev:
+
+      common-values.yaml cung cấp:
+        backend.image.pullPolicy: Always
+        backend.replicaCount: 1
+        backend.databaseConnectionUrl: jdbc:postgresql://postgresql.postgres-dev...
+        backend.nodeSelector.env: dev
+        backend.probes: liveness/readiness với failureThreshold=36 (360s timeout)
+        backend.resources: requests/limits mặc định
+        backend.autoscaling.enabled: false
+
+      product-values.yaml ghi đè:
+        backend.image.repository: ghcr.io/23120091/product
+        backend.image.tag: latest
+        backend.databaseName: product
+        backend.extraVolumes + extraVolumeMounts (gắn file cấu hình riêng)
+        backend.resources: memory 512Mi request / 1Gi limit
+
+    KHÔNG có inline parameters cho application services.
+    Dev có thêm ArgoCD Image Updater annotations (không phải Helm values).
+
+    So sánh common-values giữa 3 môi trường:
+
+      image.pullPolicy:
+        DEV: Always
+        STAGING: IfNotPresent
+        PRODUCTION: IfNotPresent
+
+      databaseConnectionUrl:
+        DEV: postgresql.postgres-dev...
+        STAGING: postgresql.postgres-staging...
+        PRODUCTION: postgresql.postgres-production...
+
+      ingress.enabled:
+        DEV: false
+        STAGING: true
+        PRODUCTION: true
+
+      serviceMonitor.enabled:
+        DEV: false
+        STAGING: true
+        PRODUCTION: true
+
+      livenessProbe.failureThreshold:
+        DEV: 36 (360s timeout)
+        STAGING: 12 (120s)
+        PRODUCTION: 6 (60s)
+
+      readinessProbe.failureThreshold:
+        DEV: 36
+        STAGING: 12
+        PRODUCTION: 6
+
+      terminationGracePeriodSeconds:
+        DEV: 45s
+        STAGING: 45s
+        PRODUCTION: 60s
+
+      preStop sleep:
+        DEV: 10s
+        STAGING: 10s
+        PRODUCTION: 15s
+
+      podAntiAffinity:
+        DEV: không đặt
+        STAGING: preferred (hostname)
+        PRODUCTION: preferred (hostname + zone)
+
+      podSecurityContext:
+        DEV: không đặt
+        STAGING: không đặt
+        PRODUCTION: runAsNonRoot
+
+      securityContext:
+        DEV: không đặt
+        STAGING: không đặt
+        PRODUCTION: allowPrivilegeEscalation + capabilities.drop ALL
+
+      tolerations:
+        DEV: không đặt
+        STAGING: không đặt
+        PRODUCTION: []
+
+9.6. Grafana Application (độc lập, không phải ApplicationSet):
+
+    Chart: k8s/charts/monitoring
+    Value file: values-grafana.yaml
+    -> Bật Grafana, cấu hình 9 datasources (Prometheus/Loki/Tempo x 3 môi trường),
+       sidecar dashboards, ingress grafana.tthong.dev, admin credentials từ SealedSecret.
+
+9.7. Istio & Kiali (độc lập):
+
+    Istio: chart từ https://istio-release.storage.googleapis.com/charts
+           -> istio-base + istiod với inline values cho meshConfig access logging
+    Kiali:  chart từ https://kiali.github.io/helm-charts
+           -> inline values cho anonymous auth, Prometheus/Grafana/Tempo URLs
+           + multi-source: source thứ 2 từ git repo trỏ đến k8s/istio/
+
+
+
+============================================================
+10. CÁC SERVICE TRIỂN KHAI BẰNG setup-all.sh (KHÔNG DO ARGOCD QUẢN LÝ)
+============================================================
+
+setup-all.sh là script chính triển khai toàn bộ infrastructure. Nó gọi setup-cluster.sh
+cho hạ tầng cốt lõi, sau đó tự triển khai thêm Redis + các thành phần observability.
+Tất cả đều dùng Helm upgrade --install trực tiếp, KHÔNG thông qua ArgoCD.
+
+10.1. Operators (cluster-scoped, cài 1 lần cho cả cluster):
+
+    PostgreSQL Operator (Zalando):
+      helm upgrade --install postgres-operator postgres-operator-charts/postgres-operator
+        --create-namespace --namespace postgres
+        --values ./infra-master-affinity.yaml
+
+    Kafka Operator (Strimzi):
+      helm upgrade --install kafka-operator strimzi/strimzi-kafka-operator
+        --create-namespace --namespace kafka
+        --set watchAnyNamespace=true
+        --values ./infra-master-affinity.yaml
+
+    Elasticsearch Operator (ECK):
+      helm upgrade --install elastic-operator elastic/eck-operator
+        --create-namespace --namespace elasticsearch
+        --values ./infra-master-affinity.yaml
+
+    Cert Manager v1.12.0:
+      helm upgrade --install cert-manager jetstack/cert-manager
+        --namespace cert-manager --create-namespace --version v1.12.0
+        --set installCRDs=true --set prometheus.enabled=false
+        --values ./infra-master-affinity.yaml
+
+    OpenTelemetry Operator:
+      helm upgrade --install opentelemetry-operator open-telemetry/opentelemetry-operator
+        --create-namespace --namespace observability
+        --values ./infra-master-affinity.yaml
+
+    Sealed Secrets Controller:
+      helm upgrade --install sealed-secrets sealed-secrets/sealed-secrets
+        --namespace kube-system
+        --set keyRenewPeriod=0
+
+    Tất cả operator được pin vào control-plane node qua infra-master-affinity.yaml:
+      nodeAffinity: node-role.kubernetes.io/control-plane: "true"
+      tolerations: control-plane taint
+
+10.2. Infrastructure theo môi trường (chạy cho từng env: dev, staging, production):
+
+    PostgreSQL Cluster:
+      Chart: ./postgres/postgresql (Zalando)
+      Namespace: postgres-{env}
+      helm upgrade --install "postgres-{env}" ./postgres/postgresql
+        --create-namespace --namespace "postgres-{env}"
+        --set replicas=$PG_REPLICAS --set username=$PG_USERNAME
+        --set password=$PG_PASSWORD --set volumeSize=$PG_VOLUME_SIZE
+        --values "./infra-{env}-affinity.yaml"
+      Sau deploy: sync password qua psql
+
+    pgAdmin:
+      Chart: ./postgres/pgadmin
+      Namespace: postgres-{env}
+      hostname = pgadmin.{envSubdomain}.tthong.dev (set qua yq)
+      helm upgrade --install "pgadmin-{env}" ./postgres/pgadmin
+        --create-namespace --namespace "postgres-{env}"
+        --values "./infra-{env}-affinity.yaml"
+
+    Kafka Cluster (Strimzi):
+      Chart: ./kafka/kafka-cluster
+      Namespace: kafka-{env}
+      helm upgrade --install "kafka-cluster-{env}" ./kafka/kafka-cluster
+        --create-namespace --namespace "kafka-{env}"
+        --set kafka.replicas=$KAFKA_REPLICAS
+        --set postgresql.username=$PG_USERNAME --set postgresql.password=$PG_PASSWORD
+        --values "./infra-{env}-affinity.yaml"
+
+    AKHQ (Kafka UI):
+      Chart: akhq/akhq
+      Namespace: kafka-{env}
+      hostname = akhq.{envSubdomain}.tthong.dev (set qua yq)
+      helm upgrade --install "akhq-{env}" akhq/akhq
+        --create-namespace --namespace "kafka-{env}"
+        --values ./kafka/akhq.values.yaml
+        --values "./infra-{env}-affinity.yaml"
+
+    Elasticsearch Cluster (ECK):
+      Chart: ./elasticsearch/elasticsearch-cluster
+      Namespace: elasticsearch-{env}
+      Pre-create: elastic-user secret
+      helm upgrade --install "elasticsearch-cluster-{env}"
+        ./elasticsearch/elasticsearch-cluster
+        --create-namespace --namespace "elasticsearch-{env}"
+        --set elasticsearch.replicas=$ES_REPLICAS
+        --set kibana.ingress.hostname="kibana.{envSub}.{domain}"
+        --values "./infra-{env}-affinity.yaml"
+
+    Zookeeper:
+      Chart: ./zookeeper
+      Namespace: zookeeper-{env}
+      helm upgrade --install "zookeeper-{env}" ./zookeeper
+        --namespace "zookeeper-{env}" --create-namespace
+        --values "./infra-{env}-affinity.yaml"
+
+    Redis:
+      Chart: oci://registry-1.docker.io/bitnamicharts/redis (Bitnami)
+      Namespace: redis-{env}
+      helm upgrade --install "redis-{env}"
+        --set auth.password=$REDIS_PASSWORD
+        --set master.nodeSelector.env=$ENV
+        --set replica.nodeSelector.env=$ENV
+        --set sentinel.nodeSelector.env=$ENV
+        --values "./infra-{env}-affinity.yaml"
+        oci://registry-1.docker.io/bitnamicharts/redis
+        --namespace "redis-{env}" --create-namespace
+
+    Loki:
+      Chart: grafana/loki
+      Namespace: observability-{env}
+      helm upgrade --install "loki-{env}" grafana/loki
+        --create-namespace --namespace "observability-{env}"
+        -f ./observability/loki.values.yaml
+        --set-json "write.affinity=..."
+        --set-json "read.affinity=..."
+        --set-json "backend.affinity=..."
+        --set-json "gateway.affinity=..."
+        --set-json "minio.affinity=..."
+        --set-json "chunksCache.affinity=..."
+        --set-json "resultsCache.affinity=..."
+      (dùng --set-json vì Loki chart không hỗ trợ affinity key chuẩn)
+
+    Tempo:
+      Chart: grafana/tempo
+      Namespace: observability-{env}
+      helm upgrade --install "tempo-{env}" grafana/tempo
+        --create-namespace --namespace "observability-{env}"
+        -f ./observability/tempo.values.yaml
+        -f "./observability/tempo-{env}.values.yaml"
+      Sau deploy: kubectl patch StatefulSet với nodeAffinity
+        (chart bỏ qua affinity values)
+
+    Promtail:
+      Chart: grafana/promtail
+      Namespace: observability-{env}
+      helm upgrade --install "promtail-{env}" grafana/promtail
+        --create-namespace --namespace "observability-{env}"
+        --values ./observability/promtail.values.yaml
+        --values "./infra-{env}-affinity.yaml"
+
+    OpenTelemetry Collector:
+      Chart: ./observability/opentelemetry
+      Namespace: observability-{env}
+      helm upgrade --install "opentelemetry-collector-{env}"
+        ./observability/opentelemetry
+        --create-namespace --namespace "observability-{env}"
+        --set lokiEndpoint="http://loki-{env}-gateway.{obs-ns}.svc.cluster.local/loki/api/v1/push"
+        --set tempoEndpoint="http://tempo-{env}.{obs-ns}.svc.cluster.local:4318"
+        --values "./infra-{env}-affinity.yaml"
+
+10.3. Affinity files:
+
+    infra-master-affinity.yaml       -> Pin operator lên control-plane node (script)
+    infra-dev-affinity.yaml          -> nodeSelector env=dev, nodeAffinity (cả script & ArgoCD)
+    infra-staging-affinity.yaml      -> nodeSelector env=staging, nodeAffinity
+    infra-production-affinity.yaml   -> nodeSelector env=production, nodeAffinity
+
+10.4. Sự khác biệt giữa setup-cluster.sh và setup-all.sh:
+
+    setup-cluster.sh:
+      Chỉ deploy: operators + PostgreSQL + Kafka + AKHQ + Elasticsearch
+      + Zookeeper + Loki + Tempo + Promtail + OTel Collector.
+      KHÔNG deploy Redis. Dùng cách đơn giản hơn cho Loki affinity.
+
+    setup-all.sh:
+      Deploy TẤT CẢ những gì setup-cluster.sh làm, CỘNG THÊM:
+      + Redis (từ Bitnami OCI chart)
+      + Cài đặt Sealed Secrets CLI (kubeseal)
+      + Dùng --set-json cho Loki affinity (kiểm soát chính xác hơn)
+      + Patch Tempo StatefulSet với nodeAffinity sau khi install
+      -> Đây là script được khuyến nghị sử dụng.
+
+10.5. Tổng kết phạm vi quản lý:
+
+    ARGOCD QUẢN LÝ (GitOps, tự động đồng bộ từ git):
+      - SealedSecrets (wave -3): Ứng dụng hóa credentials
+      - Prometheus (wave -2): Monitoring per env
+      - yas-configuration (wave -1): ConfigMaps + Secrets dùng chung, cầu nối infra-app
+      - Keycloak (wave 1): Identity provider
+      - 22 microservices (wave 1-5): Application chính
+      - Grafana (độc lập): Observability UI
+      - Istio + Kiali (độc lập): Service mesh (chỉ production)
+
+    SCRIPT QUẢN LÝ (setup-all.sh, Helm upgrade --install trực tiếp):
+      - 6 Operators: PostgreSQL, Kafka, Elasticsearch, Cert Manager, OTel, Sealed Secrets
+        (cài 1 lần, cluster-wide)
+      - PostgreSQL + pgAdmin: Database per env
+      - Kafka + AKHQ: Message broker per env
+      - Elasticsearch: Search engine per env
+      - Zookeeper: Coordination per env
+      - Redis: Cache/session per env
+      - Loki + Tempo + Promtail: Logging & tracing per env
+      - OTel Collector: Telemetry pipeline per env
+
+    Nguyên tắc phân tách:
+      Infrastructure (database, message broker, search, cache, logging, tracing)
+      được triển khai một lần bằng script Helm trực tiếp, không cần GitOps.
+      Application (deployments, configs, secrets) được ArgoCD quản lý và liên tục
+      đồng bộ từ git. Cầu nối giữa hai lớp là yas-configuration (wave -1),
+      nó tạo ConfigMaps chứa endpoint URL trỏ đến các infrastructure service
+      do script triển khai.
+
+============================================================
+KẾT LUẬN
+============================================================
+
+ArgoCD trong project YAS được thiết kế theo mô hình GitOps hoàn chỉnh, sử dụng App of Apps
+pattern để quản lý ~90 application qua 3 môi trường (dev, staging, production) chỉ bằng
+1 bootstrap Application và 8 ApplicationSets.
+
+Toàn bộ quá trình triển khai tự động hóa hoàn toàn cho dev và staging, trong khi production
+yêu cầu phê duyệt thủ công thông qua manual sync. Việc sử dụng sync-wave đảm bảo thứ tự
+khởi động chính xác, Stakater Reloader đảm bảo thay đổi ConfigMap được áp dụng ngay lập tức,
+và ArgoCD Image Updater cho phép dev triển khai nhanh mà không cần commit vào git.

@@ -6,6 +6,7 @@ COPY --from=strimzi-libs /opt/kafka/libs/kubernetes-client-*.jar /kafka/libs/
 COPY --from=strimzi-libs /opt/kafka/libs/kubernetes-client-api-*.jar /kafka/libs/
 COPY --from=strimzi-libs /opt/kafka/libs/kubernetes-httpclient-jdk-*.jar /kafka/libs/
 COPY --from=strimzi-libs /opt/kafka/libs/kubernetes-model-*.jar /kafka/libs/
+COPY --from=strimzi-libs /opt/kafka/libs/jackson-datatype-jsr310-*.jar /kafka/libs/
 COPY --from=strimzi-libs /opt/kafka/libs/zjsonpatch-*.jar /kafka/libs/
 COPY --from=strimzi-libs /opt/kafka/libs/snakeyaml-engine-*.jar /kafka/libs/
 RUN mkdir -p /opt/kafka && \

@@ -1,4 +1,4 @@
-$Image = "thanhthong2005/debezium-connect-postgresql:2.7.3.Final-5"
+$Image = "thanhthong2005/debezium-connect-postgresql:2.7.3.Final-6"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 
 Set-Location $ScriptDir
