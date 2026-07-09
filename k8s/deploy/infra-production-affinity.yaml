@@ -1,5 +1,14 @@
-# Production infrastructure nodeSelector
-# Pins production infrastructure to env=production node
+# Production infrastructure node placement
+env: production
 nodeSelector:
   env: production
 tolerations: []
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: env
+              operator: In
+              values:
+                - production

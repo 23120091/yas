@@ -1,4 +1,13 @@
-# Staging infrastructure nodeSelector
-# Pins staging infrastructure to env=staging node
+# Staging infrastructure node placement
+env: staging
 nodeSelector:
   env: staging
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: env
+              operator: In
+              values:
+                - staging

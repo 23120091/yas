@@ -20,6 +20,15 @@ spec:
     offset.storage.replication.factor: -1
     status.storage.replication.factor: -1
   template:
+    pod:
+      {{- if .Values.affinity }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+      {{- end }}
     connectContainer:
       env:
         - name: ADVERTISED_HOSTNAME
