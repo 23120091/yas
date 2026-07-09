@@ -94,19 +94,18 @@ spec:
         plugin: wal2json
   allowedSourceRanges:
   # IP ranges to access your cluster go here
+  {{- if .Values.env }}
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+          - key: env
+            operator: In
+            values:
+              - {{ .Values.env | quote }}
+  {{- end }}
   podTemplate:
     spec:
-      {{- if .Values.env }}
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                - key: env
-                  operator: In
-                  values:
-                    - {{ .Values.env | quote }}
-      {{- end }}
       {{- if .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml .Values.nodeSelector | nindent 8 }}
