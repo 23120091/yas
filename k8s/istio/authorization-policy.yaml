@@ -247,3 +247,44 @@ spec:
               - cluster.local/ns/production/sa/product
               - cluster.local/ns/production/sa/storefront-bff
               - cluster.local/ns/production/sa/backoffice-bff
+
+# ĐẶC CÁCH 1: Cho phép Prometheus của hệ thống được vào cào dữ liệu qua cổng 8090
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-prometheus-metrics
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      # Áp dụng cho tất cả các pod có mở cổng metrics 8090
+      app.kubernetes.io/name: storefront-bff
+      app.kubernetes.io/name: backoffice-bff
+      app.kubernetes.io/name: product
+  rules:
+  - to:
+    - operation:
+        ports: ["8090"]
+        paths: ["/actuator/prometheus"]
+    # Không giới hạn principal vì Prometheus thường chạy ở namespace ngoài mesh (monitoring)
+
+---
+# ĐẶC CÁCH 2: Mở đường cho luồng đi ra ngoài (Egress) để lấy thông tin OIDC Keycloak
+# Tạo một ServiceEntry để Istio Mesh biết đường cho phép BFF gọi ra domain tthong.dev
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: allow-identity-external
+  namespace: production
+spec:
+  hosts:
+  - "identity.tthong.dev"
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  - number: 4443
+    name: https
+    protocol: HTTPS
+  resolution: DNS
+  location: MESH_EXTERNAL
