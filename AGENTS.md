@@ -34,7 +34,7 @@
 ```bash
 docker compose -f docker-compose.test.yml up -d java-env
 docker exec -it yas-java-25 bash
-./mvnw test -pl tax -am
+./mvnw clean verify -pl <service> -am
 ```
 
 ### Frontend (Next.js)
@@ -53,7 +53,7 @@ npx prettier -w .  # format before committing
 ### Docker Compose
 
 ```bash
-direnv allow                           # load .env variables
+# Copy .env.example to .env first (gitignored), then:
 docker compose up                      # all services (needs 16GB+ RAM)
 docker compose -f docker-compose.yml up  # core services only
 ./start-source-connectors.sh           # register Debezium CDC connectors
@@ -96,7 +96,7 @@ docker compose -f docker-compose.yml up  # core services only
 
 ## CI
 
-- Path-filtered: **only changed services** build (see `ci.yml` filter-changes job). Triggers on push/PR to `main` or `dev`.
+- Path-filtered: **only changed services** build (see `ci.yml` filter-changes job). Triggers on push/PR to `main`.
 - **Java CI**: Gitleaks → Snyk SCA → `mvn clean verify -pl <svc> -am -T 1C` → Checkstyle → SonarQube → JaCoCo → Docker build & push (main only).
 - **Node CI**: ESLint → Gitleaks → Snyk SCA → `npm test -- --coverage` → `npm run build` → Docker build & push (main only).
 - Docker images pushed to **ghcr.io** only on `main` branch.
@@ -130,122 +130,25 @@ docker compose -f docker-compose.yml up  # core services only
 
 ## K8s Deployment
 
-### ArgoCD-managed (GitOps model — PREFERRED)
+ArgoCD-managed GitOps (push to `main` → auto-sync). Infrastructure (PostgreSQL, Kafka, ES, Redis, etc.) is set up once per env via `./setup-cluster.sh <env>` and `./setup-redis.sh <env>`.
 
-Everything is deployed via ArgoCD ApplicationSets in sync-wave order. Push to `main` → ArgoCD auto-syncs.
+### K8s config gotchas
 
-**Wave order:**
-1. **Wave -1**: `yas-configuration` (ConfigMaps + SealedSecrets)
-2. **Wave 0**: Infrastructure (via `setup-cluster.sh` + `setup-redis.sh` — run once per env)
-3. **Wave 1**: Keycloak (via `keycloak` ApplicationSet)
-4. **Wave 2**: Application services (via `yas-{env}` ApplicationSet)
-5. **Wave 3**: Monitoring (via `prometheus-{env}` + `grafana` ApplicationSets)
+**Spring Cloud Gateway property path (Boot 4 / Gateway 5):** BFF routes must use `spring.cloud.gateway.server.webflux.routes` — the old `spring.cloud.gateway.routes` is **silently ignored** (404s everything). Docs at `docs/developer-guidelines.md` reference the wrong path.
 
-All ApplicationSets have sync-wave annotations so ArgoCD deploys in order.
+**`backofficeBffExtraConfig` / `storefrontBffExtraConfig`** = OAuth2 + Redis only. Gateway routes go in `gatewayRoutesConfig` (Helm chart at `k8s/charts/yas-configuration/`).
 
-### yas-configuration (sync-wave: -1)
+**Host predicate wildcard:** `Host` uses single `*` (dot-separated segment). `**` does NOT work in `Host`.
 
-Helm chart at `k8s/charts/yas-configuration/` deployed by `yas-configuration` ApplicationSet.
-1. Edit `k8s/charts/yas-configuration/values.yaml`
-2. Push to git → ArgoCD auto-syncs ConfigMaps in all environments
-3. **Stakater Reloader** auto-restarts pods that reference updated ConfigMaps
-
-**No manual deploy needed.** `deploy-yas-configuration.sh` kept for emergency only.
-
-### Keycloak (sync-wave: 1)
-
-Deployed by `keycloak` ApplicationSet (`k8s/argocd/applicationsets/keycloak-applicationset.yaml`). Manages Keycloak CR + realm import via Helm chart at `k8s/deploy/keycloak/keycloak/`.
-
-**Credentials are SealedSecrets** (apply once, then ArgoCD-managed):
-- `k8s/sealed-secrets/{env}/keycloak-db-credentials.yaml` — PostgreSQL credentials
-- `k8s/sealed-secrets/{env}/keycloak-admin-credentials.yaml` — Keycloak admin credentials
-
-**To change a password:**
-1. Re-encrypt the SealedSecret:
-   ```bash
-   kubectl create secret generic postgresql-credentials -n keycloak-{env} \
-     --dry-run=client -o yaml \
-     --from-literal=username=yasadminuser \
-     --from-literal=password=<new-password> | \
-     kubeseal --format=yaml > k8s/sealed-secrets/{env}/keycloak-db-credentials.yaml
-   ```
-2. Commit and push → ArgoCD applies
-3. Restart Keycloak: `kubectl rollout restart statefulset keycloak -n keycloak-{env}`
-4. `setup-all.sh` handles sync-password automatically, or run manually:
-   ```bash
-   ./k8s/deploy/sync-password.sh {env}
-   ```
-
-**sync-password.sh** reads the new password from the K8s Secret (not `.env`) and auto-restarts the Keycloak pod after updating.
-
-**One-time cluster-scoped prerequisites** (Keycloak CRDs + CoreDNS rewrite):
-These are inlined in `setup-all.sh` phase 1.6 — no separate script needed.
-
-### Infrastructure NOT managed by ArgoCD (run scripts once per env)
-
-```bash
-./setup-cluster.sh <env>     # PostgreSQL, Kafka, ES, Loki, Tempo, Promtail, OTel, Zookeeper
-./setup-redis.sh <env>       # Redis
-```
-
-After initial setup, infrastructure rarely changes. Day-to-day changes only need `git push`.
-
-### Spring Cloud Gateway property path (Boot 4 / Gateway 5)
-
-BFF POM uses `spring-cloud-starter-gateway-server-webflux`. Routes must be under:
-
-```yaml
-spring:
-  cloud:
-    gateway:
-      server:
-        webflux:
-          routes:
-            - id: ...
-```
-
-Old path `spring.cloud.gateway.routes` is **silently ignored** — 404s everything.
-
-**Where this lives:**
-- Values: `k8s/charts/yas-configuration/values.yaml` → `gatewayRoutesConfig`
-- Template: `k8s/charts/yas-configuration/templates/yas-configurations.configmap.yaml`
-
-### BFF extra configs are for auth/redis only
-
-`backofficeBffExtraConfig` / `storefrontBffExtraConfig` = OAuth2 + Redis only. Gateway routes go in `gatewayRoutesConfig`.
-
-### Host predicate wildcard
-
-`Host` predicate uses single `*` (dot-separated segment). `**` is a path-pattern wildcard, does NOT work in `Host`.
-
-```yaml
-# Correct
-- Host=storefront*.tthong.dev
-```
-
-### Media `publicUrl` per environment
-
-`mediaApplicationConfig.yas.publicUrl` defaults to `http://api.yas.local.com/media` (docker-compose). In K8s override per env:
+**Media `publicUrl` per environment:** `mediaApplicationConfig.yas.publicUrl` defaults to `http://api.yas.local.com/media`. In K8s override per env:
 ```bash
 --set "mediaApplicationConfig.yas.publicUrl=http://${STOREFRONT_HOST}/api/media"
 ```
 
-### Why backoffice "works" but storefront 404s
+**Why backoffice "works" but storefront 404s:** Backoffice intercepts unauthenticated requests **before** gateway routing (redirects to Keycloak login). Storefront allows anonymous access, so broken gateway routes produce 404 immediately.
 
-Backoffice intercepts unauthenticated requests **before** gateway routing (redirects to Keycloak login). Storefront allows anonymous access, so broken gateway routes produce 404 immediately.
+**Node selectors:** `debug-tools`, `swagger-ui`, and `yas-reloader` use env-specific node selectors from `cluster-config-{env}.yaml`.
 
-### Node selectors per environment
+**`k8s/deploy/check-connections.sh`** — diagnostic script to test connectivity between services from a temporary debug pod.
 
-`debug-tools`, `swagger-ui`, and `yas-reloader` use env-specific node selectors from `cluster-config-{env}.yaml` rather than a hardcoded one. The config files define:
-```yaml
-nodeSelector:
-  node.kubernetes.io/instance-type: ...
-```
-
-### check-connections.sh
-
-Diagnostic script at `k8s/deploy/check-connections.sh` that tests connectivity between services (PostgreSQL, Kafka, Elasticsearch, Keycloak) by running curl/psql from a temporary debug pod. Use it when pods can't connect to infrastructure.
-
-### Developer Build workflow
-
-`.github/workflows/developer-build.yml` — deploy one or more services to a sandbox namespace for isolated testing. Supports `deploy` and `destroy` actions. On `deploy`, builds image (if not exists), deploys to sandbox, creates ExternalName CNAMEs pointing back to the source env for non-deployed services. On `destroy`, removes only the deployed pods/services, keeps ExternalName routes + namespace.
+**Developer Build workflow** (`.github/workflows/developer-build.yml`) — deploy/destroy services to a sandbox namespace for isolated testing. Creates ExternalName CNAMEs pointing back to the source env for non-deployed services.
