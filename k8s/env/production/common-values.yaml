@@ -74,7 +74,7 @@ backend:
   # --------------------------------------------------------------------------
   startupProbe:
     periodSeconds: 10
-    failureThreshold: 18    # 180 seconds for slow startup
+    failureThreshold: 36
     successThreshold: 1
     httpGet:
       path: /actuator/health/liveness

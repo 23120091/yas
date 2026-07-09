@@ -42,8 +42,7 @@ backend:
       cpu: 50m       # 1.3x dev — enough for concurrent request processing
       memory: 700Mi   # 1.3x dev — JVM heap + off-heap + OS overhead
     limits:
-      cpu: 1500m      # 1.5 full cores burst limit (1.5x dev)
-      memory: 1536Mi  # 1.5x dev — JVM usually uses 70% of limit as max heap
+      memory: 768Mi
 
   # --------------------------------------------------------------------------
   # INGRESS — Expose the product service on a staging domain.

@@ -46,6 +46,15 @@ else
           -c "ALTER USER $POSTGRES_USERNAME WITH PASSWORD '$POSTGRES_PASSWORD';" 2>/dev/null && \
         echo "  OK PostgreSQL password updated" || \
         echo "  WARNING: PostgreSQL password update failed"
+
+        # Also update operator secret so it doesn't revert the ALTER USER
+        kubectl create secret generic "${POSTGRES_USERNAME}.postgresql.credentials.postgresql.acid.zalan.do" \
+          -n "${PG_NS}" \
+          --from-literal=username="$POSTGRES_USERNAME" \
+          --from-literal=password="$POSTGRES_PASSWORD" \
+          --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null && \
+        echo "  OK Operator secret synced" || \
+        echo "  WARNING: Operator secret sync failed"
     fi
 fi
 

@@ -187,6 +187,19 @@ sleep 30
 kubectl wait --for=condition=ready pod -l application=spilo -n "${PG_NS}" --timeout=300s
 sleep 30
 
+# Overwrite operator-generated password with our .env password
+# The operator syncs its secret -> DB, so we must patch the secret AND the DB
+echo "Syncing PostgreSQL password..."
+PG_POD=$(kubectl get pods -n "${PG_NS}" -l application=spilo -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n "${PG_NS}" "$PG_POD" -- psql -U postgres \
+  -c "ALTER USER ${PG_USERNAME} WITH PASSWORD '${PG_PASSWORD}';"
+kubectl create secret generic "yasadminuser.postgresql.credentials.postgresql.acid.zalan.do" \
+  -n "${PG_NS}" \
+  --from-literal=username="${PG_USERNAME}" \
+  --from-literal=password="${PG_PASSWORD}" \
+  --dry-run=client -o yaml | kubectl apply -f -
+echo "PostgreSQL password synced."
+
 # --------------------------------------------------------------------------
 # pgAdmin
 # --------------------------------------------------------------------------
@@ -262,20 +275,29 @@ helm upgrade --install "redis-${ENV}" \
 # Loki (log aggregation)
 # --------------------------------------------------------------------------
 echo "Deploying Loki..."
+AFFINITY="{\"nodeAffinity\":{\"requiredDuringSchedulingIgnoredDuringExecution\":{\"nodeSelectorTerms\":[{\"matchExpressions\":[{\"key\":\"env\",\"operator\":\"In\",\"values\":[\"${ENV}\"]}]}]}}}"
 helm upgrade --install "loki-${ENV}" grafana/loki \
   --create-namespace --namespace "${OBS_NS}" \
   -f ./observability/loki.values.yaml \
-  --values "./infra-${ENV}-affinity.yaml"
+  --set-json "write.affinity=${AFFINITY}" \
+  --set-json "read.affinity=${AFFINITY}" \
+  --set-json "backend.affinity=${AFFINITY}" \
+  --set-json "gateway.affinity=${AFFINITY}" \
+  --set-json "minio.affinity=${AFFINITY}" \
+  --set-json "chunksCache.affinity=${AFFINITY}" \
+  --set-json "resultsCache.affinity=${AFFINITY}"
 
 # --------------------------------------------------------------------------
-# Tempo (trace storage)
+# Tempo (trace storage — single binary mode, chart ignores affinity)
 # --------------------------------------------------------------------------
 echo "Deploying Tempo..."
 helm upgrade --install "tempo-${ENV}" grafana/tempo \
   --create-namespace --namespace "${OBS_NS}" \
   -f ./observability/tempo.values.yaml \
-  -f "./observability/tempo-${ENV}.values.yaml" \
-  --values "./infra-${ENV}-affinity.yaml"
+  -f "./observability/tempo-${ENV}.values.yaml"
+kubectl patch sts "tempo-${ENV}" -n "${OBS_NS}" \
+  -p "{\"spec\":{\"template\":{\"spec\":{\"affinity\":{\"nodeAffinity\":{\"requiredDuringSchedulingIgnoredDuringExecution\":{\"nodeSelectorTerms\":[{\"matchExpressions\":[{\"key\":\"env\",\"operator\":\"In\",\"values\":[\"${ENV}\"]}]}]}}}}}}}" \
+  2>/dev/null || true
 
 # --------------------------------------------------------------------------
 # Promtail (log collector)

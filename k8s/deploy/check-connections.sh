@@ -57,7 +57,13 @@ for e in $ENVS; do
     if [ -n "$APP_USER" ] && [ -n "$APP_PASS" ]; then
       RESULT=$(kubectl exec -n "${PG_NS}" "$PG_POD" -- psql -U postgres -c "SELECT 1 FROM pg_roles WHERE rolname='$APP_USER'" 2>/dev/null | grep -c "1" || true)
       if [ "$RESULT" -ge 1 ]; then
-        echo "       App DB user '$APP_USER':  OK"
+        # Actually test password login
+        AUTH=$(kubectl exec -n "${PG_NS}" "$PG_POD" -- env PGPASSWORD="$APP_PASS" psql -U "$APP_USER" -d postgres -c "SELECT 1" 2>/dev/null | grep -c "1" || true)
+        if [ "$AUTH" -ge 1 ]; then
+          echo "       App DB user '$APP_USER':  OK (password verified)"
+        else
+          echo "       App DB user '$APP_USER':  PASSWORD MISMATCH"
+        fi
       else
         echo "       App DB user '$APP_USER':  MISSING ROLE"
       fi
