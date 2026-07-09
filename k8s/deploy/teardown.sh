@@ -2,31 +2,28 @@
 # ============================================================================
 # TEARDOWN INFRASTRUCTURE — Multi-Environment
 # ============================================================================
-# Deletes everything created by setup-cluster.sh and
-# setup-redis.sh for a specific environment.
+# Deletes all infrastructure created by setup-all.sh for a specific environment.
 #
-# ⚠️  WARNING: This DESTROYS ALL DATA in:
-#   - PostgreSQL
-#   - Kafka
-#   - Elasticsearch
-#   - Redis
-#   - Keycloak
+# DELETES:
+#   - PostgreSQL cluster + pgAdmin
+#   - Kafka cluster + AKHQ
+#   - Elasticsearch cluster + Kibana
 #   - Zookeeper
-#   - Observability (Loki, Tempo)
+#   - Redis
+#   - Loki, Tempo, Promtail, OTel Collector
+#   - All PVCs and namespaces
 #
-# DOES NOT DELETE (managed by ArgoCD):
-#   - Application pods/deployments in dev/staging/production
-#   - yas-configuration ConfigMaps/Secrets
-#   - ArgoCD ApplicationSets or Applications
+# DOES NOT DELETE:
+#   - Application pods in dev/staging/production (managed by ArgoCD)
+#   - Operators (cluster-scoped, shared across envs)
 #
-# Usage:
+# USAGE:
 #   ./teardown.sh <env>     (dev|staging|production|all, default: dev)
 # ============================================================================
 
 set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Load common passwords
 source "$DIR/.env"
 
 ENV=${1:-dev}
@@ -50,81 +47,56 @@ fi
 
 for e in $ENVS; do
   echo ""
-  echo ">>> Processing environment: ${e}"
-  echo ""
+  echo ">>> Tearing down environment: ${e}"
 
-  # --------------------------------------------------------------------------
-  # 1. Delete Helm releases first (cleaner than deleting namespaces directly)
-  # --------------------------------------------------------------------------
+  PG_NS="postgres-${e}"
+  KAFKA_NS="kafka-${e}"
+  ES_NS="elasticsearch-${e}"
+  ZK_NS="zookeeper-${e}"
+  OBS_NS="observability-${e}"
+  REDIS_NS="redis-${e}"
+
+  # 1. Delete Helm releases
   echo "Deleting Helm releases..."
-  helm uninstall "postgres-${e}"          --namespace "postgres-${e}"          2>/dev/null || true
-  helm uninstall "pgadmin-${e}"           --namespace "postgres-${e}"          2>/dev/null || true
-  helm uninstall "kafka-cluster-${e}"     --namespace "kafka-${e}"             2>/dev/null || true
-  helm uninstall "akhq-${e}"              --namespace "kafka-${e}"             2>/dev/null || true
-  helm uninstall "elasticsearch-cluster-${e}" --namespace "elasticsearch-${e}" 2>/dev/null || true
-  helm uninstall "zookeeper-${e}"         --namespace "zookeeper-${e}"         2>/dev/null || true
-  helm uninstall "loki-${e}"              --namespace "observability-${e}"     2>/dev/null || true
-  helm uninstall "tempo-${e}"             --namespace "observability-${e}"     2>/dev/null || true
-  helm uninstall "promtail-${e}"          --namespace "observability-${e}"     2>/dev/null || true
-  helm uninstall "opentelemetry-collector-${e}" --namespace "observability-${e}" 2>/dev/null || true
-  helm uninstall "redis-${e}"             --namespace "redis-${e}"             2>/dev/null || true
-  helm uninstall "prometheus-${e}"        --namespace "observability-${e}" 2>/dev/null || true
+  helm uninstall "postgres-${e}"             --namespace "${PG_NS}"    2>/dev/null || true
+  helm uninstall "pgadmin-${e}"              --namespace "${PG_NS}"    2>/dev/null || true
+  helm uninstall "kafka-cluster-${e}"        --namespace "${KAFKA_NS}" 2>/dev/null || true
+  helm uninstall "akhq-${e}"                 --namespace "${KAFKA_NS}" 2>/dev/null || true
+  helm uninstall "elasticsearch-cluster-${e}" --namespace "${ES_NS}"   2>/dev/null || true
+  helm uninstall "zookeeper-${e}"            --namespace "${ZK_NS}"    2>/dev/null || true
+  helm uninstall "loki-${e}"                 --namespace "${OBS_NS}"   2>/dev/null || true
+  helm uninstall "tempo-${e}"                --namespace "${OBS_NS}"   2>/dev/null || true
+  helm uninstall "promtail-${e}"             --namespace "${OBS_NS}"   2>/dev/null || true
+  helm uninstall "opentelemetry-collector-${e}" --namespace "${OBS_NS}" 2>/dev/null || true
+  helm uninstall "redis-${e}"                --namespace "${REDIS_NS}" 2>/dev/null || true
+  helm uninstall "prometheus-${e}"           --namespace "${OBS_NS}"   2>/dev/null || true
 
-  # --------------------------------------------------------------------------
-  # 2. Force-delete PVCs to avoid "Terminating" hang
-  # --------------------------------------------------------------------------
+  # 2. Force-delete PVCs
   echo "Force-deleting PVCs..."
-  for ns in "postgres-${e}" "kafka-${e}" "elasticsearch-${e}" "zookeeper-${e}" "observability-${e}" "redis-${e}"; do
+  for ns in "${PG_NS}" "${KAFKA_NS}" "${ES_NS}" "${ZK_NS}" "${OBS_NS}" "${REDIS_NS}"; do
     kubectl patch pvc -n "${ns}" --all --type='json' -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
     kubectl delete pvc -n "${ns}" --all --ignore-not-found --timeout=30s 2>/dev/null || true
   done
 
-  # --------------------------------------------------------------------------
-  # 3. Delete Zalando PostgreSQL CR (if Helm didn't clean it up)
-  # --------------------------------------------------------------------------
-  echo "Deleting PostgreSQL CR..."
-  kubectl delete postgresql postgresql -n "postgres-${e}" --ignore-not-found --timeout=60s 2>/dev/null || true
+  # 3. Delete CRs
+  echo "Deleting CRs..."
+  kubectl delete postgresql postgresql -n "${PG_NS}" --ignore-not-found --timeout=60s 2>/dev/null || true
+  kubectl delete kafka kafka-cluster -n "${KAFKA_NS}" --ignore-not-found --timeout=60s 2>/dev/null || true
+  kubectl delete elasticsearch elasticsearch -n "${ES_NS}" --ignore-not-found --timeout=60s 2>/dev/null || true
 
-  # --------------------------------------------------------------------------
-  # 4. Delete Kafka CRs (if Helm didn't clean them up)
-  # --------------------------------------------------------------------------
-  echo "Deleting Kafka CRs..."
-  kubectl delete kafka kafka-cluster -n "kafka-${e}" --ignore-not-found --timeout=60s 2>/dev/null || true
-
-  # --------------------------------------------------------------------------
-  # 5. Delete Elasticsearch CR (if Helm didn't clean it up)
-  # --------------------------------------------------------------------------
-  echo "Deleting Elasticsearch CR..."
-  kubectl delete elasticsearch elasticsearch -n "elasticsearch-${e}" --ignore-not-found --timeout=60s 2>/dev/null || true
-
-  # --------------------------------------------------------------------------
-  # 6. Delete namespaces (cascades anything left)
-  #   NOTE: Keycloak namespace is managed by ArgoCD — NOT deleted here.
-  # --------------------------------------------------------------------------
+  # 4. Delete namespaces
   echo "Deleting namespaces..."
-  for ns in "postgres-${e}" "kafka-${e}" "elasticsearch-${e}" "zookeeper-${e}" "observability-${e}" "redis-${e}"; do
+  for ns in "${PG_NS}" "${KAFKA_NS}" "${ES_NS}" "${ZK_NS}" "${OBS_NS}" "${REDIS_NS}"; do
     kubectl delete namespace "${ns}" --ignore-not-found --timeout=120s 2>/dev/null || true
   done
 
-  echo ""
   echo "Environment ${e} teardown complete."
 done
-
-echo "Delete Grafana"
-helm uninstall grafana --namespace observability 2>/dev/null || true
-kubectl delete application -n argocd grafana --ignore-not-found 2>/dev/null || true
 
 echo ""
 echo "============================================"
 echo " TEARDOWN COMPLETE"
 echo "============================================"
 echo ""
-echo "Infrastructure deleted. ArgoCD-managed apps"
-echo "in dev/staging/production are still running."
-echo ""
 echo "To redeploy infrastructure:"
-echo "  ./setup-cluster.sh <env>"
-echo "  ./setup-redis.sh <env>"
-echo ""
-echo "Then sync ArgoCD apps to pick up new URLs:"
-echo "  argocd app sync yas-configuration-<env>"
+echo "  ./setup-all.sh <env>"

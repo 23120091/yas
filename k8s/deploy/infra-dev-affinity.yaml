@@ -1,12 +1,4 @@
-# Dev environment node affinity
-# Pins dev infrastructure to dev worker node (spot instance, acceptable to crash)
-env: dev
-affinity:
-  nodeAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      nodeSelectorTerms:
-        - matchExpressions:
-            - key: env
-              operator: In
-              values:
-                - dev
+# Dev infrastructure nodeSelector
+# Pins dev infrastructure to env=dev node
+nodeSelector:
+  env: dev
