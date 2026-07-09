@@ -1,0 +1,180 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam componentBorderColor #2C3E50
+skinparam ArrowColor #7F8C8D
+skinparam defaultFontName Arial
+
+title YAS (Yet Another Shop) — Kiến trúc tầng ứng dụng
+
+left to right direction
+
+' ============================================================
+' Frontend
+' ============================================================
+actor "Khách hàng" as shopper
+actor "Admin" as admin
+
+package "Frontend (Next.js 14)" as frontend #E8F8F5 {
+  rectangle "storefront\n(Customer UI)" as storefront #A3E4D7
+  rectangle "backoffice\n(Admin UI)" as backoffice #A3E4D7
+  rectangle "Swagger UI" as swagger #D5F5E3
+}
+
+shopper --> storefront : HTTPS
+admin --> backoffice : HTTPS
+
+' ============================================================
+' BFF Layer
+' ============================================================
+package "BFF — Spring Cloud Gateway 5\n(Java 25, Virtual Threads)" as bff_layer #FDEBD0 {
+  component "storefront-bff" as storefront_bff #F5B041 {
+  }
+  component "backoffice-bff" as backoffice_bff #F5B041 {
+  }
+}
+
+storefront --> storefront_bff : proxy
+backoffice --> backoffice_bff : proxy
+swagger --> storefront_bff : /swagger-ui
+
+' ============================================================
+' Auth
+' ============================================================
+cloud "Keycloak\n(Auth Server)" as keycloak #D6EAF8
+
+storefront_bff --> keycloak : OAuth2 TokenRelay
+backoffice_bff --> keycloak : OAuth2 TokenRelay
+backoffice --> keycloak : login redirect
+
+' ============================================================
+' Backend services
+' ============================================================
+package "Core Services" as core #D5F5E3 {
+  component "product\n(Product Catalog)" as product #82E0AA
+  component "customer\n(Customer Mgmt)" as customer #82E0AA
+  component "cart\n(Shopping Cart)" as cart #82E0AA
+}
+
+package "Business Services" as business #D4E6F1 {
+  component "order\n(Order Processing)" as order #85C1E9
+  component "payment\n(Payment Gateway)" as payment #85C1E9
+  component "payment-paypal\n(PayPal Integration)" as paypal #85C1E9
+  component "tax\n(Tax Calculation)" as tax #85C1E9
+  component "promotion\n(Discounts)" as promotion #85C1E9
+}
+
+package "Support Services" as support #F9E79F {
+  component "media\n(File Upload)" as media #F4D03F
+  component "inventory\n(Stock Mgmt)" as inventory #F4D03F
+  component "location\n(Address Mgmt)" as location #F4D03F
+  component "rating\n(Product Ratings)" as rating #F4D03F
+  component "search\n(Elasticsearch)" as search #F4D03F
+  component "webhook\n(Event Handler)" as webhook #F4D03F
+  component "recommendation\n(AI Suggestions)" as recommendation #F4D03F
+}
+
+package "Utility" as utility #E8DAEF {
+  component "sampledata\n(Seed Data)" as sampledata #D2B4DE
+}
+
+' ============================================================
+' BFF → Service routes
+' ============================================================
+storefront_bff --> product : /api/product/**
+storefront_bff --> customer : /api/customer/**
+storefront_bff --> cart : /api/cart/**
+storefront_bff --> order : /api/order/**
+storefront_bff --> media : /api/media/**
+storefront_bff --> location : /api/location/**
+storefront_bff --> rating : /api/rating/**
+storefront_bff --> search : /api/search/**
+storefront_bff --> promotion : /api/promotion/**
+storefront_bff --> tax : /api/tax/**
+storefront_bff --> inventory : /api/inventory/**
+storefront_bff --> payment : /api/payment/**
+
+backoffice_bff --> product : /api/product/**
+backoffice_bff --> customer : /api/customer/**
+backoffice_bff --> order : /api/order/**
+backoffice_bff --> media : /api/media/**
+backoffice_bff --> inventory : /api/inventory/**
+backoffice_bff --> sampledata : /api/sampledata/**
+backoffice_bff --> payment : /api/payment/**
+backoffice_bff --> recommendation : /api/recommendation/**
+
+' ============================================================
+' Service → Service dependencies
+' ============================================================
+order --> cart : kiểm tra giỏ hàng
+order --> product : lấy thông tin sản phẩm
+order --> payment : xử lý thanh toán
+order --> tax : tính thuế
+order --> promotion : áp dụng khuyến mãi
+order --> inventory : kiểm tra tồn kho
+
+payment --> paypal : xử lý PayPal
+paypal --> webhook : IPN callback
+
+search --> product : đồng bộ dữ liệu
+search --> rating : lấy đánh giá
+
+recommendation --> product : lấy danh sách SP
+
+sampledata --> product : seed dữ liệu
+sampledata --> customer : seed dữ liệu
+sampledata --> media : seed hình ảnh
+sampledata --> inventory : seed tồn kho
+
+' ============================================================
+' Data stores
+' ============================================================
+database "PostgreSQL\n(per service)" as postgres #ABEBC6 {
+}
+database "Elasticsearch\n(search)" as elasticsearch #85C1E9 {
+}
+queue "Kafka +\nDebezium CDC" as kafka #F5B7B1 {
+}
+database "Redis\n(session cache)" as redis #F1948A {
+}
+
+product --> postgres
+customer --> postgres
+cart --> postgres
+order --> postgres
+payment --> postgres
+paypal --> postgres
+tax --> postgres
+promotion --> postgres
+media --> postgres
+inventory --> postgres
+location --> postgres
+rating --> postgres
+webhook --> postgres
+sampledata --> postgres
+search --> postgres
+
+search --> elasticsearch : full-text search
+
+product ..> kafka : CDC events
+customer ..> kafka : CDC events
+order ..> kafka : CDC events
+
+storefront_bff --> redis : OAuth2 session
+backoffice_bff --> redis : OAuth2 session
+
+' ============================================================
+' Observability
+' ============================================================
+package "Observability" as o11y #E5E7E9 {
+  component "Grafana" as grafana #ABB2B9
+  component "Loki" as loki #ABB2B9
+  component "Tempo" as tempo #ABB2B9
+  component "Prometheus" as prometheus #ABB2B9
+}
+
+kafka ..> loki : logs
+product ..> prometheus : metrics
+product ..> tempo : traces
+
+@enduml

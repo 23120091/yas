@@ -1,6 +1,7 @@
 # Production environment node affinity
 # Pins production infrastructure to production worker node (stable, non-spot)
 # Ensures production runs smoothly even when dev/staging workers crash or get preempted
+env: production
 tolerations: []
 affinity:
   nodeAffinity:

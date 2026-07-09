@@ -101,13 +101,9 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: env
-                    operator: In
-                    values:
-                      - {{ .Values.env | quote }}
-      tolerations:
-        - key: "node-role.kubernetes.io/control-plane"
-          operator: "Exists"
-          effect: "NoSchedule"
-  resources:
+                - key: env
+                  operator: In
+                  values:
+                    - {{ .Values.env | quote }}
+      resources:
     {{ toYaml .Values.resources | nindent 4 }}

@@ -2,9 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "main", "dev" ]
+    types: [opened, synchronize, reopened]
+    branches: [ "main" ]
   workflow_dispatch:
 
 permissions:
@@ -163,7 +164,7 @@ jobs:
       service_path: ${{ matrix.service }}
       java_version: '25'
       min_coverage_overall: 70
-      docker_image: ghcr.io/23120091/${{ matrix.service }}:${{ github.sha }}
+      docker_image: ${{ (github.event_name == 'pull_request' || github.ref == 'refs/heads/main') && format('ghcr.io/23120091/{0}:{1}', matrix.service, github.sha) || '' }}
     secrets: inherit
 
   # Run CI for frontend Node.js services when changed
@@ -180,7 +181,7 @@ jobs:
       service_name: ${{ matrix.service }}
       service_path: ${{ matrix.service }}
       min_coverage_overall: 70
-      docker_image: ghcr.io/23120091/${{ matrix.service }}:${{ github.sha }}
+      docker_image: ${{ (github.event_name == 'pull_request' || github.ref == 'refs/heads/main') && format('ghcr.io/23120091/{0}:{1}', matrix.service, github.sha) || '' }}
     secrets: inherit
 
   # Check final status of all triggered CI jobs

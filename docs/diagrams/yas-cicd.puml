@@ -1,0 +1,61 @@
+@startuml
+!theme plain
+title YAS — CI/CD Pipeline
+
+skinparam backgroundColor #FAFAFA
+skinparam ArrowColor #333333
+skinparam FontName Arial
+skinparam fontSize 11
+
+start
+
+:**Triggers:**
+- PR (open/sync/reopen) → main, dev
+- Push → main;
+
+:**Path-filter**
+Xác định service thay đổi;
+
+fork
+  :**Java CI**
+  mvn clean verify
+  Checkstyle + SonarQube
+  JaCoCo ≥ 70%;
+fork again
+  :**Node CI**
+  ESLint
+  npm test --coverage
+  npm run build;
+end fork
+
+if (Push to feature branch?) then (yes)
+  :CI passed
+  (không push image);
+  stop
+else (PR or push to main)
+  :**Docker Build & Push**
+  → ghcr.io/23120091/<service>:<sha>;
+endif
+
+if (Push to **main**?) then (yes)
+  :**ArgoCD** detects drift;
+
+  if (Env?) then (dev)
+    :Auto-sync (Image Updater);
+  elseif (staging)
+    :Auto-sync (git tag);
+  else (production)
+    :Manual sync;
+  endif
+
+  :Sync waves → Reloader;
+
+  :Deploy complete;
+else (PR)
+  :Image ready
+  (PR checks passed);
+endif
+
+stop
+
+@enduml

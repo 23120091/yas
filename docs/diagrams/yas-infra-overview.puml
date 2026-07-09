@@ -1,0 +1,138 @@
+@startuml
+!theme plain
+title YAS — Infrastructure Architecture
+
+skinparam backgroundColor #FAFAFA
+skinparam fontSize 10
+
+' ===== USERS =====
+actor "Customer" as cust
+actor "Admin" as admin
+
+' ===== STOREFRONT SIDE =====
+rectangle "Storefront" #FF6B6B {
+  [storefront-ui\nNext.js 14] as sf_ui
+  [storefront-bff\nOAuth2 TokenRelay] as sf_bff
+}
+
+' ===== BACKOFFICE SIDE =====
+rectangle "Backoffice" #FFE4B5 {
+  [backoffice-ui\nNext.js 14] as bo_ui
+  [backoffice-bff\nOAuth2 TokenRelay] as bo_bff
+}
+
+' ===== SERVICES =====
+rectangle "Core (Wave 1)" as core #90EE90 {
+  [product] as product
+  [customer] as customer
+  [cart] as cart
+}
+
+rectangle "Secondary (Wave 2)" as sec #87CEEB {
+  [order] as order
+  [search] as search
+  [media] as media
+  [inventory] as inv
+  [location] as loc
+  [tax] as tax
+  [promotion] as promo
+  [rating] as rating
+  [recommendation] as rec
+  [sampledata] as sample
+}
+
+rectangle "Integration (Wave 3)" as integ #F9E79F {
+  [payment] as pay
+  [payment-paypal] as pp
+  [webhook] as wh
+}
+
+' ===== INFRA =====
+rectangle "Auth" as auth #DDA0DD {
+  [Keycloak] as kc
+}
+
+rectangle "Infrastructure" as infra #E6E6FA {
+  database "PostgreSQL\n(per env: 5Gi/20Gi/50Gi)" as pg
+  [Kafka\n+ Debezium CDC] as kafka
+  database "Redis\n(per env: 1M+3R, 8Gi)" as redis
+  database "Elasticsearch\n(per env: 1Gi)" as es
+}
+
+rectangle "Observability" as obs #D3D3D3 {
+  [Loki / Tempo] as lt
+  database "Prometheus" as prom_obs
+  [Grafana (shared)] as grafana
+}
+
+' ===== K8S =====
+rectangle "K3s Cluster (4 nodes)" as k8s #F5F5DC {
+  node "master\n(265% CPU | 141% RAM)" as m
+  node "dev1 | stg1 | prod1" as workers
+}
+
+' ===== STOREFRONT FLOW =====
+cust --> sf_ui
+sf_ui --> sf_bff
+sf_bff --> kc : OAuth2
+sf_bff --> product
+sf_bff --> customer
+sf_bff --> cart
+sf_bff --> order
+sf_bff --> search
+sf_bff --> loc
+sf_bff --> media
+sf_bff --> tax
+sf_bff --> promo
+sf_bff --> rating
+sf_bff --> rec
+sf_bff --> pay
+sf_bff --> pp
+sf_bff --> redis : session
+
+' ===== BACKOFFICE FLOW =====
+admin --> bo_ui
+bo_ui --> bo_bff
+bo_bff --> kc : OAuth2
+bo_bff --> product
+bo_bff --> customer
+bo_bff --> order
+bo_bff --> media
+bo_bff --> inv
+bo_bff --> tax
+bo_bff --> promo
+bo_bff --> sample
+bo_bff --> redis : session
+
+' ===== SERVICE → INFRA =====
+product --> pg
+customer --> pg
+cart --> pg
+cart --> redis
+order --> pg
+order --> kafka : events
+search --> es
+loc --> pg
+media --> pg
+tax --> pg
+promo --> pg
+rating --> pg
+rec --> pg
+pay --> pg
+inv --> pg
+sample --> pg
+kafka --> es : CDC
+
+' ===== OBSERVABILITY =====
+product ..> lt
+order ..> lt
+pay ..> lt
+product ..> prom_obs
+order ..> prom_obs
+
+note bottom of infra
+  dev / staging / production
+  infrastructure identical, different PVC sizes only
+end note
+
+@enduml
