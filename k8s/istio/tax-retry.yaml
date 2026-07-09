@@ -11,8 +11,7 @@ spec:
     - destination:
         host: tax.production.svc.cluster.local
         port:
-          #number: 80
-          number: 8888 #Ép gọi vào cổng ma không tồn tại để sinh lỗi kết nối mạng thật!
+          number: 80
 
     # # 💥 1. BƠM LỖI TIMEOUT: Ép trì hoãn kết nối 5 giây (vượt quá 500ms timeout của mỗi lượt gọi)
     # fault:
