@@ -3,7 +3,12 @@ kind: AuthorizationPolicy
 metadata:
   name: deny-all-by-default
   namespace: production
-spec: {}
+spec:
+  # Chỉ mặc định chặn các request đi vào cổng dịch vụ chính (Cổng 80)
+  rules:
+  - to:
+    - operation:
+        ports: ["80"]
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
