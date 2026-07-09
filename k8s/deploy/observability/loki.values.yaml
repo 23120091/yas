@@ -9,6 +9,8 @@ loki:
   auth_enabled: false
   commonConfig:
     replication_factor: 1
+  pattern_ingester:
+    enabled: true
 
   storage:
     type: 's3'
