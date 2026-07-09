@@ -23,4 +23,6 @@ spec:
     retries:
       attempts: 3          # 🔥 Ép Istio tự động thử lại 3 lần chạy ngầm
       perTryTimeout: 500ms # Thời gian chờ giữa mỗi lượt thử là 500ms
-      retryOn: "5xx,connect-failure,refused-stream"
+      retryOn: "5xx,connect-failure,refused-stream,gateway-error,retriable-status-codes"
+      statusCodes:
+      - 401
