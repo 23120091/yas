@@ -68,14 +68,13 @@ for e in $ENVS; do
   helm uninstall "promtail-${e}"          --namespace "observability-${e}"     2>/dev/null || true
   helm uninstall "opentelemetry-collector-${e}" --namespace "observability-${e}" 2>/dev/null || true
   helm uninstall "redis-${e}"             --namespace "redis-${e}"             2>/dev/null || true
-  helm uninstall "keycloak-${e}"          --namespace "keycloak-${e}"          2>/dev/null || true
   helm uninstall "prometheus-${e}"        --namespace "observability-${e}" 2>/dev/null || true
 
   # --------------------------------------------------------------------------
   # 2. Force-delete PVCs to avoid "Terminating" hang
   # --------------------------------------------------------------------------
   echo "Force-deleting PVCs..."
-  for ns in "postgres-${e}" "kafka-${e}" "elasticsearch-${e}" "zookeeper-${e}" "observability-${e}" "redis-${e}" "keycloak-${e}"; do
+  for ns in "postgres-${e}" "kafka-${e}" "elasticsearch-${e}" "zookeeper-${e}" "observability-${e}" "redis-${e}"; do
     kubectl patch pvc -n "${ns}" --all --type='json' -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
     kubectl delete pvc -n "${ns}" --all --ignore-not-found --timeout=30s 2>/dev/null || true
   done
@@ -99,17 +98,11 @@ for e in $ENVS; do
   kubectl delete elasticsearch elasticsearch -n "elasticsearch-${e}" --ignore-not-found --timeout=60s 2>/dev/null || true
 
   # --------------------------------------------------------------------------
-  # 6. Delete Keycloak CRs
-  # --------------------------------------------------------------------------
-  echo "Deleting Keycloak CRs..."
-  kubectl delete keycloak keycloak -n "keycloak-${e}" --ignore-not-found --timeout=60s 2>/dev/null || true
-  kubectl delete keycloakrealmimport yas-realm-kc -n "keycloak-${e}" --ignore-not-found --timeout=60s 2>/dev/null || true
-
-  # --------------------------------------------------------------------------
-  # 7. Delete namespaces (cascades anything left)
+  # 6. Delete namespaces (cascades anything left)
+  #   NOTE: Keycloak namespace is managed by ArgoCD — NOT deleted here.
   # --------------------------------------------------------------------------
   echo "Deleting namespaces..."
-  for ns in "postgres-${e}" "kafka-${e}" "elasticsearch-${e}" "zookeeper-${e}" "observability-${e}" "redis-${e}" "keycloak-${e}"; do
+  for ns in "postgres-${e}" "kafka-${e}" "elasticsearch-${e}" "zookeeper-${e}" "observability-${e}" "redis-${e}"; do
     kubectl delete namespace "${ns}" --ignore-not-found --timeout=120s 2>/dev/null || true
   done
 
