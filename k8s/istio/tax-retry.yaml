@@ -12,11 +12,11 @@ spec:
         host: tax.production.svc.cluster.local
         port:
           number: 80
-          
-    # 💥 1. BƠM LỖI GIẢ LẬP: Ép Istio ném lỗi 503 cho 100% request gọi vào tax
+
+    # 💥 1. BƠM LỖI TIMEOUT: Ép trì hoãn kết nối 5 giây (vượt quá 500ms timeout của mỗi lượt gọi)
     fault:
-      abort:
-        httpStatus: 503
+      delay:
+        fixedDelay: 5s
         percentage:
           value: 100
 
