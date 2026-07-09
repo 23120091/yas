@@ -31,11 +31,15 @@ echo "============================================"
 echo "Redis namespace: ${REDIS_NS}"
 
 # --------------------------------------------------------------------------
-# Install Redis (Bitnami chart) — password from .env.txt
+# Install Redis (Bitnami chart) — password from .env
 # --------------------------------------------------------------------------
+# Bitnami chart uses master.nodeSelector / replica.nodeSelector,
+# not root-level .Values.affinity. We pass nodeSelector directly.
 helm upgrade --install "redis-${ENV}" \
   --set auth.password="$REDIS_PASSWORD" \
-  --values "./infra-${ENV}-affinity.yaml" \
+  --set master.nodeSelector.env="${ENV}" \
+  --set replica.nodeSelector.env="${ENV}" \
+  --set sentinel.nodeSelector.env="${ENV}" \
   oci://registry-1.docker.io/bitnamicharts/redis \
   --namespace "${REDIS_NS}" --create-namespace
 

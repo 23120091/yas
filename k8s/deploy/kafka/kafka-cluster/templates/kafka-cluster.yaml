@@ -20,8 +20,10 @@ spec:
       type: persistent-claim
       size: 10Gi
     {{- if .Values.affinity }}
-    affinity:
-      {{- toYaml .Values.affinity | nindent 6 }}
+    template:
+      pod:
+        affinity:
+          {{- toYaml .Values.affinity | nindent 10 }}
     {{- end }}
   zookeeper:
     replicas: {{ .Values.kafka.replicas }}
@@ -29,13 +31,17 @@ spec:
       type: persistent-claim
       size: 10Gi
     {{- if .Values.affinity }}
-    affinity:
-      {{- toYaml .Values.affinity | nindent 6 }}
+    template:
+      pod:
+        affinity:
+          {{- toYaml .Values.affinity | nindent 10 }}
     {{- end }}
   entityOperator:
     topicOperator: {}
     userOperator: {}
     {{- if .Values.affinity }}
-    affinity:
-      {{- toYaml .Values.affinity | nindent 6 }}
+    template:
+      pod:
+        affinity:
+          {{- toYaml .Values.affinity | nindent 10 }}
     {{- end }}
