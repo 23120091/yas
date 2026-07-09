@@ -10,6 +10,22 @@ spec:
     - operation:
         ports: ["80"]
 ---
+# 🤝 LUẬT HÒA BÌNH TỔNG THỂ: Đặc cách cho toàn bộ Stack Observability (Prometheus, Loki, Tempo, Grafana)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-observability-stack-traffic
+  namespace: production
+spec:
+  rules:
+  - to:
+    - operation:
+        # Liệt kê đầy đủ các cổng hạ tầng giám sát:
+        # - 8090: Cổng Spring Boot Actuator (Prometheus cào metric)
+        # - 4317, 4318: Cổng OpenTelemetry Collector (Bắn Trace sang Tempo)
+        # - 3100, 9096: Cổng Grafana Loki (Bắn và gom Logs hệ thống)
+        ports: ["8090", "4317", "4318", "3100", "9096"]
+---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
