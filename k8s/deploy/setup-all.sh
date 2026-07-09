@@ -1,311 +1,305 @@
 #!/bin/bash
 # ============================================================================
-# SETUP ALL — Complete Infrastructure + ArgoCD Bootstrap
+# SETUP ALL — Deploy Infrastructure for a Single Environment
 # ============================================================================
-# Deploys EVERYTHING for a specific environment from scratch.
+# Deploys ALL infrastructure: operators (cluster-scoped) + instances (per-env).
 #
-# WHAT THIS DOES:
-#   1. (Optional) Full teardown — infrastructure + ArgoCD apps
-#   2. Deploy infrastructure: PostgreSQL, Kafka, ES, Redis, Keycloak
-#   3. Wait for each dependency to be ready
-#   4. Re-deploy ArgoCD: Project → Bootstrap App → ApplicationSets
-#   5. ArgoCD then auto-deploys all microservices
+# WHAT THIS DEPLOYS:
+#   OPERATORS (cluster-scoped, idempotent):
+#     - Zalando PostgreSQL Operator
+#     - Strimzi Kafka Operator
+#     - ECK Elasticsearch Operator
+#     - Cert Manager
+#     - OpenTelemetry Operator
+#     - Sealed Secrets
+#   INSTANCES (per-env, namespace-isolated):
+#     - PostgreSQL cluster + pgAdmin
+#     - Kafka cluster + AKHQ
+#     - Elasticsearch cluster + Kibana
+#     - Zookeeper
+#     - Redis
+#     - Loki + Tempo + Promtail + OTel Collector
 #
-# PREREQUISITES:
-#   - ArgoCD must already be installed in the cluster (argocd namespace)
-#   - Helm 3, yq, kubectl configured
-#   - cluster-config-{env}.yaml exists
+# All infra pods are pinned to the correct node via nodeSelector (label: env={env}).
 #
 # USAGE:
 #   ./setup-all.sh <env>     (dev|staging|production, default: dev)
-#
-#   # With full teardown first (DESTROYS ALL DATA):
-#   ./setup-all.sh dev --teardown
-#
-#   # Without teardown (keep existing data, just fix infra + resync ArgoCD):
-#   ./setup-all.sh dev
 # ============================================================================
 
-set -e
+set -x
 DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Load common passwords
 source "$DIR/.env"
 
 ENV=${1:-dev}
-TEARDOWN=${2:-""}
+CONFIG_FILE="$DIR/cluster-config-${ENV}.yaml"
 
-if [ "$ENV" = "--teardown" ] || [ "$ENV" = "--clean" ]; then
-    echo "ERROR: First argument must be environment. Usage: ./setup-all.sh dev --teardown"
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo "ERROR: Config file '$CONFIG_FILE' not found."
+    echo "Available: cluster-config-dev.yaml, cluster-config-staging.yaml, cluster-config-production.yaml"
     exit 1
 fi
 
-echo ""
 echo "============================================"
-echo " YAS PLATFORM SETUP"
-echo " Environment: ${ENV}"
-echo " Teardown:    ${TEARDOWN}"
+echo " Deploying infrastructure for: ${ENV}"
+echo " Config file: ${CONFIG_FILE}"
 echo "============================================"
-echo ""
 
 # --------------------------------------------------------------------------
-# PHASE 0: Full teardown (if requested)
+# Add chart repos and update
 # --------------------------------------------------------------------------
-if [ "$TEARDOWN" = "--teardown" ] || [ "$TEARDOWN" = "--clean" ]; then
-    echo ""
-    echo ">>> PHASE 0: FULL TEARDOWN (infrastructure + ALL ArgoCD resources)"
-    echo ""
-    read -p "This DESTROYS ALL DATA and ALL ArgoCD apps across ALL environments. Type 'yes' to continue: " confirm
-    if [ "$confirm" != "yes" ]; then
-        echo "Aborted."
-        exit 0
-    fi
-
-    # 0.1 Delete ALL ArgoCD ApplicationSets (cascade = delete all managed pods across ALL envs)
-    echo "[0.1] Deleting ALL ArgoCD ApplicationSets..."
-    kubectl delete applicationset -n argocd --all --cascade=foreground --ignore-not-found --timeout=120s 2>/dev/null || true
-
-    # 0.2 Delete ALL ArgoCD Applications
-    echo "[0.2] Deleting ALL ArgoCD Applications..."
-    kubectl delete application -n argocd --all --cascade=foreground --ignore-not-found --timeout=120s 2>/dev/null || true
-
-    # 0.3 Delete ArgoCD AppProject
-    echo "[0.3] Deleting ArgoCD AppProject 'yas'..."
-    kubectl delete appproject -n argocd yas --ignore-not-found --timeout=60s 2>/dev/null || true
-
-    # 0.4 Delete bootstrap app
-    echo "[0.4] Deleting ArgoCD bootstrap app..."
-    kubectl delete application -n argocd yas-bootstrap --cascade=foreground --ignore-not-found --timeout=120s 2>/dev/null || true
-
-    # 0.5 Wait for app namespaces to empty
-    echo "[0.5] Waiting for app namespaces to empty..."
-    for ns in dev staging production; do
-        kubectl delete namespace "${ns}" --ignore-not-found --timeout=120s 2>/dev/null || true
-    done
-    sleep 10
-
-    # 0.6 Run infrastructure teardown
-    echo "[0.6] Running infrastructure teardown..."
-    ./teardown.sh "${ENV}"
-
-    echo ""
-    echo ">>> PHASE 0 complete. All resources destroyed."
-    echo ""
-fi
+helm repo add postgres-operator-charts https://opensource.zalando.com/postgres-operator/charts/postgres-operator
+helm repo add strimzi https://strimzi.io/charts/
+helm repo add akhq https://akhq.io/
+helm repo add elastic https://helm.elastic.co
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+helm repo add jetstack https://charts.jetstack.io
+helm repo add sealed-secrets https://bitnami.github.io/sealed-secrets
+helm repo update
 
 # --------------------------------------------------------------------------
-# PHASE 1: Infrastructure
+# Read configuration from cluster-config
 # --------------------------------------------------------------------------
-echo ""
-echo ">>> PHASE 1: DEPLOYING INFRASTRUCTURE"
-echo ""
+DOMAIN=$(yq -r '.domain' "$CONFIG_FILE")
+ENV_SUBDOMAIN=$(yq -r '.envSubdomain // ""' "$CONFIG_FILE")
+PG_REPLICAS=$(yq -r '.postgresql.replicas' "$CONFIG_FILE")
+PG_USERNAME=$(yq -r '.postgresql.username' "$CONFIG_FILE")
+PG_VOLUME_SIZE=$(yq -r '.postgresql.volumeSize' "$CONFIG_FILE")
+KAFKA_REPLICAS=$(yq -r '.kafka.replicas' "$CONFIG_FILE")
+ZK_REPLICAS=$(yq -r '.zookeeper.replicas' "$CONFIG_FILE")
+ES_REPLICAS=$(yq -r '.elasticsearch.replicas' "$CONFIG_FILE")
 
-# 1.1 Cluster infrastructure (PostgreSQL, Kafka, ES, Zookeeper, Observability)
-echo "[1.1] Deploying cluster infrastructure..."
-./setup-cluster.sh "${ENV}"
+PG_PASSWORD_VAR="POSTGRES_PASSWORD_$(echo ${ENV} | tr '[:lower:]' '[:upper:]')"
+PG_PASSWORD="${!PG_PASSWORD_VAR:-$POSTGRES_PASSWORD}"
 
-# 1.2 Redis (independent, can run in parallel)
-echo "[1.2] Deploying Redis..."
-./setup-redis.sh "${ENV}"
-
-# 1.3 Wait for PostgreSQL to be fully ready
-echo "[1.3] Waiting for PostgreSQL to be ready..."
-kubectl wait --for=condition=ready pod -l application=spilo -n "postgres-${ENV}" --timeout=300s
-echo "      PostgreSQL is ready."
-
-# 1.4 Wait for Kafka CRDs to be registered
-echo "[1.4] Waiting for Kafka CRDs..."
-kubectl wait --for=condition=established crd/kafkas.kafka.strimzi.io --timeout=120s 2>/dev/null || sleep 30
-echo "      Kafka CRDs ready."
-
-# 1.5 Wait for Elasticsearch to be ready
-echo "[1.5] Waiting for Elasticsearch..."
-kubectl wait --for=condition=ready elasticsearch elasticsearch -n "elasticsearch-${ENV}" --timeout=300s 2>/dev/null || sleep 60
-echo "      Elasticsearch is ready."
-
-# 1.6 Keycloak CRDs + CoreDNS (cluster-scoped, one-time)
-echo "[1.6] Installing Keycloak CRDs (idempotent)..."
-kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.0.2/kubernetes/keycloaks.k8s.keycloak.org-v1.yml
-kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.0.2/kubernetes/keycloakrealmimports.k8s.keycloak.org-v1.yml
-kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.0.2/kubernetes/kubernetes.yml -n "keycloak-${ENV}" 2>/dev/null || kubectl create namespace "keycloak-${ENV}" && kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.0.2/kubernetes/kubernetes.yml -n "keycloak-${ENV}"
-
-echo "[1.6] Patching CoreDNS for Keycloak hostname..."
-DOMAIN=$(yq -r '.domain' "cluster-config-${ENV}.yaml")
-ENV_SUBDOMAIN=$(yq -r '.envSubdomain // ""' "cluster-config-${ENV}.yaml")
+# --------------------------------------------------------------------------
+# Build env-specific namespaces and hostnames
+# --------------------------------------------------------------------------
 if [ -z "$ENV_SUBDOMAIN" ] || [ "$ENV_SUBDOMAIN" = "null" ]; then
-    KEYCLOAK_HOSTNAME="identity.${DOMAIN}"
+    HOST_PREFIX=""
 else
-    KEYCLOAK_HOSTNAME="identity-${ENV_SUBDOMAIN}.${DOMAIN}"
-fi
-kubectl get configmap -n kube-system coredns -o yaml > /tmp/coredns-${ENV}.yaml
-if ! grep -q "rewrite stop name ${KEYCLOAK_HOSTNAME} traefik" /tmp/coredns-${ENV}.yaml; then
-  sed -i "/^\s*kubernetes cluster.local/i\        rewrite stop name ${KEYCLOAK_HOSTNAME} traefik.kube-system.svc.cluster.local" /tmp/coredns-${ENV}.yaml
-  kubectl apply -f /tmp/coredns-${ENV}.yaml
-  kubectl rollout restart deployment -n kube-system coredns
-  echo "      CoreDNS patched. DNS will be active in ~30s."
-else
-  echo "      CoreDNS already patched."
+    HOST_PREFIX="${ENV_SUBDOMAIN}."
 fi
 
-# 1.7 Wait for Keycloak pod (managed by ArgoCD)
-echo "[1.7] Waiting for Keycloak pod..."
-kubectl wait --for=condition=ready pod -l app=keycloak -n "keycloak-${ENV}" --timeout=300s
-echo "      Keycloak pod is ready."
+PG_NS="postgres-${ENV}"
+KAFKA_NS="kafka-${ENV}"
+ES_NS="elasticsearch-${ENV}"
+OBS_NS="observability-${ENV}"
+ZK_NS="zookeeper-${ENV}"
+REDIS_NS="redis-${ENV}"
 
-# 1.8 Wait for realm import job
-echo "[1.8] Waiting for realm import job..."
-sleep 30
-kubectl wait --for=condition=complete job/yas-realm-kc -n "keycloak-${ENV}" --timeout=120s 2>/dev/null || {
-    echo "      WARNING: Realm import job may still be running. Continuing anyway..."
-}
+echo "Namespaces: PG=${PG_NS}, Kafka=${KAFKA_NS}, ES=${ES_NS}, OBS=${OBS_NS}, ZK=${ZK_NS}, Redis=${REDIS_NS}"
 
-# 1.9 Sync Keycloak admin password to PostgreSQL
-echo "[1.9] Syncing Keycloak admin password to PostgreSQL..."
-./sync-password.sh "${ENV}" 2>/dev/null || echo "      WARNING: sync-password failed. Run manually: ./sync-password.sh ${ENV}"
-
-# 1.10 Verify realm is accessible
-echo "[1.10] Verifying Keycloak realm..."
-REALM_STATUS=$(kubectl run -n "keycloak-${ENV}" debug --rm -i --restart=Never --image=curlimages/curl -- curl -s -o /dev/null -w "%{http_code}" http://keycloak-service:80/realms/Yas/ 2>/dev/null || echo "000")
-if [ "$REALM_STATUS" = "200" ]; then
-    echo "      Realm 'Yas' is accessible."
-else
-    echo "      WARNING: Realm returned HTTP ${REALM_STATUS}. May need manual check."
-fi
+# ============================================================================
+# OPERATORS — Cluster-scoped, idempotent (safe to re-run per env)
+# ============================================================================
 
 echo ""
-echo ">>> PHASE 1 complete. Infrastructure is ready."
+echo ">>> DEPLOYING OPERATORS"
+echo ""
+
+helm upgrade --install postgres-operator postgres-operator-charts/postgres-operator \
+  --create-namespace --namespace postgres \
+  --values "./infra-master-affinity.yaml"
+
+helm upgrade --install kafka-operator strimzi/strimzi-kafka-operator \
+  --create-namespace --namespace kafka \
+  --set watchAnyNamespace=true \
+  --values "./infra-master-affinity.yaml"
+
+echo "Waiting for Strimzi CRDs..."
+kubectl wait --for=condition=established crd/kafkas.kafka.strimzi.io --timeout=120s 2>/dev/null || sleep 30
+
+helm upgrade --install elastic-operator elastic/eck-operator \
+  --create-namespace --namespace elasticsearch \
+  --values "./infra-master-affinity.yaml"
+
+helm upgrade --install cert-manager jetstack/cert-manager \
+  --namespace cert-manager --create-namespace \
+  --version v1.12.0 \
+  --set installCRDs=true \
+  --set prometheus.enabled=false \
+  --set webhook.timeoutSeconds=30 \
+  --set admissionWebhooks.certManager.create=true \
+  --set startupapicheck.enabled=false \
+  --values "./infra-master-affinity.yaml"
+
+echo "Waiting for cert-manager webhook..."
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=cert-manager -n cert-manager --timeout=120s 2>/dev/null || sleep 30
+
+helm upgrade --install opentelemetry-operator open-telemetry/opentelemetry-operator \
+  --create-namespace --namespace observability \
+  --values "./infra-master-affinity.yaml"
+
+kubectl create namespace kube-system --dry-run=client -o yaml | kubectl apply -f -
+helm upgrade --install sealed-secrets sealed-secrets/sealed-secrets \
+  --namespace kube-system \
+  --set keyRenewPeriod=0
+
+echo "Waiting for Sealed Secrets..."
+kubectl rollout status deployment/sealed-secrets -n kube-system --timeout=150s || sleep 30
+
+# Install kubeseal CLI if not present
+if ! command -v kubeseal &> /dev/null; then
+  echo "Installing kubeseal CLI..."
+  KUBESEAL_VERSION="0.26.2"
+  curl -OL "https://github.com/bitnami-labs/sealed-secrets/releases/download/v${KUBESEAL_VERSION}/kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz"
+  tar -xzf "kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz" kubeseal
+  sudo install -m 755 kubeseal /usr/local/bin/kubeseal
+  rm -f "kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz" kubeseal
+fi
+
+# ============================================================================
+# INSTANCES — Per-environment isolated resources
+# ============================================================================
+
+echo ""
+echo ">>> DEPLOYING INSTANCES for: ${ENV}"
 echo ""
 
 # --------------------------------------------------------------------------
-# PHASE 2: ArgoCD Bootstrap
+# PostgreSQL
 # --------------------------------------------------------------------------
-echo ""
-echo ">>> PHASE 2: BOOTSTRAPPING ARGOCD"
-echo ""
-
-# 2.0 Label application namespaces for Istio sidecar injection
-echo "[2.0] Labeling application namespaces for Istio injection..."
-for ns in dev staging production; do
-    kubectl label namespace "${ns}" istio-injection=enabled --overwrite 2>/dev/null || true
-    echo "      Namespace '${ns}' labeled for Istio injection."
-done
-
-# 2.1 Apply ArgoCD Project
-echo "[2.1] Applying ArgoCD AppProject 'yas'..."
-kubectl apply -f ../argocd/projects/yas-project.yaml
-
-# 2.2 Apply Bootstrap Application (App of Apps)
-echo "[2.2] Applying ArgoCD Bootstrap Application..."
-kubectl apply -f ../argocd/bootstrap-app.yaml
-
-# 2.3 Wait for ApplicationSets to be created
-echo "[2.3] Waiting for ApplicationSets to be generated..."
+echo "Deploying PostgreSQL..."
+kubectl delete postgresql postgresql -n "${PG_NS}" --ignore-not-found --timeout=120s 2>/dev/null || true
 sleep 10
-kubectl wait --for=condition=ParametersGenerated applicationset -n argocd "yas-${ENV}" --timeout=60s 2>/dev/null || true
-kubectl wait --for=condition=ParametersGenerated applicationset -n argocd yas-configuration --timeout=60s 2>/dev/null || true
+kubectl patch pvc -n "${PG_NS}" --all --type merge -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
+kubectl delete pvc -n "${PG_NS}" --all --ignore-not-found --timeout=60s 2>/dev/null || true
 
-# 2.4 Force sync yas-configuration first (wave -1, must deploy before apps)
-echo "[2.4] Triggering sync for yas-configuration (wave -1)..."
-kubectl patch application -n argocd "yas-configuration-${ENV}" \
-  -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}' \
-  --type merge 2>/dev/null || {
-    echo "      Could not trigger sync. ArgoCD auto-sync should handle it."
-}
-
-# 2.5 Wait for yas-configuration to be synced
-echo "[2.5] Waiting for yas-configuration to be ready..."
-kubectl wait --for=condition=Synced application -n argocd "yas-configuration-${ENV}" --timeout=120s 2>/dev/null || sleep 30
-
-# 2.6 Trigger sync for all applications for this environment
-echo "[2.6] Triggering sync for all applications in ${ENV}..."
-for app in $(kubectl get application -n argocd -l env="${ENV}" -o name 2>/dev/null); do
-  kubectl patch "$app" -n argocd \
-    -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}' \
-    --type merge 2>/dev/null || true
-done
-
-echo ""
-echo ">>> PHASE 2 complete. ArgoCD is managing all applications."
-echo ""
-
-# --------------------------------------------------------------------------
-# PHASE 3: Verify
-# --------------------------------------------------------------------------
-echo ""
-echo ">>> PHASE 3: VERIFYING DEPLOYMENT"
-echo ""
-
-sleep 10
-
-echo "[3.1] Pods in ${ENV} namespace:"
-kubectl get pods -n "${ENV}"
-
-echo ""
-echo "[3.2] Infrastructure pods:"
-echo "      PostgreSQL:"
-kubectl get pods -n "postgres-${ENV}" -l application=spilo --no-headers 2>/dev/null || echo "        Not found"
-echo "      Kafka:"
-kubectl get pods -n "kafka-${ENV}" -l strimzi.io/kind=Kafka --no-headers 2>/dev/null || echo "        Not found"
-echo "      Keycloak:"
-kubectl get pods -n "keycloak-${ENV}" -l app=keycloak --no-headers 2>/dev/null || echo "        Not found"
-echo "      Redis:"
-kubectl get pods -n "redis-${ENV}" -l app.kubernetes.io/name=redis --no-headers 2>/dev/null || echo "        Not found"
-
-echo ""
-echo "[3.3] ArgoCD Applications:"
-kubectl get application -n argocd -l env="${ENV}" --no-headers 2>/dev/null | wc -l | xargs echo "      Total apps:"
-
-echo ""
-echo "============================================"
-echo " SETUP COMPLETE for: ${ENV}"
-echo "============================================"
-echo ""
-echo "Next steps:"
-echo "  1. Wait ~3-5 minutes for all Java pods to start and run Liquibase."
-echo "  2. Verify database tables:"
-echo "     kubectl exec -n postgres-${ENV} postgresql-0 -- psql -U yasadminuser -d product -c '\\dt'"
-echo "  3. Trigger sampledata seeding if needed:"
-echo "     kubectl rollout restart deployment -n ${ENV} sampledata"
-echo "  4. Access Keycloak admin:"
-echo "     http://identity-${ENV}.tthong.dev/admin (admin/admin)"
-echo "  5. Monitor ArgoCD:"
-echo "     kubectl port-forward -n argocd svc/argocd-server 8080:443"
-echo ""
-echo "If any pods are CrashLoopBackOff, check logs:"
-echo "  kubectl logs -n ${ENV} deployment/<service> --tail=50"
-echo ""
-
-echo ""
-echo ">>> PHASE 4: DEPLOYING MONITORING"
-echo ""
-
-# 4.1 Deploy Prometheus per env (ArgoCD auto-syncs from ApplicationSet)
-echo "[4.1] Monitoring ApplicationSet will auto-deploy Prometheus for ${ENV}..."
-# Không cần lệnh gì — ArgoCD bootstrap đã tạo ApplicationSet
-
-# 4.2 Deploy Grafana (shared) — chỉ cần 1 lần cho cả cluster
-echo "[4.2] Applying Grafana shared Application..."
-if ! kubectl get application -n argocd grafana >/dev/null 2>&1; then
-    kubectl apply -f ../argocd/applications/grafana.yaml
-    echo "      Grafana Application created."
-else
-    echo "      Grafana already exists."
-fi
-
-kubectl create secret generic grafana-admin-secret -n observability \
-  --from-literal=admin-user=admin --from-literal=admin-password=admin \
+kubectl create secret generic "yasadminuser.postgresql.credentials.postgresql.acid.zalan.do" \
+  -n "${PG_NS}" \
+  --from-literal=username="${PG_USERNAME}" \
+  --from-literal=password="${PG_PASSWORD}" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-# 4.3 Wait for Prometheus to be ready
-echo "[4.3] Waiting for Prometheus ${ENV}..."
-kubectl wait --for=condition=ready pod -l app=prometheus -n "observability-${ENV}" --timeout=180s 2>/dev/null || {
-    echo "      WARNING: Prometheus pod not ready yet. Will retry later."
-}
+helm upgrade --install "postgres-${ENV}" ./postgres/postgresql \
+  --create-namespace --namespace "${PG_NS}" \
+  --set replicas="$PG_REPLICAS" \
+  --set username="$PG_USERNAME" \
+  --set password="$PG_PASSWORD" \
+  --set volumeSize="$PG_VOLUME_SIZE" \
+  --values "./infra-${ENV}-affinity.yaml"
 
-# 4.4 Verify Grafana
-echo "[4.4] Grafana status:"
-kubectl get pods -n observability -l app.kubernetes.io/name=grafana --no-headers 2>/dev/null || echo "      Grafana pod not found yet."
+echo "Waiting for PostgreSQL..."
+kubectl wait --for=condition=ready pod -l application=spilo -n "${PG_NS}" --timeout=300s
+sleep 30
+kubectl wait --for=condition=ready pod -l application=spilo -n "${PG_NS}" --timeout=300s
+sleep 30
+
+# --------------------------------------------------------------------------
+# pgAdmin
+# --------------------------------------------------------------------------
+echo "Deploying pgAdmin..."
+pg_admin_hostname="pgadmin.${HOST_PREFIX}${DOMAIN}" yq -i '.hostname=env(pg_admin_hostname)' ./postgres/pgadmin/values.yaml
+helm upgrade --install "pgadmin-${ENV}" ./postgres/pgadmin \
+  --create-namespace --namespace "${PG_NS}" \
+  --values "./infra-${ENV}-affinity.yaml"
+
+# --------------------------------------------------------------------------
+# Kafka
+# --------------------------------------------------------------------------
+echo "Deploying Kafka..."
+helm upgrade --install "kafka-cluster-${ENV}" ./kafka/kafka-cluster \
+  --create-namespace --namespace "${KAFKA_NS}" \
+  --set kafka.replicas="$KAFKA_REPLICAS" \
+  --set postgresql.username="$PG_USERNAME" \
+  --set postgresql.password="$PG_PASSWORD" \
+  --set postgresql.namespace="$PG_NS" \
+  --values "./infra-${ENV}-affinity.yaml"
+
+# --------------------------------------------------------------------------
+# AKHQ (Kafka UI)
+# --------------------------------------------------------------------------
+echo "Deploying AKHQ..."
+akhq_hostname="akhq.${HOST_PREFIX}${DOMAIN}" yq -i '.hostname=env(akhq_hostname)' ./kafka/akhq.values.yaml
+helm upgrade --install "akhq-${ENV}" akhq/akhq \
+  --create-namespace --namespace "${KAFKA_NS}" \
+  --values ./kafka/akhq.values.yaml \
+  --values "./infra-${ENV}-affinity.yaml"
+
+# --------------------------------------------------------------------------
+# Elasticsearch
+# --------------------------------------------------------------------------
+echo "Deploying Elasticsearch..."
+kubectl delete elasticsearch elasticsearch -n "${ES_NS}" --ignore-not-found --timeout=120s 2>/dev/null || true
+kubectl patch pvc -n "${ES_NS}" --all --type merge -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
+kubectl delete pvc -n "${ES_NS}" --all --ignore-not-found --timeout=60s 2>/dev/null || true
+
+kubectl create secret generic elasticsearch-es-elastic-user \
+  -n "${ES_NS}" \
+  --from-literal=elastic="${ES_PASSWORD}" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade --install "elasticsearch-cluster-${ENV}" ./elasticsearch/elasticsearch-cluster \
+  --create-namespace --namespace "${ES_NS}" \
+  --set elasticsearch.replicas="$ES_REPLICAS" \
+  --set kibana.ingress.hostname="kibana.${HOST_PREFIX}${DOMAIN}" \
+  --values "./infra-${ENV}-affinity.yaml"
+
+# --------------------------------------------------------------------------
+# Zookeeper
+# --------------------------------------------------------------------------
+echo "Deploying Zookeeper..."
+helm upgrade --install "zookeeper-${ENV}" ./zookeeper \
+  --namespace "${ZK_NS}" --create-namespace \
+  --values "./infra-${ENV}-affinity.yaml"
+
+# --------------------------------------------------------------------------
+# Redis
+# --------------------------------------------------------------------------
+echo "Deploying Redis..."
+helm upgrade --install "redis-${ENV}" \
+  --set auth.password="$REDIS_PASSWORD" \
+  --set master.nodeSelector.env="${ENV}" \
+  --set replica.nodeSelector.env="${ENV}" \
+  --set sentinel.nodeSelector.env="${ENV}" \
+  --values "./infra-${ENV}-affinity.yaml" \
+  oci://registry-1.docker.io/bitnamicharts/redis \
+  --namespace "${REDIS_NS}" --create-namespace
+
+# --------------------------------------------------------------------------
+# Loki (log aggregation)
+# --------------------------------------------------------------------------
+echo "Deploying Loki..."
+helm upgrade --install "loki-${ENV}" grafana/loki \
+  --create-namespace --namespace "${OBS_NS}" \
+  -f ./observability/loki.values.yaml \
+  --values "./infra-${ENV}-affinity.yaml"
+
+# --------------------------------------------------------------------------
+# Tempo (trace storage)
+# --------------------------------------------------------------------------
+echo "Deploying Tempo..."
+helm upgrade --install "tempo-${ENV}" grafana/tempo \
+  --create-namespace --namespace "${OBS_NS}" \
+  -f ./observability/tempo.values.yaml \
+  -f "./observability/tempo-${ENV}.values.yaml" \
+  --values "./infra-${ENV}-affinity.yaml"
+
+# --------------------------------------------------------------------------
+# Promtail (log collector)
+# --------------------------------------------------------------------------
+echo "Deploying Promtail..."
+helm upgrade --install "promtail-${ENV}" grafana/promtail \
+  --create-namespace --namespace "${OBS_NS}" \
+  --values ./observability/promtail.values.yaml \
+  --values "./infra-${ENV}-affinity.yaml"
+
+# --------------------------------------------------------------------------
+# OpenTelemetry Collector
+# --------------------------------------------------------------------------
+echo "Deploying OpenTelemetry Collector..."
+kubectl wait --for=condition=available deployment/opentelemetry-operator-controller-manager -n observability --timeout=180s 2>/dev/null || sleep 30
+
+helm upgrade --install "opentelemetry-collector-${ENV}" ./observability/opentelemetry \
+  --create-namespace --namespace "${OBS_NS}" \
+  --set lokiEndpoint="http://loki-${ENV}-gateway.${OBS_NS}.svc.cluster.local/loki/api/v1/push" \
+  --set tempoEndpoint="http://tempo-${ENV}.${OBS_NS}.svc.cluster.local:4318" \
+  --values "./infra-${ENV}-affinity.yaml"
 
 echo ""
-echo ">>> PHASE 4 complete."
-echo ""
+echo "============================================"
+echo " Infrastructure deployed for: ${ENV}"
+echo " Namespaces: ${PG_NS}, ${KAFKA_NS}, ${ES_NS}, ${OBS_NS}, ${ZK_NS}, ${REDIS_NS}"
+echo "============================================"
