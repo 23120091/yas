@@ -96,6 +96,7 @@ spec:
   # IP ranges to access your cluster go here
   podTemplate:
     spec:
+      {{- if .Values.env }}
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -105,5 +106,10 @@ spec:
                   operator: In
                   values:
                     - {{ .Values.env | quote }}
+      {{- end }}
+      {{- if .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+      {{- end }}
       resources:
     {{ toYaml .Values.resources | nindent 4 }}
