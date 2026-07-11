@@ -1,15 +1,7 @@
-apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
-  name: deny-all-by-default
-  namespace: production
-spec:
-  action: DENY
-  # Chặn tất cả traffic đến port 80, trừ các pod được allow显式 trong policy dưới đây
-  rules:
-  - to:
-    - operation:
-        ports: ["80"]
+# NOTE: Không tạo global DENY policy cho port 80. Trong Istio, DENY được
+# đánh giá trước ALLOW, nên một DENY toàn namespace sẽ chặn cả các service đã
+# có allow-list bên dưới. Với AuthorizationPolicy action ALLOW, traffic không
+# match policy của workload sẽ tự động bị deny.
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -268,7 +260,7 @@ spec:
               - cluster.local/ns/production/sa/product
               - cluster.local/ns/production/sa/storefront-bff
               - cluster.local/ns/production/sa/backoffice-bff
-
+---
 # ĐẶC CÁCH 1: Cho phép Prometheus của hệ thống được vào cào dữ liệu qua cổng 8090
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -276,18 +268,14 @@ metadata:
   name: allow-prometheus-metrics
   namespace: production
 spec:
-  selector:
-    matchLabels:
-      # Áp dụng cho tất cả các pod có mở cổng metrics 8090
-      app.kubernetes.io/name: storefront-bff
-      app.kubernetes.io/name: backoffice-bff
-      app.kubernetes.io/name: product
   rules:
   - to:
     - operation:
         ports: ["8090"]
         paths: ["/actuator/prometheus"]
     # Không giới hạn principal vì Prometheus thường chạy ở namespace ngoài mesh (monitoring)
+    # Không đặt selector ở đây: selector.matchLabels không hỗ trợ nhiều giá trị
+    # cho cùng key app.kubernetes.io/name.
 
 ---
 # ĐẶC CÁCH 2: Mở đường cho luồng đi ra ngoài (Egress) để lấy thông tin OIDC Keycloak
