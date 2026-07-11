@@ -19,6 +19,9 @@ runs:
         java-version: ${{ inputs.java_version }}
         distribution: 'temurin'
         cache: 'maven'
+        cache-dependency-path: |
+          pom.xml
+          ${{ inputs.service_path }}/pom.xml
 
     - name: Maven Clean Verify (${{ inputs.service_name }})
       run: mvn clean verify -pl ${{ inputs.service_path }} -am -T 1C -B -ntp
