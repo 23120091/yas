@@ -241,9 +241,21 @@ jobs:
             ALL_SERVICES="backoffice-bff backoffice-ui cart customer inventory location media order payment payment-paypal product promotion rating recommendation sampledata search storefront-bff storefront-ui tax webhook"
             for svc in $ALL_SERVICES; do
               if [ "$svc" = "$SERVICE" ]; then continue; fi
-              EXISTING=$(kubectl get service "$svc" -n "$NAMESPACE" -o name 2>/dev/null || true)
-              if [ -z "$EXISTING" ]; then
-                kubectl create service externalname "$svc" -n "$NAMESPACE" --external-name="$svc.$ENV.svc.cluster.local"
+              if [ "$svc" = "storefront-bff" ] || [ "$svc" = "backoffice-bff" ]; then
+                # Luôn xoá và tạo lại BFF service để đảm bảo đúng dạng Service+Endpoints
+                kubectl delete service "$svc" -n "$NAMESPACE" --ignore-not-found
+                kubectl delete endpoints "$svc" -n "$NAMESPACE" --ignore-not-found
+                DEV_IP=$(kubectl get svc "$svc" -n "$ENV" -o jsonpath='{.spec.clusterIP}' 2>/dev/null || true)
+                if [ -n "$DEV_IP" ]; then
+                  printf 'apiVersion: v1\nkind: Service\nmetadata:\n  name: %s\nspec:\n  ports:\n  - name: http\n    port: 80\n    protocol: TCP\n    targetPort: 80\n---\napiVersion: v1\nkind: Endpoints\nmetadata:\n  name: %s\nsubsets:\n- addresses:\n  - ip: %s\n  ports:\n  - name: http\n    port: 80\n    protocol: TCP\n' "$svc" "$svc" "$DEV_IP" | kubectl apply -n "$NAMESPACE" -f - || true
+                else
+                  kubectl create service externalname "$svc" -n "$NAMESPACE" --external-name="$svc.$ENV.svc.cluster.local"
+                fi
+              else
+                EXISTING=$(kubectl get service "$svc" -n "$NAMESPACE" -o name 2>/dev/null || true)
+                if [ -z "$EXISTING" ]; then
+                  kubectl create service externalname "$svc" -n "$NAMESPACE" --external-name="$svc.$ENV.svc.cluster.local"
+                fi
               fi
             done
 
@@ -285,7 +297,8 @@ jobs:
                 BFF_SERVICE="backoffice-bff"
               fi
               kubectl delete ingressroute "$SERVICE-sandbox" -n "$NAMESPACE" --ignore-not-found
-              printf 'apiVersion: traefik.io/v1alpha1\nkind: IngressRoute\nmetadata:\n  name: %s-sandbox\nspec:\n  entryPoints:\n    - web\n    - websecure\n  routes:\n    - match: Host(`%s`) && (PathPrefix(`/api`) || PathPrefix(`/oauth2`) || PathPrefix(`/authentication`) || PathPrefix(`/logout`))\n      kind: Rule\n      services:\n        - name: %s\n          port: 80\n    - match: Host(`%s`)\n      kind: Rule\n      services:\n        - name: %s\n          port: 3000\n  tls: {}\n' "$SERVICE" "$HOST" "$BFF_SERVICE" "$HOST" "$SERVICE" | kubectl apply -n "$NAMESPACE" -f - || true
+              kubectl delete ingress "$SERVICE-sandbox" -n "$NAMESPACE" --ignore-not-found
+              printf 'apiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: %s-sandbox\n  namespace: %s\nspec:\n  ingressClassName: traefik\n  rules:\n  - host: %s\n    http:\n      paths:\n      - path: /api\n        pathType: Prefix\n        backend:\n          service:\n            name: %s\n            port:\n              number: 80\n      - path: /oauth2\n        pathType: Prefix\n        backend:\n          service:\n            name: %s\n            port:\n              number: 80\n      - path: /login\n        pathType: Prefix\n        backend:\n          service:\n            name: %s\n            port:\n              number: 80\n      - path: /authentication\n        pathType: Prefix\n        backend:\n          service:\n            name: %s\n            port:\n              number: 80\n      - path: /logout\n        pathType: Prefix\n        backend:\n          service:\n            name: %s\n            port:\n              number: 80\n      - path: /\n        pathType: Prefix\n        backend:\n          service:\n            name: %s\n            port:\n              number: 3000\n  tls:\n  - hosts:\n    - %s\n' "$SERVICE" "$NAMESPACE" "$HOST" "$BFF_SERVICE" "$BFF_SERVICE" "$BFF_SERVICE" "$BFF_SERVICE" "$BFF_SERVICE" "$SERVICE" "$HOST" | kubectl apply -n "$NAMESPACE" -f - || true
               echo "🌐 https://$HOST" >> "$GITHUB_STEP_SUMMARY"
             fi
 
