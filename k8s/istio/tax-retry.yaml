@@ -30,9 +30,7 @@ spec:
       retries:
         attempts: 3
         perTryTimeout: 500ms
-        retryOn: "5xx,connect-failure,refused-stream,gateway-error,retriable-status-codes"
-        retriableStatusCodes:
-          - 503
+        retryOn: "5xx,connect-failure,refused-stream,gateway-error,retriable-status-codes,503"
 
     # ------------------------------------------------------------------
     # PRODUCTION MODE — Retry mặc định cho tất cả traffic thông thường
@@ -46,6 +44,4 @@ spec:
       retries:
         attempts: 3
         perTryTimeout: 500ms
-        retryOn: "5xx,connect-failure,refused-stream,gateway-error,retriable-status-codes"
-        retriableStatusCodes:
-          - 401
+        retryOn: "5xx,connect-failure,refused-stream,gateway-error,retriable-status-codes,401"
