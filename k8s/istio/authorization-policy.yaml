@@ -4,13 +4,13 @@ metadata:
   name: deny-all-by-default
   namespace: production
 spec:
-  # Chỉ mặc định chặn các request đi vào cổng dịch vụ chính (Cổng 80)
+  action: DENY
+  # Chặn tất cả traffic đến port 80, trừ các pod được allow显式 trong policy dưới đây
   rules:
   - to:
     - operation:
         ports: ["80"]
 ---
-# 🤝 LUẬT HÒA BÌNH TỔNG THỂ: Đặc cách cho toàn bộ Stack Observability (Prometheus, Loki, Tempo, Grafana)
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:

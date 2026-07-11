@@ -9,27 +9,25 @@ Service mesh chỉ áp dụng cho namespace `production`. `dev` và `staging` ch
 | `product` | Sản phẩm, trung tâm của shop |
 | `cart` | Giỏ hàng, demo flow mua hàng |
 | `order` | Đơn hàng, demo flow đặt hàng và retry policy |
-| `payment` | Dependency của `order -> payment` trong checkout |
 | `customer` | Thông tin khách hàng |
 | `inventory` | Kho hàng, order phụ thuộc |
 | `tax` | Thuế, order phụ thuộc và demo VirtualService retry |
 | `media` | Upload hình ảnh sản phẩm |
 | `search` | Tìm kiếm, phụ thuộc `product`, demo AuthorizationPolicy |
 | `storefront-bff` | BFF cho giao diện người dùng |
-| `storefront-ui` | Giao diện cửa hàng để demo |
 | `backoffice-bff` | BFF cho quản trị |
-| `backoffice-ui` | Giao diện quản trị |
 | `swagger-ui` | API documentation |
-| `sampledata` | Seed/demo data API dùng từ storefront |
 
 ApplicationSet vẫn giữ đầy đủ service theo GitOps. Danh sách này chỉ mô tả các service được mở trong service mesh production allow-list.
 
 ## Manifest
 
 - `peer-authentication.yaml`: bật mTLS STRICT trong `production`, riêng BFF và `swagger-ui` PERMISSIVE để nhận traffic từ Traefik.
-- `authorization-policy.yaml`: default deny cho `production`, chỉ mở đúng BFF, UI, Swagger và các dependency nội bộ được giữ. Với service API, rule allow dựa trên service principal; không dùng `paths: ["/**"]` vì wildcard này không match mọi API path trong Istio AuthorizationPolicy.
-- `virtual-service-order.yaml`: retry/timeout cho `order -> tax` và `order -> cart`.
+- `authorization-policy.yaml`: default deny cho `production`, chỉ mở đúng BFF, UI, Swagger và các dependency nội bộ được giữ. Rule allow dựa trên service principal.
+- `virtual-service-order.yaml`: retry/timeout cho `order -> tax`, `order -> cart`, `order -> inventory`.
+- `tax-retry.yaml`: retry chung cho `tax`, gồm production mode + test mode fault injection.
 - `debug-tools.yaml`: debug pod có sidecar trong `production` để curl test policy.
+
 ## Deploy
 
 Repo dùng GitOps qua ArgoCD. Quy trình chuẩn:
@@ -42,11 +40,7 @@ argocd app sync kiali-server --force
 Nếu cần kiểm tra nhanh trước khi sync:
 
 ```bash
-kubectl apply --dry-run=server \
-  -f k8s/istio/peer-authentication.yaml \
-  -f k8s/istio/authorization-policy.yaml \
-  -f k8s/istio/virtual-service-order.yaml \
-  -f k8s/istio/debug-tools.yaml
+kubectl apply --dry-run=server -f k8s/istio/
 ```
 
 ## Test Plan
@@ -58,62 +52,83 @@ curl -i https://storefront-dev.tthong.dev/api/product/storefront/categories
 kubectl get authorizationpolicy,peerauthentication,virtualservice -n dev
 ```
 
-Kỳ vọng: không còn response `RBAC: access denied`; namespace `dev` không còn Istio policy production.
+Kỳ vọng: không còn response `RBAC: access denied`; namespace `dev` không còn Istio policy.
 
-### mTLS production
+### mTLS & Sidecar Injection
 
 ```bash
-kubectl get pods -n production
+# Kiểm tra namespace có label injection
+kubectl get namespace production --show-labels | grep istio-injection
+
+# Pod phải có 2 containers (app + istio-proxy)
+kubectl get pods -n production -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{len .spec.containers}{"\n"}{end}'
+
+# PeerAuthentication STRICT đang chạy
 kubectl get peerauthentication -n production
 ```
 
-Kỳ vọng: workload production có sidecar `2/2`; `mtls-strict-production` tồn tại.
-
-### AuthorizationPolicy allowed
+### AuthorizationPolicy — Allowed
 
 ```bash
-kubectl exec -n production deploy/storefront-bff -c istio-proxy -- \
-  curl -s http://product/product/storefront/categories
+# Từ storefront-bff (được allow) → product
+kubectl exec -n production deploy/storefront-bff -c storefront-bff -- \
+  wget -q -O - http://product:80/api/product/storefront/categories
+
+# Từ order (được allow) → tax
+ORDER_POD=$(kubectl get pod -n production -l app.kubernetes.io/name=order -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -it $ORDER_POD -n production -c order -- \
+  wget -S -q -O - http://tax:80/tax/backoffice/tax-classes 2>&1
 ```
 
-Kỳ vọng: request đến được service, có thể trả mã ứng dụng nhưng không phải Istio `403 RBAC: access denied`.
+Kỳ vọng: HTTP 200/404 (application-level), không phải Istio `403 RBAC: access denied`.
 
-### AuthorizationPolicy denied
+### AuthorizationPolicy — Denied
 
 ```bash
+# Từ debug pod (không trong allow-list) → product
 kubectl exec -n production deploy/istio-debug -c debug -- \
-  curl -i --max-time 5 http://product/product/storefront/categories
+  wget -S -q -O - http://product:80/api/product/storefront/categories 2>&1
 ```
 
-Kỳ vọng: `403 Forbidden` từ Istio vì `istio-debug` không nằm trong allow-list của `product`.
+Kỳ vọng: `403 Forbidden` hoặc `RBAC: access denied`.
 
-### Sampledata production
+### Service-to-Service Connectivity (Mesh Internal)
 
 ```bash
-curl -i https://storefront.tthong.dev/api/sampledata/storefront/sampledata
+# storefront-bff → product
+kubectl exec -it deploy/storefront-bff -n production -c storefront-bff -- \
+  wget -q -O - http://product:80/api/products 2>&1 | head -3
+
+# backoffice-bff → customer
+kubectl exec -it deploy/backoffice-bff -n production -c backoffice-bff -- \
+  wget -q -O - http://customer:80/api/customers 2>&1 | head -3
+
+# order → cart
+kubectl exec -it deploy/order -n production -c order -- \
+  wget -q -O - http://cart:80/api/carts 2>&1 | head -3
 ```
 
-Kỳ vọng: không còn Istio `403 RBAC: access denied`; nếu lỗi tiếp theo xuất hiện thì là lỗi ứng dụng của `sampledata`, không phải mesh policy.
-
-### Retry policy
+### VirtualService Routing
 
 ```bash
-kubectl exec -n production deploy/order -c istio-proxy -- \
-  curl -s http://localhost:15000/config_dump | grep -A10 "tax.production.svc"
+# List tất cả VirtualService
+kubectl get virtualservice -n production
 
-kubectl exec -n production deploy/order -c istio-proxy -- \
-  curl -s http://localhost:15000/config_dump | grep -A10 "cart.production.svc"
 ```
 
-Kỳ vọng: `tax` có `num_retries: 3`; `cart` có `num_retries: 2`.
-
-## Kiali
-
-Truy cập Kiali và chọn namespace `production`:
+### Ingress (BFF từ ngoài vào)
 
 ```bash
-kubectl get application kiali-server -n argocd
-kubectl get pods -n istio-system
+# Kiểm tra AuthorizationPolicy cho phép ingress
+kubectl get authorizationpolicy allow-ingress-to-storefront-bff -n production -o yaml
+
 ```
 
-Topology mong đợi: `Traefik -> storefront-bff/backoffice-bff -> product/cart/order/customer/inventory/tax/media/search/payment`, kèm flow `order -> cart/payment/inventory/tax`.
+### ServiceEntry (Egress ra ngoài)
+
+```bash
+# Kiểm tra ServiceEntry cho Keycloak
+kubectl get serviceentry allow-identity-external -n production -o yaml
+```
+
+### Kiali — Service Mesh Topology
