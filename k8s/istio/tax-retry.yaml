@@ -1,29 +1,51 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
   name: tax-retry-policy
   namespace: production
 spec:
   hosts:
-  - tax.production.svc.cluster.local
+    - tax
   http:
-  - route:
-    - destination:
-        host: tax.production.svc.cluster.local
-        port:
-          #number: 80
-          number: 8888 #Ép gọi vào cổng ma không tồn tại để sinh lỗi kết nối mạng thật!
+    # ------------------------------------------------------------------
+    # TEST MODE (đặt TRƯỚC production để Istio đánh giá trước)
+    # Chỉ kích hoạt khi gửi header x-test-retry: true.
+    # Production traffic không có header này sẽ rơi xuống block dưới.
+    # ------------------------------------------------------------------
+    - match:
+        - headers:
+            x-test-retry:
+              exact: "true"
+      route:
+        - destination:
+            host: tax
+            port:
+              number: 80
+      fault:
+        abort:
+          percentage:
+            value: 100
+          httpStatus: 503
+      timeout: 5s
+      retries:
+        attempts: 3
+        perTryTimeout: 500ms
+        retryOn: "5xx,connect-failure,refused-stream,gateway-error,retriable-status-codes"
+        retriableStatusCodes:
+          - 503
 
-    # # 💥 1. BƠM LỖI TIMEOUT: Ép trì hoãn kết nối 5 giây (vượt quá 500ms timeout của mỗi lượt gọi)
-    # fault:
-    #   delay:
-    #     fixedDelay: 5s
-    #     percentage:
-    #       value: 100
-
-    retries:
-      attempts: 3          # 🔥 Ép Istio tự động thử lại 3 lần chạy ngầm
-      perTryTimeout: 500ms # Thời gian chờ giữa mỗi lượt thử là 500ms
-      retryOn: "5xx,connect-failure,refused-stream,gateway-error,retriable-status-codes"
-      statusCodes:
-      - 401
+    # ------------------------------------------------------------------
+    # PRODUCTION MODE — Retry mặc định cho tất cả traffic thông thường
+    # ------------------------------------------------------------------
+    - route:
+        - destination:
+            host: tax
+            port:
+              number: 80
+      timeout: 5s
+      retries:
+        attempts: 3
+        perTryTimeout: 500ms
+        retryOn: "5xx,connect-failure,refused-stream,gateway-error,retriable-status-codes"
+        retriableStatusCodes:
+          - 401
