@@ -43,3 +43,26 @@ spec:
         perTryTimeout: 2s
         retryOn: connect-failure,refused-stream,unavailable,503,5xx
       timeout: 10s
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: order-to-inventory-retry
+  namespace: production
+spec:
+  hosts:
+    - inventory
+  http:
+    - match:
+        - sourceLabels:
+            app.kubernetes.io/name: order
+      route:
+        - destination:
+            host: inventory
+            port:
+              number: 80
+      retries:
+        attempts: 3
+        perTryTimeout: 2s
+        retryOn: connect-failure,refused-stream,unavailable,503,5xx
+      timeout: 10s
