@@ -8,9 +8,9 @@ spec:
     - tax
   http:
     # ------------------------------------------------------------------
-    # TEST MODE (đặt TRƯỚC production để Istio đánh giá trước)
-    # Chỉ kích hoạt khi gửi header x-test-retry: true.
-    # Production traffic không có header này sẽ rơi xuống block dưới.
+    # TEST MODE — Trỏ đến port 8888 (không tồn tại) để sinh lỗi kết nối thật
+    # Retry sẽ chạy vì lỗi này là network error (connect-failure)
+    # Chỉ kích hoạt khi gửi header x-test-retry: true
     # ------------------------------------------------------------------
     - match:
         - headers:
@@ -20,12 +20,7 @@ spec:
         - destination:
             host: tax
             port:
-              number: 80
-      fault:
-        abort:
-          percentage:
-            value: 100
-          httpStatus: 503
+              number: 8888
       timeout: 5s
       retries:
         attempts: 3
