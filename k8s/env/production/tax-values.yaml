@@ -12,10 +12,9 @@ backend:
   resources:
     requests:
       cpu: 50m
-      memory: 1Gi
+      memory: 512Mi
     limits:
-      cpu: 3000m
-      memory: 3Gi
+      memory: 1.1Gi
   autoscaling:
     enabled: false 
 
