@@ -7,12 +7,53 @@ spec:
   hosts:
     - tax
   http:
+    # Test mode: order -> tax with x-test-retry=true routes to an unused port
+    # to trigger connect-failure retries without changing the tax deployment.
+    - match:
+        - sourceLabels:
+            app.kubernetes.io/name: order
+          headers:
+            x-test-retry:
+              exact: "true"
+      route:
+        - destination:
+            host: tax
+            port:
+              number: 8888
+      retries:
+        attempts: 3
+        perTryTimeout: 500ms
+        retryOn: connect-failure,refused-stream,unavailable,5xx
+      timeout: 5s
     - match:
         - sourceLabels:
             app.kubernetes.io/name: order
       route:
         - destination:
             host: tax
+            port:
+              number: 80
+      retries:
+        attempts: 3
+        perTryTimeout: 2s
+        retryOn: connect-failure,refused-stream,unavailable,503,5xx
+      timeout: 10s
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: order-to-payment-retry
+  namespace: production
+spec:
+  hosts:
+    - payment
+  http:
+    - match:
+        - sourceLabels:
+            app.kubernetes.io/name: order
+      route:
+        - destination:
+            host: payment
             port:
               number: 80
       retries:
