@@ -105,17 +105,17 @@ jobs:
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
+      - name: Checkout Code (full history for multi-branch)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Setup Java 25
         uses: actions/setup-java@v4
         with:
           java-version: '25'
           distribution: 'temurin'
           cache: 'maven'
-
-      - name: Checkout Code (full history for multi-branch)
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Helm
         uses: azure/setup-helm@v4
@@ -285,7 +285,8 @@ jobs:
                 BFF_SERVICE="backoffice-bff"
               fi
               kubectl delete ingressroute "$SERVICE-sandbox" -n "$NAMESPACE" --ignore-not-found
-              printf 'apiVersion: traefik.io/v1alpha1\nkind: IngressRoute\nmetadata:\n  name: %s-sandbox\nspec:\n  entryPoints:\n    - web\n    - websecure\n  routes:\n    - match: Host(`%s`) && (PathPrefix(`/api`) || PathPrefix(`/oauth2`) || PathPrefix(`/authentication`) || PathPrefix(`/logout`))\n      kind: Rule\n      services:\n        - name: %s\n          port: 80\n    - match: Host(`%s`)\n      kind: Rule\n      services:\n        - name: %s\n          port: 3000\n  tls: {}\n' "$SERVICE" "$HOST" "$BFF_SERVICE" "$HOST" "$SERVICE" | kubectl apply -n "$NAMESPACE" -f - || true
+              kubectl delete ingress "$SERVICE-sandbox" -n "$NAMESPACE" --ignore-not-found
+              printf 'apiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: %s-sandbox\n  namespace: %s\nspec:\n  ingressClassName: traefik\n  rules:\n  - host: %s\n    http:\n      paths:\n      - path: /api\n        pathType: Prefix\n        backend:\n          service:\n            name: %s\n            port:\n              number: 80\n      - path: /oauth2\n        pathType: Prefix\n        backend:\n          service:\n            name: %s\n            port:\n              number: 80\n      - path: /authentication\n        pathType: Prefix\n        backend:\n          service:\n            name: %s\n            port:\n              number: 80\n      - path: /logout\n        pathType: Prefix\n        backend:\n          service:\n            name: %s\n            port:\n              number: 80\n      - path: /\n        pathType: Prefix\n        backend:\n          service:\n            name: %s\n            port:\n              number: 3000\n  tls:\n  - hosts:\n    - %s\n' "$SERVICE" "$NAMESPACE" "$HOST" "$BFF_SERVICE" "$BFF_SERVICE" "$BFF_SERVICE" "$BFF_SERVICE" "$SERVICE" "$HOST" | kubectl apply -n "$NAMESPACE" -f - || true
               echo "🌐 https://$HOST" >> "$GITHUB_STEP_SUMMARY"
             fi
 
