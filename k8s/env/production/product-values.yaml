@@ -33,23 +33,16 @@ backend:
   databaseName: product
 
   # --------------------------------------------------------------------------
-  # RESOURCES — Production sizing for the product service.
-  # Based on expected load of ~1000 requests/second with average response
-  # time under 100ms. JVM heap is typically set to 70% of the memory limit
-  # via -XX:MaxRAMPercentage=70 in the Dockerfile.
-  #
-  # requests: What the node MUST reserve. Sum of all pod requests across
-  #           all services must fit on allocated nodes.
-  # limits:   Hard cap. CPU throttle kicks in at this level. Memory above
-  #           this limit → OOMKill → pod restart → brief outage.
+  # RESOURCES — Aligned with dev sizing.
+  # Adjusted down from production-only values to match dev resource footprints
+  # after observing actual prod1 usage (19 GiB used out of 32 GiB total).
   # --------------------------------------------------------------------------
   resources:
     requests:
-      cpu: 50m          # 1.3x guaranteed per pod
-      memory: 1536Mi     # 1.3x reserved (JVM heap ~1Gi at 70%)
+      cpu: 50m
+      memory: 512Mi
     limits:
-      cpu: 3000m         # burst to 3 full cores during traffic spikes
-      memory: 3Gi        # max 3 GiB (JVM heap ~2.1Gi at 70%)
+      memory: 1Gi
 
   # --------------------------------------------------------------------------
   # HPA — Disabled per-service; common-values manages scaling policy.
