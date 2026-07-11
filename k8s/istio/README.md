@@ -150,10 +150,11 @@ kubectl get virtualservice \
 
 # Xem chi tiết retry config
 kubectl get virtualservice order-to-tax-retry -n production -o yaml
+kubectl get destinationrule tax-retry-test-subsets -n production -o yaml
 kubectl get virtualservice order-to-payment-retry -n production -o yaml
 ```
 
-Test mode cho `order -> tax` dùng header `x-test-retry: true`; route này cố tình trỏ đến port `8888` không tồn tại để sinh `connect-failure` và kích hoạt retry:
+Test mode cho `order -> tax` dùng header `x-test-retry: true`; route này cố tình trỏ đến subset `unavailable` không có pod endpoint để sinh `503 no healthy upstream` và kích hoạt retry mà không cần sửa deployment `tax`:
 
 ```bash
 kubectl exec -n production deploy/order -c order -- \
@@ -161,10 +162,12 @@ kubectl exec -n production deploy/order -c order -- \
   http://tax:80/tax/backoffice/tax-classes 2>&1
 
 kubectl logs -n production deploy/order -c istio-proxy --since=2m | \
-  grep 'outbound|8888||tax.production.svc.cluster.local'
+  grep -E 'outbound\\|80\\|unavailable\\|tax.production.svc.cluster.local|no_healthy_upstream|UH'
 ```
 
-Kỳ vọng: request test có thể fail vì port `8888` không tồn tại, nhưng log sidecar của `order` phải cho thấy traffic đi qua outbound cluster `8888` tới `tax`. Nếu chỉ thấy `outbound|80||tax...`, header chưa match hoặc VirtualService chưa sync.
+Kỳ vọng: request test trả `503 Service Unavailable`. Log sidecar của `order` phải cho thấy traffic đi qua subset `unavailable` hoặc có marker `no_healthy_upstream`/`UH`. Nếu chỉ thấy `outbound|80||tax...`, header chưa match hoặc VirtualService chưa sync.
+
+Nếu log có `NC cluster_not_found`, nghĩa là VirtualService đang trỏ đến port/service cluster không tồn tại. Trường hợp đó thường xảy ra khi test route dùng port không được Service `tax` expose.
 
 ### VirtualService Routing
 

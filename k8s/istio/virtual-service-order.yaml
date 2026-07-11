@@ -7,8 +7,8 @@ spec:
   hosts:
     - tax
   http:
-    # Test mode: order -> tax with x-test-retry=true routes to an unused port
-    # to trigger connect-failure retries without changing the tax deployment.
+    # Test mode: order -> tax with x-test-retry=true routes to an empty subset
+    # to trigger 503/no healthy upstream retries without changing the tax deployment.
     - match:
         - sourceLabels:
             app.kubernetes.io/name: order
@@ -18,8 +18,9 @@ spec:
       route:
         - destination:
             host: tax
+            subset: unavailable
             port:
-              number: 8888
+              number: 80
       retries:
         attempts: 3
         perTryTimeout: 500ms
@@ -38,6 +39,20 @@ spec:
         perTryTimeout: 2s
         retryOn: connect-failure,refused-stream,unavailable,503,5xx
       timeout: 10s
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: tax-retry-test-subsets
+  namespace: production
+spec:
+  host: tax
+  subsets:
+    # No tax pod has this label. This subset exists only to produce a stable
+    # no-healthy-upstream failure for the retry test route.
+    - name: unavailable
+      labels:
+        retry-test: unavailable
 ---
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
