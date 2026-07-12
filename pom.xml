@@ -55,7 +55,7 @@
         <opentelemetry-logback.vesion>2.9.0-alpha</opentelemetry-logback.vesion>
         <opentelemetry-semconv.version>1.37.0</opentelemetry-semconv.version>
         <spring-cloud.version>2025.1.1</spring-cloud.version>
-        <springdoc-openapi-starter-webmvc-ui.version>3.0.2</springdoc-openapi-starter-webmvc-ui.version>
+        <springdoc-openapi-starter-webmvc-ui.version>3.0.3</springdoc-openapi-starter-webmvc-ui.version>
         <keycloak-spring-security-adapter.version>25.0.3</keycloak-spring-security-adapter.version>
         <org.keycloak.version>26.0.1</org.keycloak.version>
         <keycloak-spring-boot-starter.version>25.0.3</keycloak-spring-boot-starter.version>
